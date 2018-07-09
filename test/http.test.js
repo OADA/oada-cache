@@ -1,5 +1,5 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
-import oada from '../index'
+import oada from '../src/index'
 import chai from 'chai';
 var expect = chai.expect;
 
