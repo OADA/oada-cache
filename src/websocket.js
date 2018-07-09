@@ -1,14 +1,7 @@
 const Promise = require('bluebird');
 const uuid = require('uuid/v4');
 let isWindow = false;
-var WebSocket = require('ws');
-if (typeof window !== 'undefined' && window.WebSocket) {
-	// eslint-disable-next-line
-	WebSocket = window.WebSocket;
-	isWindow = true;
-} else {
-  WebSocket = require('ws');
-}
+const WebSocket = require('isomorphic-ws');
 
 function websocket(url) {
 	//Create the message queue

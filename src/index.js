@@ -24,8 +24,9 @@ var connect = function connect({domain, options, name, exp, token}) {
   }
   return prom.then((result) => {
     TOKEN = result.access_token;
-    return configureWs({domain}).then((ret) => {
-      return configureCache({
+    //    return configureWs({domain}).then((ret) => {
+        //return {token: TOKEN}
+    /*  return configureCache({
         name: name || uuid(),
         req: REQUEST,
         exp,
@@ -33,14 +34,20 @@ var connect = function connect({domain, options, name, exp, token}) {
         REQUEST.get = res.get;
         REQUEST.put = res.put;
         REQUEST.delete = res.delete;
-		    CACHE = res;
-        return REQUEST
+        CACHE = res;
+        return {token: TOKEN}
       })
     })
-	}).catch((err) => {
-		console.log(err)
-	})
-};
+    */
+    return
+  }).then(() => {
+    return {
+      token: TOKEN
+    }
+  }).catch((err) => {
+    console.log(err)
+  })
+}
 	
 var get = function get({url, path, headers, watch, tree}) {
 	let req = {

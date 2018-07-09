@@ -9,6 +9,7 @@
   "scripts": {
     "test": "mocha -w --require babel-polyfill --compilers js:babel-register test/**/*.test.js",
     "build": "babel src --require babel-polyfill --out-dir build --presets=env",
+    "build-watch": "babel src --watch --require babel-polyfill --out-dir build --presets=env",
     "prepublish": "npm run build"
   },
   "author": "oada",
@@ -23,6 +24,7 @@
     "babel-preset-stage-3": "^6.24.1",
     "babel-register": "^6.26.0",
     "chai": "^4.1.2",
+    "isomorphic-ws": "^4.0.1",
     "json-pointer": "^0.6.0",
     "lodash": "^4.17.10",
     "oada-id-client": "github:OADA/oada-id-client-js",
