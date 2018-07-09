@@ -1,12 +1,17 @@
 const Promise = require('bluebird');
 const uuid = require('uuid/v4');
 let isWindow = false;
+var Websocket = require('ws');
 if (typeof window !== 'undefined' && window.WebSocket) {
 	// eslint-disable-next-line
 	WebSocket = window.WebSocket;
 	isWindow = true;
+} else {
+  console.log('yeah')
+  WebSocket = require('ws');
 }
-
+console.log(typeof window)
+console.log(WebSocket)
 
 function websocket(url) {
 	//Create the message queue
@@ -112,7 +117,7 @@ function websocket(url) {
 				let message = {
 					requestId: uuid(),
 					method: 'watch',
-					path: request.url,
+					path: request.path,
 					headers: Object.entries(request.headers).map(([key, value]) => {
 						return {[key.toLowerCase()]: value}
 					}).reduce((a,b) => {

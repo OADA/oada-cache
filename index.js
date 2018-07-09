@@ -6,7 +6,6 @@ var websocket = require('./websocket');
 var Promise = require('bluebird');
 var axios = require('axios');
 let getAccessToken = Promise.promisify(require('oada-id-client').getAccessToken)
-let _ = require('lodash');
 
 let CACHE;
 let REQUEST = axios;
@@ -14,24 +13,27 @@ let SOCKET;
 let TOKEN;
 let DOMAIN;
 
-var connect = function connect({domain, options, name, exp}) {
+var connect = function connect({domain, options, name, exp, token}) {
   DOMAIN = domain;
-	return getAccessToken(domain, options).then((result) => {
+  let prom;
+  if (token) {
+    prom = Promise.resolve({access_token: token})
+  } else {
+    prom = getAccessToken(domain, options)
+  }
+  return prom.then((result) => {
     TOKEN = result.access_token;
-    return configureCache({
-      name,
-      req: REQUEST,
-      exp,
-    }).then((res) => {
-		  CACHE = res;
-      return configureWs({domain}).then((ret) => {
-        SOCKET = ret;
-        return {
-          get,
-          put,
-          post,
-          delete,
-        }
+    return configureWs({domain}).then((ret) => {
+      return configureCache({
+        name,
+        req: REQUEST,
+        exp,
+      }).then((res) => {
+        REQUEST.get = res.get;
+        REQUEST.put = res.put;
+        REQUEST.delete = res.delete;
+		    CACHE = res;
+        return REQUEST
       })
     })
 	}).catch((err) => {
@@ -39,40 +41,55 @@ var connect = function connect({domain, options, name, exp}) {
 	})
 };
 	
-var get = function get({path, headers, domain, watch, tree}) {
+var get = function get({url, path, headers, watch, tree}) {
 	let req = {
 		method: 'get',
-		url: (domain || DOMAIN) + path,
+		url: url || DOMAIN+path,
 		headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
   }
 
+  let prom;
+
   if (tree) {
-    return 
+    prom = recursiveGet(req.url, tree, {});
+  } else {
+    prom = REQUEST(req);
   }
 
-  return REQUEST(req)
+  return prom.then((response) => {
+    if (watch) {
+      return watch({
+        path,
+      }).then(() => {
+        return response
+      })
+    } else return response
+  })
 }
 
-var	put = function put({type, path, token, data, tree}) {
+var	put = function put({path, data, type, headers, tree}) {
 	let req = {
 		method: 'put',
-		url: (domain || DOMAIN) + path,
+		url: url || DOMAIN+path,
     headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
 		data,
   }
   if (type) req.headers['Content-Type'] = type;
-
   if (tree) {
-
+    return smartPut({
+      url: url || DOMAIN+path,
+      tree,
+      data,
+    })
   }
 
 	return REQUEST(req)
 }
 
-var	post = function post({type, path, token, data, tree}) {
+var	post = function post({type, path, data, tree}) {
 	let req = {
     method: 'post',
-		url: (domain || DOMAIN) + path,
+		url: url || DOMAIN+path,
     headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
 		data,
   }
@@ -80,7 +97,7 @@ var	post = function post({type, path, token, data, tree}) {
   return REQUEST(req)
 }
 
-var	del = function delete({domain, path, headers}) {
+var	del = function del({domain, path, headers}) {
 	let req = {
 		method: 'delete',
 		url: (domain || DOMAIN) + path,
@@ -102,32 +119,30 @@ var configureWs = function({domain}) {
 	})
 }
 
-var watch = function({url, token, func, payload}) {
-	let headers = {Authorization: 'Bearer '+token};
-	let urlObj = urlLib.parse(url)
-	if (REQUEST === axios) {
-		// Ping a normal GET every 5 seconds in the absense of a websocket
-		return setInterval(() => {
-			this.get({url, token}).then((result) => {
-				func(payload)
-			})
-		}, 5000)
-	} else {
+var watch = function watch({path, func, payload}) {
+	if (SOCKET) {
 		return SOCKET.watch({
-			url: urlObj.path,
-			headers,
+			path,
+			headers: {Authorization: 'Bearer '+TOKEN},
 		}, async function watchResponse(response) {
 			if (!payload) payload = {};
 			payload.response = response;
-			payload.REQUEST = {
-				url,
+			payload.request = {
+				url: DOMAIN+path,
 				headers,
 				method: payload.response.change.type,
 			}
 			if (CACHE) await CACHE.handleWatchChange(payload)
 			return func(payload)
 		})
-	}
+	} else {
+    // Ping a normal GET every 5 seconds in the absense of a websocket
+		return setInterval(() => {
+			this.get({url}).then((result) => {
+				func(payload)
+			})
+		}, 5000)
+  }
 }
 
 function replaceLinks(obj) {
@@ -161,18 +176,13 @@ function replaceLinks(obj) {
 	})
 }
 
-	/*
-let recursiveSmartPut = (url, setupTree, returnData) => {
-	console.log(url, setupTree, returnData)
+let recursiveGet = (url, tree, returnData) => {
 	return Promise.try(() => {
 		// Perform a GET if we have reached the next resource break.
-		if (setupTree._type) { // its a resource
-			console.log(url, 'is a resource. awaiting')
-			return get({
-				url,
-				token: props.token 
+		if (tree._type) { // its a resource
+      return get({
+				url
 			}).then((response) => {
-				console.log(url, 'finished getting', response.data)
 				returnData = response.data;
 				return
 			})
@@ -180,22 +190,18 @@ let recursiveSmartPut = (url, setupTree, returnData) => {
 		return
 	}).then(() => {
 		// Walk down the data at this url and continue recursion.
-		console.log(url, 'proceeding')
-		return Promise.map(Object.keys(setupTree), (key) => {
-			console.log(url, 'KEY', key)
-			// If setupTree contains a *, this means we should get ALL content on the server
+		return Promise.map(Object.keys(tree), (key) => {
+			// If tree contains a *, this means we should get ALL content on the server
 			// at this level and continue recursion for each returned key.
 			if (key === '*') {
-				console.log(url, 'found star')
 				return Promise.map(Object.keys(returnData), (resKey) => {
 					if (resKey.charAt(0) === '_') return
-					return recursiveSmartPut(url+'/'+resKey, setupTree[key] || {}, returnData[key]).then((res) => {
+					return recursiveGet(url+'/'+resKey, tree[key] || {}, returnData[key]).then((res) => {
 						return returnData[resKey] = res;
 					})
 				})
-			} else if (typeof setupTree[key] === 'object') {
-				console.log('in here', key, props.token)
-				return recursiveSmartPut(url+'/'+key, setupTree[key] || {}, returnData[key]).then((res) => {
+			} else if (typeof tree[key] === 'object') {
+				return recursiveGet(url+'/'+key, tree[key] || {}, returnData[key]).then((res) => {
 					return returnData[key] = res;
 				})
 			} else return returnData[key]
@@ -203,53 +209,30 @@ let recursiveSmartPut = (url, setupTree, returnData) => {
 			return returnData
 		})
 	}).catch((err) => {
-		console.log(err)
-		console.log(err.response)
-		// Put the data on the server and try to GET it over again. The 
-		// replaceLinks function will create all of the data down to the next 
-		// resource and we don't want to recursively and redundantly PUT key by 
-		// key all the way down. We just want to skip from one resource down to 
-		// the next.
-		if (err.response.status === 404) {
-			console.log(setupTree)
-			return replaceLinks(setupTree).then((data) => {
-				console.log('PUTTING', url, setupTree._type, data)
-				return makeResourceAndLink({
-					token: props.token,
-					url,
-					data
-				})
-			}).then(() => {
-				return recursiveSmartPut(url, setupTree, returnData)
-			})
+    if (err.response.status === 404) {
+      return
 		}
 		throw err
 	})
 }
 
-let smartPut = ({url, setupTree, cachedTree}) => {
-	return recursiveInitialize(url, setupTree, knowTree)
-}
-*/
-
-function findDeepestResources(pieces, setupTree, cachedTree, token, domain) {
+function findDeepestResources(pieces, tree, cachedTree, domain) {
 	let cached = 0;
 	let setup;
 	// Walk down the url in reverse order
 	return Promise.mapSeries(pieces, (piece, i) => {
 		let z = pieces.length - 1 - i; //
 		let urlPath = '/'+pieces.slice(0, z+1).join('/');
-		let setupTreePath = convertSetupTreePath(pieces.slice(0, z+1), setupTree);
+		let treePath = convertSetupTreePath(pieces.slice(0, z+1), tree);
 		// Check that its in the cached tree then look for deepest _resource_.
 		// If successful, break from the loop by throwing
-		if (pointer.has(setupTree, setupTreePath+'/_type')) {
+		if (pointer.has(tree, treePath+'/_type')) {
 			setup = setup || z;
 			if (pointer.has(cachedTree, urlPath)) {
 				cached = z;
 				throw z;
 			}
 			return get({
-				token,
 				url: domain+urlPath
 			}).then((response) => {
 				pointer.set(cachedTree, urlPath, {})
@@ -262,7 +245,7 @@ function findDeepestResources(pieces, setupTree, cachedTree, token, domain) {
 		}
 		return
 	}).catch((err) => {
-		// Throwing with a number error only should occur on successful try.
+		// Throwing with a number error only should occur on success.
 		if (typeof err === 'number') return { cached, setup }
 	}).then(() => {
 		return { 
@@ -274,7 +257,7 @@ function findDeepestResources(pieces, setupTree, cachedTree, token, domain) {
 
 // Ensure all resources down to the deepest resource are created before
 // performing a PUT.
-let smartPut = ({url, setupTree, data, token}) => {
+let smartPut = ({url, tree, data}) => {
 	//If /resources
 	
 	//If /bookmarks
@@ -285,17 +268,16 @@ let smartPut = ({url, setupTree, data, token}) => {
 	let pieces = path.replace(/\/$/, '').split('/');
 	let obj = {};
 	// Find the deepest part of the path that exists. Once found, work back down.
-	return findDeepestResources(pieces, setupTree, TREE, token, domain).then((ret) => {
+	return findDeepestResources(pieces, tree, tempTree, domain).then((ret) => {
 		// Create all the resources on the way down. ret.cached is an index. Subtract
 		// one from pieces.length so its in terms of an index as well.
 		return Promise.mapSeries(pieces.slice(0, pieces.length - 1 - ret.cached), (piece, j) => {
 			let i = ret.cached+1 + j; // ret.cached exists; add one to continue beyond.
 			let urlPath = '/'+pieces.slice(0, i+1).join('/');
-			let setupTreePath = convertSetupTreePath(pieces.slice(0, i+1), setupTree);
-			if (pointer.has(setupTree, setupTreePath+'/_type') && i <= ret.setup) { // its a resource
-				return replaceLinks(pointer.get(setupTree, setupTreePath)).then((content) => {
+			let treePath = convertSetupTreePath(pieces.slice(0, i+1), tree);
+			if (pointer.has(tree, treePath+'/_type') && i <= ret.setup) { // its a resource
+				return replaceLinks(pointer.get(tree, treePath)).then((content) => {
 					return makeResourceAndLink({
-						token,
 						url: urlObj.protocol+'//'+urlObj.host+urlPath,
 						data: content
 					}).then(() => {
@@ -310,9 +292,8 @@ let smartPut = ({url, setupTree, data, token}) => {
 			// resource ids, not underlying data itself.
 			return put({
 				url,
-				'Content-Type': data._type,
+				type: data._type,
 				data,
-				token,
 			})
 		})
 	}).catch((err) => {
@@ -324,10 +305,10 @@ let smartPut = ({url, setupTree, data, token}) => {
 // Loop over the keys of the path and determine whether the object at that level
 // contains a * key. The path must be updated along the way, replacing *s as 
 // necessary.
-function convertSetupTreePath(pathPieces, setupTree) {
+function convertSetupTreePath(pathPieces, tree) {
 	let newPieces = _.clone(pathPieces);
 	newPieces =	pathPieces.map((piece, i) => {
-		if (pointer.has(setupTree, '/'+newPieces.slice(0, i).join('/')+'/*')) {
+		if (pointer.has(tree, '/'+newPieces.slice(0, i).join('/')+'/*')) {
 			newPieces[i] = '*';
 			return '*';
 		} else {
@@ -337,15 +318,13 @@ function convertSetupTreePath(pathPieces, setupTree) {
 	return '/'+newPieces.join('/')
 }
 
-function makeResourceAndLink({token, url, data}) {
-	console.log('NEW:', url)
+function makeResourceAndLink({url, data}) {
 	let urlObj = urlLib.parse(url);
 	let domain = urlObj.protocol+'//'+urlObj.host;
 	let req = {
 		url: data._id ? domain+'/'+data._id : domain+'/resources',
 		contentType: data._type,
 		data,
-		token,
 	}
 	let resource = data._id ? put(req) : post(req);
 	return resource.then((response) => {
@@ -354,7 +333,6 @@ function makeResourceAndLink({token, url, data}) {
 			url,
 			'Content-Type': data._type,
 			data: {_id:data._id},
-			token,
 		}
 		if (data._rev) link.data._rev = '0-0'
 		return put(link)
