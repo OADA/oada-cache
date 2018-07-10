@@ -1,7 +1,7 @@
 const Promise = require('bluebird');
 const uuid = require('uuid/v4');
-let isWindow = false;
 const WebSocket = require('isomorphic-ws');
+let isWindow = false;
 
 function websocket(url) {
 	//Create the message queue

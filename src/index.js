@@ -1,4 +1,5 @@
 import configureCache from './cache'
+import opn from 'opn'
 import uuid from 'uuid'
 import _ from 'lodash'
 var urlLib = require('url');
@@ -6,7 +7,8 @@ var pointer = require('json-pointer');
 var websocket = require('./websocket');
 var Promise = require('bluebird');
 var axios = require('axios');
-let getAccessToken = Promise.promisify(require('oada-id-client').getAccessToken)
+//let hostLogin = Promise.promisify(require('oada-id-client').node)
+let hostLogin = require('oada-id-client').node
 
 let CACHE;
 let REQUEST = axios;
@@ -20,12 +22,11 @@ var connect = function connect({domain, options, name, exp, token}) {
   if (token) {
     prom = Promise.resolve({access_token: token})
   } else {
-    prom = getAccessToken(domain, options)
+    prom = hostLogin(domain, options)
   }
   return prom.then((result) => {
     TOKEN = result.access_token;
     //    return configureWs({domain}).then((ret) => {
-        //return {token: TOKEN}
     /*  return configureCache({
         name: name || uuid(),
         req: REQUEST,
@@ -35,7 +36,7 @@ var connect = function connect({domain, options, name, exp, token}) {
         REQUEST.put = res.put;
         REQUEST.delete = res.delete;
         CACHE = res;
-        return {token: TOKEN}
+        return
       })
     })
     */
