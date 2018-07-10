@@ -1,5 +1,4 @@
 import configureCache from './cache'
-import opn from 'opn'
 import uuid from 'uuid'
 import _ from 'lodash'
 var urlLib = require('url');
@@ -7,7 +6,6 @@ var pointer = require('json-pointer');
 var websocket = require('./websocket');
 var Promise = require('bluebird');
 var axios = require('axios');
-//let hostLogin = Promise.promisify(require('oada-id-client').node)
 let hostLogin = require('oada-id-client').node
 
 let CACHE;
@@ -33,27 +31,33 @@ var connect = function connect({domain, options, name, exp, token, noCache, noWs
   }
   return prom.then(async (result) => {
     TOKEN = result.access_token;
-    if (noWs === undefined || !noWs) await configureWs({domain});
-    if (noCache === undefined || !noCache) {
-      let res = await configureCache({
-        name: name || uuid(),
-        req: REQUEST,
-        exp,
+    let wsProm;
+    if (noWs === undefined || !noWs) {
+      wsProm = websocket(domain).then((socketApi) => {
+        REQUEST = socketApi.http;
+		    return SOCKET = socketApi;
       })
-      REQUEST.get = res.get;
-      REQUEST.put = res.put;
-      REQUEST.delete = res.delete;
-      CACHE = res;
-    }
-    return
-  }).then(() => {
+    } else wsProm = Promise.resolve();
+    return wsProm.then(() => {
+      let cacheProm;
+      if (noCache === undefined || !noCache) {
+        return configureCache({
+          name: name || uuid(),
+          req: REQUEST,
+          exp,
+        }).then((res) => {
+          REQUEST = res.api;
+          CACHE = res;
+          return
+        })
+      } else return
+    })
+  }).then((f) => {
     return {
       token: TOKEN,
       cache: CACHE,
       socket: SOCKET
     }
-  }).catch((err) => {
-    console.log(err)
   })
 }
 	
@@ -67,7 +71,12 @@ var get = function get({url, path, headers, watch, tree}) {
   let prom;
 
   if (tree) {
-    prom = recursiveGet(req.url, tree, {});
+    prom = recursiveGet(req.url, tree, {}).then((res) => {
+      return {
+        data: res,
+        status: 200,
+      }
+    })
   } else {
     prom = REQUEST(req);
   }
@@ -129,9 +138,9 @@ var clearCache = async function() {
 
 var configureWs = function({domain}) {
 	return websocket(domain).then((socketApi) => {
-		REQUEST = socketApi.http;
+    REQUEST = socketApi.http;
 		return SOCKET = socketApi;
-	})
+  })
 }
 
 var watch = function watch({path, func, payload}) {

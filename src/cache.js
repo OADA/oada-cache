@@ -23,7 +23,6 @@ function getUpsertDoc(req, res) {
 			_accessed: Date.now(),
 		}
 	}
-	console.log(resourceId)
 	return db.get(resourceId).then((result) => {
 		if (result.doc._NOT_COMPLETE_RESOURCE) dbPut.doc._NOT_COMPLETE_RESOURCE = true;
 		dbPut._rev = result._rev
@@ -37,7 +36,6 @@ function getUpsertDoc(req, res) {
 					curData = pointer.get(result.doc.doc, pathLeftover);
 				} catch(err) {}
 				let newData = _.merge(curData, res.data || {})
-				console.log(result)
 				pointer.set(result.doc.doc, pathLeftover, newData);
 				dbPut.doc.doc = result.doc.doc;
 			} else dbPut.doc.doc = _.merge(result.doc.doc, res.data || {});
@@ -52,21 +50,16 @@ function getUpsertDoc(req, res) {
 				//Execute the PUT and Warn users that the data is incomplete
 				let doc = {};
 				dbPut.doc._NOT_COMPLETE_RESOURCE = true;
-				console.log(doc, pathLeftover, res.data)
 				pointer.set(doc, pathLeftover, _.clone(res.data));
 				dbPut.doc.doc = doc;
-				console.log("DDDDDDBPUUUT", doc)
-				console.log("DDDDDDBPUUUT", dbPut)
 			} else dbPut.doc.doc = res.data;
 		}
-		console.log("UUUT", dbPut)
 		return dbPut
 	})
 }
 
 function dbUpsert(req, res) {
 	return getUpsertDoc(req, res).then((dbPut) => {
-		console.log('DBPUT', dbPut)
 		return db.put(dbPut).then((result) => {
 			return getResFromDb(req)
 		}).catch((err) => {
@@ -96,22 +89,25 @@ function getResFromServer(req) {
 	})
 }
 
-function getResFromDb(req, force) {
+function getResFromDb(req) {
 	let urlObj = url.parse(req.url)
 	let pieces = urlObj.path.split('/')
 	let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
 	let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
 	return db.get(resourceId).then((resource) => {
-		if (force || (resource.doc._accessed+expiration) <= Date.now() || !resource.doc._valid) {
+		if ((resource.doc._accessed+expiration) <= Date.now() || !resource.doc._valid) {
 			return getResFromServer(req)
 		}
 		//If no pathLeftover, it'll just return resource!
 		return Promise.try(() => {
-			let data = pointer.get(resource.doc.doc, pathLeftover)
+      let data = pointer.get(resource.doc.doc, pathLeftover)
 			return {
 				data,
-				_rev: data._rev,
-				location: resourceId+pathLeftover
+        headers: {
+          'x-oada-rev': data._rev,
+          'content-location': resourceId+pathLeftover
+        },
+        status: 200
 			}
 		})
 	}).catch((err) => {
@@ -130,8 +126,7 @@ function getResFromDb(req, force) {
 //   location: e.g.: /resources/abc123/some/path/leftover
 //   
 // }
-function get(req, force) {
-	console.log('GET!', req)
+function get(req) {
 	let urlObj = url.parse(req.url)
 	if (/^\/resources/.test(urlObj.path)) {
 		return getResFromDb(req)
@@ -228,7 +223,6 @@ function put(req) {
 		let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
 		let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
 		// Invalidate the resource in the cache (if it is cached)
-		console.log(response)
 		return dbUpsert({
 			url: urlObj.protocol+'//'+urlObj.host+'/'+resourceId+pathLeftover,
 			headers: req.headers
@@ -463,19 +457,31 @@ async function clearCache() {
 	expiration = undefined;
 }
 
+let api = function handleRequest(req) {
+  switch(req.method) {
+    case 'get':
+      return get(req);
+      break;
+    case 'delete':
+      return del(req)
+      break;
+    case 'put':
+      return put(req)
+      break;
+  }
+}
+
 // name should be made unique across domains and users
 export default function setupCache({name, req, exp}) {
 	db = db || new PouchDB(name);
 	request = req;
 	expiration = exp || 1000*60*60*24*2;//(ms/s)*(s/min)*(min/hr)*(hr/days)*days
-	return Promise.resolve({
-		get,
-		put,
-		delete: del,
-		db,
-		clearCache,
-		recursiveUpsert,
-		findDeepestResource,
-		handleWatchChange,
+  return Promise.resolve({
+    api,
+    db,
+    clearCache,
+    recursiveUpsert,
+    findDeepestResource,
+    handleWatchChange,
 	})
 }

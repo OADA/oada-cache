@@ -38,7 +38,7 @@ function websocket(url) {
 			//Look for id in httpCallbacks
 			if (response.requestId) {
 				if (httpCallbacks[response.requestId]) {
-					//Resolve Promise
+          //Resolve Promise
 					if (response.status >= 200 && response.status < 300) {
 						httpCallbacks[response.requestId].resolve(response);
 					} else {
@@ -96,9 +96,9 @@ function websocket(url) {
 					request: request,
 					resolve: resolve,
 					reject: reject
-				};
+        };
 				sendMessages();
-			 });
+			});
 		}
 
 		function _watch(request, callback) {
