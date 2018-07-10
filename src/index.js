@@ -16,34 +16,41 @@ let SOCKET;
 let TOKEN;
 let DOMAIN;
 
-var connect = function connect({domain, options, name, exp, token}) {
+var connect = function connect({domain, options, name, exp, token, noCache, noWs}) {
+  CACHE = undefined;
+  REQUEST = axios;
+  SOCKET = undefined;
+  TOKEN = undefined;
+  DOMAIN = undefined;
+
+  let urlObj = urlLib.parse(domain);
   DOMAIN = domain;
   let prom;
   if (token) {
     prom = Promise.resolve({access_token: token})
   } else {
-    prom = hostLogin(domain, options)
+    prom = hostLogin(urlObj.host, options)
   }
-  return prom.then((result) => {
+  return prom.then(async (result) => {
     TOKEN = result.access_token;
-    //    return configureWs({domain}).then((ret) => {
-    /*  return configureCache({
+    if (noWs === undefined || !noWs) await configureWs({domain});
+    if (noCache === undefined || !noCache) {
+      let res = await configureCache({
         name: name || uuid(),
         req: REQUEST,
         exp,
-      }).then((res) => {
-        REQUEST.get = res.get;
-        REQUEST.put = res.put;
-        REQUEST.delete = res.delete;
-        CACHE = res;
-        return
       })
-    })
-    */
+      REQUEST.get = res.get;
+      REQUEST.put = res.put;
+      REQUEST.delete = res.delete;
+      CACHE = res;
+    }
     return
   }).then(() => {
     return {
-      token: TOKEN
+      token: TOKEN,
+      cache: CACHE,
+      socket: SOCKET
     }
   }).catch((err) => {
     console.log(err)
@@ -76,7 +83,7 @@ var get = function get({url, path, headers, watch, tree}) {
   })
 }
 
-var	put = function put({path, data, type, headers, tree}) {
+var	put = function put({url, path, data, type, headers, tree}) {
 	let req = {
 		method: 'put',
 		url: url || DOMAIN+path,
@@ -95,21 +102,20 @@ var	put = function put({path, data, type, headers, tree}) {
 	return REQUEST(req)
 }
 
-var	post = function post({type, path, data, tree}) {
-	let req = {
-    method: 'post',
-		url: url || DOMAIN+path,
-    headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
-		data,
-  }
-  if (type) req.headers['Content-Type'] = type;
-  return REQUEST(req)
+var	post = function post({url, path, data, type, headers, tree}) {
+  return put({
+    url: url ? url+'/'+uuid() : DOMAIN+path+'/'+uuid(),
+    data,
+    type,
+    headers,
+    tree
+  })
 }
 
-var	del = function del({domain, path, headers}) {
+var	del = function del({url, path, headers}) {
 	let req = {
 		method: 'delete',
-		url: (domain || DOMAIN) + path,
+		url: url || DOMAIN+path,
     headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
 	}
 	return REQUEST(req)

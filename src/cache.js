@@ -464,7 +464,7 @@ async function clearCache() {
 }
 
 // name should be made unique across domains and users
-export default function configureCache({name, req, exp}) {
+export default function setupCache({name, req, exp}) {
 	db = db || new PouchDB(name);
 	request = req;
 	expiration = exp || 1000*60*60*24*2;//(ms/s)*(s/min)*(min/hr)*(hr/days)*days
