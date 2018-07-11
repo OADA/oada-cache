@@ -127,7 +127,7 @@ var	del = function del({url, path, headers}) {
 		url: url || DOMAIN+path,
     headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
 	}
-	return REQUEST(req)
+  return REQUEST(req)
 }
 
 var clearCache = async function() {

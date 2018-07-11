@@ -27,7 +27,8 @@ function getUpsertDoc(req, res) {
 		if (result.doc._NOT_COMPLETE_RESOURCE) dbPut.doc._NOT_COMPLETE_RESOURCE = true;
 		dbPut._rev = result._rev
 		if (req.method && req.method.toLowerCase() === 'delete') {
-			dbPut.doc.doc =	(dbPut.doc.doc || {});
+      dbPut.doc.doc =	(dbPut.doc.doc || {});
+      req.url = urlObj.protocol+'//'+urlObj.host+'/'+resourceId;
 		} else {
 			if (pathLeftover) {
 				// merge the new data into the old at the path leftover, then return old
@@ -59,10 +60,10 @@ function getUpsertDoc(req, res) {
 }
 
 function dbUpsert(req, res) {
-	return getUpsertDoc(req, res).then((dbPut) => {
-		return db.put(dbPut).then((result) => {
+  return getUpsertDoc(req, res).then((dbPut) => {
+    return db.put(dbPut).then((result) => {
 			return getResFromDb(req)
-		}).catch((err) => {
+    }).catch((err) => {
 			console.log(err)
 			if (err.name === 'conflict') {
 				//TODO: avoid infinite loops with this type of call
@@ -95,7 +96,7 @@ function getResFromDb(req) {
 	let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
 	let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
 	return db.get(resourceId).then((resource) => {
-		if ((resource.doc._accessed+expiration) <= Date.now() || !resource.doc._valid) {
+    if ((resource.doc._accessed+expiration) <= Date.now() || !resource.doc._valid) {
 			return getResFromServer(req)
 		}
 		//If no pathLeftover, it'll just return resource!
@@ -107,11 +108,12 @@ function getResFromDb(req) {
           'x-oada-rev': data._rev,
           'content-location': resourceId+pathLeftover
         },
-        status: 200
+        status: 200,
+        cached: true
 			}
 		})
 	}).catch((err) => {
-		console.log(err)
+		console.log(err);
 		return getResFromServer(req)
 	})
 }
@@ -255,7 +257,7 @@ async function deleteCheckParent(req, res) {
 			url: urlObj.protocol+'//'+urlObj.host+reqPieces.slice(0, reqPieces.length-1).join('/'),
 			headers: req.headers
 		})
-		// if the parent document has a known resourceId, nullify the link to the deleted child
+		// if the parent document has a known resourceId, invalidate the link to the deleted child
 		if (lookup && lookup.doc.resourceId) {
 			let parentUrl = urlObj.protocol+'//'+urlObj.host+'/'+lookup.doc.resourceId+lookup.doc.pathLeftover;
 			return dbUpsert({
@@ -290,7 +292,7 @@ function dbDelete(req, res) {
 	let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
 	// If it is itself a resource, we only need to invalidate the cache entry for
 	// the parent (which links to the child)
-	if (!pathLeftover) return deleteCheckParent(req, res)
+  if (!pathLeftover) return deleteCheckParent(req, res)
 	// Else, invalidate the cache entry for the resource itself
 	return dbUpsert({
 		url: urlObj.protocol+'//'+urlObj.host+'/'+resourceId+pathLeftover,
@@ -307,8 +309,11 @@ function dbDelete(req, res) {
 function del(req) {
 	let urlObj = url.parse(req.url)
 	return request(req).then((response) => {
-		return dbDelete(req, response)
-	}).catch((e) => {
+    return dbDelete(req, response).then(() => {
+      //it should return something that looks like a delete response
+      return response
+    })
+  }).catch((e) => {
 		// Handle offline case
 		throw e
 	})
@@ -461,13 +466,10 @@ let api = function handleRequest(req) {
   switch(req.method) {
     case 'get':
       return get(req);
-      break;
     case 'delete':
       return del(req)
-      break;
     case 'put':
       return put(req)
-      break;
   }
 }
 

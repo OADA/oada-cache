@@ -78,11 +78,12 @@ describe('Full tests using cache and ws.', function() {
     })
   })
 
-  it('GET using a url', () => {
+  it('GET using a url. This second GET should come from cache.', () => {
     return oada.get({
       url: domain+'/bookmarks',
     }).then((response) => {
       expect(response.status).to.equal(200)
+      expect(response.cache).to.equal(true)
       expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
       expect(response.data).to.include.keys(['_id', '_rev'])
     })
@@ -140,6 +141,7 @@ describe('Full tests using cache and ws.', function() {
       return oada.get({
         path: '/bookmarks/test1'
       }).catch((err) => {
+        console.log('hi');
         expect(err.response.status).to.equal(404)
       })
     })
