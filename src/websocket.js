@@ -79,7 +79,7 @@ function websocket(url) {
 
 		function _http(request) {
 			//Do a HTTP request
-			return new Promise((resolve, reject) => {
+      return new Promise((resolve, reject) => {
 				let message = {
 					requestId: uuid(),
 					method: request.method.toLowerCase(),

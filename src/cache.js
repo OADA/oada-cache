@@ -14,18 +14,23 @@ function getUpsertDoc(req, res) {
 	let pieces = urlObj.path.split('/')
 	let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
 	let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
-	//If theres a path leftover, create an empty object, add a key to warn users
-	//that the data is incomplete, and put the data at that path Leftover
 	let dbPut = {
 		_id: resourceId,
 		doc: {
 			_valid: (res._valid === undefined) ? true : res._valid,
 			_accessed: Date.now(),
 		}
-	}
+  }
+  // ALL updates to existing docs (upserts), need to supply the current _rev.
 	return db.get(resourceId).then((result) => {
+	//If theres a path leftover, create an empty object, add a key to warn users
+	//that the data is incomplete, and put the data at that path Leftover
 		if (result.doc._NOT_COMPLETE_RESOURCE) dbPut.doc._NOT_COMPLETE_RESOURCE = true;
-		dbPut._rev = result._rev
+    dbPut._rev = result._rev
+    // If a falsey _valid value is given, return the invalidated resource.
+    if (dbPut.doc._valid !== undefined && !dbPut.doc._valid) {
+      return Promise.resolve(dbPut)
+    }
 		if (req.method && req.method.toLowerCase() === 'delete') {
       dbPut.doc.doc =	(dbPut.doc.doc || {});
       req.url = urlObj.protocol+'//'+urlObj.host+'/'+resourceId;
@@ -40,12 +45,10 @@ function getUpsertDoc(req, res) {
 				pointer.set(result.doc.doc, pathLeftover, newData);
 				dbPut.doc.doc = result.doc.doc;
       } else dbPut.doc.doc = _.merge(result.doc.doc, res.data || {});
-      console.log('AAAAAAAA', dbPut.doc.doc)
-      console.log('BBBBBBBB', res.data)
 		}
 		return dbPut
 	}).catch((e) => { // Else, resource was not in the db. 
-		console.log(e)
+    //console.log(e)
 		if (req.method && req.method.toLowerCase() === 'delete') {
 			// Deleting a resource that doesn't exist: do nothing.
 		} else {
@@ -63,11 +66,11 @@ function getUpsertDoc(req, res) {
 
 function dbUpsert(req, res) {
   return getUpsertDoc(req, res).then((dbPut) => {
-    console.log(dbPut.doc.doc);
     return db.put(dbPut).then((result) => {
+      req.method = 'get';
 			return getResFromDb(req)
     }).catch((err) => {
-			console.log(err)
+      //console.log(err)
 			if (err.name === 'conflict') {
 				//TODO: avoid infinite loops with this type of call
 				// If there is a conflict in the lookup, repeat the lookup (the HEAD
@@ -116,7 +119,7 @@ function getResFromDb(req) {
 			}
 		})
 	}).catch((err) => {
-		console.log(err);
+    //console.log(err);
 		return getResFromServer(req)
 	})
 }
@@ -145,7 +148,7 @@ function get(req) {
 				url: urlObj.protocol+'//'+urlObj.host+'/'+result.doc.resourceId+result.doc.pathLeftover
 			})
 		}).catch((err) => {
-			console.log(err);
+      //console.log(err);
 			throw err
 		})
 	}
@@ -185,7 +188,7 @@ function getLookup(req) {
 				}
 			})
 		}).catch((e) => {
-			console.log(e)
+      //console.log(e)
 			throw e	
 		})
 	})
@@ -227,9 +230,9 @@ function put(req) {
 		let pieces = response.headers['content-location'].split('/')
 		let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
 		let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
-		// Invalidate the resource in the cache (if it is cached)
+    // Invalidate the resource in the cache (if it is cached)
 		return dbUpsert({
-			url: urlObj.protocol+'//'+urlObj.host+'/'+resourceId+pathLeftover,
+			url: urlObj.protocol+'//'+urlObj.host+'/'+resourceId,
 			headers: req.headers
 		}, {
 			data: undefined,
@@ -274,7 +277,7 @@ async function deleteCheckParent(req, res) {
 			})
 		} return
 	} catch(e) {
-		console.log(e)
+    //console.log(e)
 		throw e
 	}
 }
@@ -298,7 +301,7 @@ function dbDelete(req, res) {
   if (!pathLeftover) return deleteCheckParent(req, res)
 	// Else, invalidate the cache entry for the resource itself
 	return dbUpsert({
-		url: urlObj.protocol+'//'+urlObj.host+'/'+resourceId+pathLeftover,
+		url: urlObj.protocol+'//'+urlObj.host+'/'+resourceId,
 		headers: req.headers,
 		method: req.method,
 	}, {
@@ -458,11 +461,11 @@ function handleWatchChange(payload) {
 	})
 }
 
-async function clearCache() {
+async function resetCache() {
 	if (db) await db.destroy();
 	db = undefined;
 	request = undefined;
-	expiration = undefined;
+  expiration = undefined;
 }
 
 let api = function handleRequest(req) {
@@ -484,7 +487,7 @@ export default function setupCache({name, req, exp}) {
   return Promise.resolve({
     api,
     db,
-    clearCache,
+    resetCache,
     recursiveUpsert,
     findDeepestResource,
     handleWatchChange,

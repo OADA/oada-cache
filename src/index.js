@@ -112,8 +112,10 @@ var	put = function put({url, path, data, type, headers, tree}) {
 }
 
 var	post = function post({url, path, data, type, headers, tree}) {
+  url = url || DOMAIN+path;
+  url = url[url.length-1] === '/' ? url+uuid() : url+'/'+uuid();
   return put({
-    url: url ? url+'/'+uuid() : DOMAIN+path+'/'+uuid(),
+    url,
     data,
     type,
     headers,
@@ -130,10 +132,17 @@ var	del = function del({url, path, headers}) {
   return REQUEST(req)
 }
 
-var clearCache = async function() {
-	await CACHE.clearCache();
-	CACHE = {};
-	return
+var clearCache = async function({name, exp}) {
+	await CACHE.resetCache();
+	return configureCache({
+    name: name || uuid(),
+    req: SOCKET.http || axios,
+    exp,
+  }).then((res) => {
+    REQUEST = res.api;
+    CACHE = res;
+    return
+  })
 }
 
 var configureWs = function({domain}) {
