@@ -83,7 +83,7 @@ describe('Full tests using cache and ws.', function() {
       url: domain+'/bookmarks',
     }).then((response) => {
       expect(response.status).to.equal(200)
-      expect(response.cache).to.equal(true)
+      expect(response.cached).to.equal(true)
       expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
       expect(response.data).to.include.keys(['_id', '_rev'])
     })
@@ -93,10 +93,15 @@ describe('Full tests using cache and ws.', function() {
     return oada.put({
       path: '/bookmarks/test1', 
       type: contentType, 
-      data:'123'
+      data: "123",
     }).then((response) => {
       expect(response.status).to.equal(204)
-      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
+      return oada.get({
+        path: '/bookmarks/test1'
+      }).then((res) => {
+        expect(res.data).to.equal("123");
+      })
     })
   })
 
@@ -104,10 +109,15 @@ describe('Full tests using cache and ws.', function() {
     return oada.put({
       url: domain+'/bookmarks/test', 
       type: contentType, 
-      data:'{}'
+      data: {},
     }).then((response) => {
       expect(response.status).to.equal(204)
-      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
+      return oada.get({
+        path: '/bookmarks/test'
+      }).then((res) => {
+        expect(res.data).to.be.an('object');
+      })
     })
   })
 
@@ -115,10 +125,10 @@ describe('Full tests using cache and ws.', function() {
     return oada.post({
       path: '/bookmarks/test',
       type: contentType, 
-      data:'123'
+      data:"123"
     }).then((response) => {
       expect(response.status).to.equal(204)
-      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
     })
   })
 
@@ -126,12 +136,13 @@ describe('Full tests using cache and ws.', function() {
     return oada.post({
       url: domain+'/bookmarks/test', 
       type: contentType, 
-      data:'123'
+      data:"123",
     }).then((response) => {
       expect(response.status).to.equal(204)
-      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
     })
   })
+    /*
 
   it('DELETE using a path', ()=> {
     return oada.delete({
@@ -141,7 +152,6 @@ describe('Full tests using cache and ws.', function() {
       return oada.get({
         path: '/bookmarks/test1'
       }).catch((err) => {
-        console.log('hi');
         expect(err.response.status).to.equal(404)
       })
     })
@@ -159,8 +169,9 @@ describe('Full tests using cache and ws.', function() {
       })
     })
   })
+  */
 })
-/*
+
 describe('More advanced things', () => {
   it('should perform a recursive tree get', (done) => {
     oada.get({
@@ -199,7 +210,5 @@ describe('More advanced things', () => {
       done()
     })
   })
-
 })
-*/
 

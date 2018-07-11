@@ -39,7 +39,9 @@ function getUpsertDoc(req, res) {
 				let newData = _.merge(curData, res.data || {})
 				pointer.set(result.doc.doc, pathLeftover, newData);
 				dbPut.doc.doc = result.doc.doc;
-			} else dbPut.doc.doc = _.merge(result.doc.doc, res.data || {});
+      } else dbPut.doc.doc = _.merge(result.doc.doc, res.data || {});
+      console.log('AAAAAAAA', dbPut.doc.doc)
+      console.log('BBBBBBBB', res.data)
 		}
 		return dbPut
 	}).catch((e) => { // Else, resource was not in the db. 
@@ -61,6 +63,7 @@ function getUpsertDoc(req, res) {
 
 function dbUpsert(req, res) {
   return getUpsertDoc(req, res).then((dbPut) => {
+    console.log(dbPut.doc.doc);
     return db.put(dbPut).then((result) => {
 			return getResFromDb(req)
     }).catch((err) => {
@@ -82,10 +85,10 @@ function getResFromServer(req) {
 		method: 'GET',
 		url: req.url,
 		headers: req.headers
-	}).then((res) => {
+  }).then((res) => {
 		return dbUpsert(req, res)
 	}).catch((err) => {
-		console.log(err)
+    //console.log(err)
 		throw err
 	})
 }
@@ -95,7 +98,7 @@ function getResFromDb(req) {
 	let pieces = urlObj.path.split('/')
 	let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
 	let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
-	return db.get(resourceId).then((resource) => {
+  return db.get(resourceId).then((resource) => {
     if ((resource.doc._accessed+expiration) <= Date.now() || !resource.doc._valid) {
 			return getResFromServer(req)
 		}
@@ -219,7 +222,7 @@ function checkChanges(req) {
 // _rev.
 function put(req) {
 	let urlObj = url.parse(req.url)
-	return request(req).then((response) => {
+  return request(req).then((response) => {
 		let _rev = response.headers['x-oada-rev'];
 		let pieces = response.headers['content-location'].split('/')
 		let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
