@@ -1,6 +1,6 @@
 {
   "name": "@oada/oada-cache",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "node library for interacting with and locally caching data served on an oada-compliant server",
   "main": "./build/index.js",
   "directories": {
