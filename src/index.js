@@ -4,7 +4,7 @@ import _ from 'lodash'
 var urlLib = require('url');
 var pointer = require('json-pointer');
 var websocket = require('./websocket');
-var Promise = require('bluebird');
+const Promise = require('bluebird');
 var axios = require('axios');
 let hostLogin = require('oada-id-client').node
 
@@ -92,7 +92,7 @@ var get = function get({url, path, headers, watch, tree}) {
   })
 }
 
-var	put = function put({url, path, data, type, headers, tree}) {
+var	put = async function put({url, path, data, type, headers, tree}) {
 	let req = {
 		method: 'put',
 		url: url || DOMAIN+path,
@@ -101,10 +101,9 @@ var	put = function put({url, path, data, type, headers, tree}) {
   }
   if (type) req.headers['Content-Type'] = type;
   if (tree) {
-    return smartPut({
-      url: url || DOMAIN+path,
+    let ret = await ensureTree({
+      url: req.url,
       tree,
-      data,
     })
   }
 
@@ -249,7 +248,7 @@ let recursiveGet = (url, tree, returnData) => {
 	})
 }
 
-function findDeepestResources(pieces, tree, cachedTree, domain) {
+function findDeepestResources(pieces, tree, cachedTree) {
 	let cached = 0;
 	let setup;
 	// Walk down the url in reverse order
@@ -266,12 +265,12 @@ function findDeepestResources(pieces, tree, cachedTree, domain) {
 				throw z;
 			}
 			return get({
-				url: domain+urlPath
-			}).then((response) => {
+				path: urlPath
+      }).then((response) => {
 				pointer.set(cachedTree, urlPath, {})
 				cached = z;
 				throw z;
-			}).catch((err) => {
+      }).catch((err) => {
 				if (typeof err === 'number') throw z;
 				return
 			})
@@ -280,7 +279,7 @@ function findDeepestResources(pieces, tree, cachedTree, domain) {
 	}).catch((err) => {
 		// Throwing with a number error only should occur on success.
 		if (typeof err === 'number') return { cached, setup }
-	}).then(() => {
+  }).then(() => {
 		return { 
 			cached: cached, 
 			setup: setup || 0
@@ -290,18 +289,16 @@ function findDeepestResources(pieces, tree, cachedTree, domain) {
 
 // Ensure all resources down to the deepest resource are created before
 // performing a PUT.
-let smartPut = ({url, tree, data}) => {
+let ensureTree = function ensureTree({url, tree}) {
 	//If /resources
 	
 	//If /bookmarks
-	let urlObj = urlLib.parse(url);
-	let domain = urlObj.protocol+'//'+urlObj.host;
-	let path = urlObj.path;
+	let path = urlLib.parse(url).path;
 	path = path.replace(/^\//, '');
-	let pieces = path.replace(/\/$/, '').split('/');
-	let obj = {};
+  let pieces = path.replace(/\/$/, '').split('/');
+  let cachedTree = {};
 	// Find the deepest part of the path that exists. Once found, work back down.
-	return findDeepestResources(pieces, tree, tempTree, domain).then((ret) => {
+  return findDeepestResources(pieces, tree, cachedTree).then((ret) => {
 		// Create all the resources on the way down. ret.cached is an index. Subtract
 		// one from pieces.length so its in terms of an index as well.
 		return Promise.mapSeries(pieces.slice(0, pieces.length - 1 - ret.cached), (piece, j) => {
@@ -309,25 +306,16 @@ let smartPut = ({url, tree, data}) => {
 			let urlPath = '/'+pieces.slice(0, i+1).join('/');
 			let treePath = convertSetupTreePath(pieces.slice(0, i+1), tree);
 			if (pointer.has(tree, treePath+'/_type') && i <= ret.setup) { // its a resource
-				return replaceLinks(pointer.get(tree, treePath)).then((content) => {
+        return replaceLinks(pointer.get(tree, treePath)).then((content) => {
 					return makeResourceAndLink({
-						url: urlObj.protocol+'//'+urlObj.host+urlPath,
+						path: urlPath,
 						data: content
 					}).then(() => {
-						pointer.set(TREE, urlPath, content)
+						pointer.set(cachedTree, urlPath, content)
 						return
 					})
 				})
 			} else return
-		}).then(() => {
-			// Finally, PUT to the deepest resource with the data (upsert)
-			// We're not putting data into the cached tree. It only needs to know about
-			// resource ids, not underlying data itself.
-			return put({
-				url,
-				type: data._type,
-				data,
-			})
 		})
 	}).catch((err) => {
 		console.log(err);
@@ -351,11 +339,9 @@ function convertSetupTreePath(pathPieces, tree) {
 	return '/'+newPieces.join('/')
 }
 
-function makeResourceAndLink({url, data}) {
-	let urlObj = urlLib.parse(url);
-	let domain = urlObj.protocol+'//'+urlObj.host;
+function makeResourceAndLink({path, data}) {
 	let req = {
-		url: data._id ? domain+'/'+data._id : domain+'/resources',
+		path: data._id ? data._id : '/resources',
 		contentType: data._type,
 		data,
 	}
@@ -363,7 +349,7 @@ function makeResourceAndLink({url, data}) {
 	return resource.then((response) => {
 		data._id = response.headers['content-location'].replace(/^\//, '');
 		let link = {
-			url,
+			path,
 			'Content-Type': data._type,
 			data: {_id:data._id},
 		}
