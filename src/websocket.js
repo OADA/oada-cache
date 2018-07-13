@@ -1,6 +1,7 @@
 const Promise = require('bluebird');
 const uuid = require('uuid/v4');
 const WebSocket = require('isomorphic-ws');
+Promise.config({warnings: false})
 let isWindow = false;
 
 function websocket(url) {
@@ -33,7 +34,7 @@ function websocket(url) {
 
 		}
 		if (!isWindow) socket.on('close', socket.onclose)
-		socket.onmessage = function(event) {
+    socket.onmessage = function(event) {
 			var response = JSON.parse(event.data);
 			//Look for id in httpCallbacks
 			if (response.requestId) {
@@ -54,7 +55,7 @@ function websocket(url) {
 						httpCallbacks[response.requestId].reject(err);
 					}
 					delete httpCallbacks[response.requestId];
-				} else if (watchCallbacks[response.requestId]) {
+        } else if (watchCallbacks[response.requestId]) {
 					if (watchCallbacks[response.requestId].resolve) {
 						if (response.status === 'success') {
 							//Successfully setup websocket, resolve promise
@@ -67,7 +68,7 @@ function websocket(url) {
 						//Remove resolve and reject so we process change as a signal next time
 						delete watchCallbacks[response.requestId]['resolve'];
 						delete watchCallbacks[response.requestId]['reject'];
-					} else {
+          } else {
 						if (watchCallbacks[response.requestId].callback == null) throw new Error('The given watch function has an undefined callback:', watchCallbacks[response.requestId]);
 						watchCallbacks[response.requestId].callback(response);
 					}
@@ -77,7 +78,7 @@ function websocket(url) {
 		if (!isWindow) socket.on('message', socket.onclose)
 	}).then(() => {
 
-		function _http(request) {
+    function _http(request) {
 			//Do a HTTP request
       return new Promise((resolve, reject) => {
 				let message = {
@@ -101,7 +102,7 @@ function websocket(url) {
 			});
 		}
 
-		function _watch(request, callback) {
+    function _watch(request, callback) {
 			//Watch for changes on requested resource and trigger provided signal
 			return new Promise((resolve, reject) => {
 				let message = {
@@ -114,7 +115,7 @@ function websocket(url) {
 						return {...a, ...b}
 					})
 				};
-				messages.push(message);
+        messages.push(message);
 				watchCallbacks[message.requestId] = {resolve, reject, callback};
 				sendMessages();
 			});

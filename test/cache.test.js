@@ -7,6 +7,7 @@ let token = 'def';
 let domain = 'https://vip3.ecn.purdue.edu';
 let contentType = 'application/vnd.oada.yield.1+json';
 let connectTime = 30 * 1000; // seconds to click through oauth
+let connection;
 let tree = {
 	'_type': 'application/vnd.oada.harvest.1+json',
 	'_rev': '0-0',
@@ -31,11 +32,11 @@ let tree = {
 		}
 	}
 }
-describe('make a connection', () => {
+describe('~~~~~~~~~~Cache testing~~~~~~~~~~', () => {
     /*
     it('connect with metadata. no cache, no websocket', function(done) {
       this.timeout(connectTime);
-      oada.connect({
+      let connection = oada.connect({
         domain,
         options: {
           redirect: 'http://localhost:8000/oauth2/redirect.html',
@@ -52,19 +53,30 @@ describe('make a connection', () => {
     })
     */
 
-    it('connect with token. cache + websocket', function() {
-      this.timeout(connectTime);
-      return oada.connect({
-        domain,
-        token: 'def',
-        name: 'testDb'
-      }).then((result) => {
-        expect(result).to.have.keys(['token', 'cache', 'socket'])
-        expect(result.cache).to.not.equal(undefined);
-        expect(result.socket).to.not.equal(undefined);
-        return oada.clearCache({name: 'testDb'});
+  it('Make the connection. Cache + websocket enabled.', function() {
+    this.timeout(connectTime);
+    return oada.connect({
+      domain,
+      token: 'def',
+      cache: {name: 'testDb'}
+    }).then((result) => {
+      connection = result;
+      expect(result).to.have.keys(['token', 'cache', 'socket', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result.cache).to.not.equal(undefined);
+      expect(result.socket).to.not.equal(undefined);
+    })
+  })
+
+  it('reset cache and DELETE to initialize the state', async () => {
+    return connection.resetCache().then(() => {
+      return connection.delete({
+        path: '/bookmarks/test', 
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
       })
     })
+  })
 })
 
 
@@ -72,7 +84,7 @@ for (var i = 0; i < 2; i++) {
   describe(`Basic GET/PUT/POST/DELETE calls. Running ${i+1} of 2 times (to test cache)`, function() {
     this.timeout(connectTime);
     it('GET using a path', () => {
-      return oada.get({
+      return connection.get({
         path: '/bookmarks', 
       }).then((response) => {
         expect(response.cached).to.equal(true)
@@ -83,7 +95,7 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('GET using a url. This second GET should come from cache.', () => {
-      return oada.get({
+      return connection.get({
         url: domain+'/bookmarks',
       }).then((response) => {
         expect(response.status).to.equal(200)
@@ -93,14 +105,14 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('PUT using a path', ()=> {
-      return oada.put({
+      return connection.put({
         path: '/bookmarks/test1', 
         type: contentType, 
         data: "123",
       }).then((response) => {
         expect(response.status).to.equal(204)
         expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
-        return oada.get({
+        return connection.get({
           path: '/bookmarks/test1'
         }).then((res) => {
           expect(res.data).to.equal(123);
@@ -109,14 +121,14 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('PUT using a url', ()=> {
-      return oada.put({
+      return connection.put({
         url: domain+'/bookmarks/test', 
         type: contentType, 
         data: {testA: "123"},
       }).then((response) => {
         expect(response.status).to.equal(204)
         expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
-        return oada.get({
+        return connection.get({
           path: '/bookmarks/test'
         }).then((res) => {
           expect(res.data).to.be.an('object');
@@ -126,7 +138,7 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('POST using a path', ()=> {
-      return oada.post({
+      return connection.post({
         path: '/bookmarks/test',
         type: contentType, 
         data:"123"
@@ -137,7 +149,7 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('POST using a url', ()=> {
-      return oada.post({
+      return connection.post({
         url: domain+'/bookmarks/test', 
         type: contentType, 
         data:"123",
@@ -148,11 +160,11 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('DELETE using a path', ()=> {
-      return oada.delete({
+      return connection.delete({
         path: '/bookmarks/test1', 
       }).then((response) => {
         expect(response.status).to.equal(204)
-        return oada.get({
+        return connection.get({
           path: '/bookmarks/test1'
         }).catch((err) => {
           expect(err.response.status).to.equal(404)
@@ -161,15 +173,15 @@ for (var i = 0; i < 2; i++) {
     })
 
     it('DELETE using a url', ()=> {
-      return oada.delete({
+      return connection.delete({
         url: domain+'/bookmarks/test', 
       }).then((response) => {
         expect(response.status).to.equal(204)
-        return oada.get({
+        return connection.get({
           path: '/bookmarks/test'
         }).catch((err) => {
           expect(err.response.status).to.equal(404)
-          return oada.get({
+          return connection.get({
             path: '/bookmarks'
           }).then((resp) => {
             expect(resp.status).to.equal(200)
@@ -181,29 +193,10 @@ for (var i = 0; i < 2; i++) {
     })
   })
 
-  describe('More advanced things', () => {
-    it('should perform a recursive tree get', (done) => {
-      oada.get({
+  describe('Recursive GETs with a tree supplied.', () => {
+    it('Recursive tree get with harvest data tree.', (done) => {
+      connection.get({
         path: '/bookmarks/harvest',
-        tree,
-      }).then((response) => {
-        expect(response.status).to.equal(200)
-        expect(response.data).to.include.keys(['_id', '_rev'])
-        expect(response.data['tiled-maps']).to.include.keys(['_id', '_rev'])
-        expect(response.data['tiled-maps']['dry-yield-map']).to.include.keys(['_id', '_rev'])
-        Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index']).forEach((key) => {
-          expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]).to.include.keys(['_id', '_rev']);
-          Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index']).forEach((i) => {
-            expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index'][i]).to.include.keys(['_id', '_rev']);
-          })
-        })
-        done()
-      })
-    })
-
-    it('should perform a recursive tree get', (done) => {
-      oada.get({
-        url: domain+'/bookmarks/harvest',
         tree,
       }).then((response) => {
         expect(response.status).to.equal(200)

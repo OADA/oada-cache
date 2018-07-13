@@ -5,6 +5,7 @@ var expect = chai.expect;
 
 let token = 'def';
 let domain = 'https://vip3.ecn.purdue.edu';
+let connection;
 let contentType = 'application/vnd.oada.yield.1+json';
 let connectTime = 30 * 1000; // seconds to click through oauth
 let tree = {
@@ -44,28 +45,24 @@ let tree = {
   }
 }
 
-describe('make a connection', () => {
+describe('~~~~IMPORT SCRIPT TEST - ENSURE TREE METHOD~~~~~~~', () => {
 
-    it('connect with token. cache + websocket', function() {
-      this.timeout(connectTime);
-      return oada.connect({
-        domain,
-        token: 'def',
-        name: 'testDb'
-      }).then((result) => {
-        expect(result).to.have.keys(['token', 'cache', 'socket'])
-        expect(result.cache).to.not.equal(undefined);
-        expect(result.socket).to.not.equal(undefined);
-        return oada.clearCache({name: 'testDb'});
-      })
+  it('First, make the connection. Cache + websockets enabled.', function() {
+    return oada.connect({
+      domain,
+      token: 'def',
+      cache: {name: 'testDb'}
+    }).then((result) => {
+      connection = result;
+      expect(result).to.have.keys(['token', 'cache', 'socket', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result.cache).to.not.equal(undefined);
+      expect(result.socket).to.not.equal(undefined);
+      return connection.resetCache();
     })
-})
-
-describe(`PUT with tree parameter supplied`, function() {
-  this.timeout(connectTime);
+  })
 
   it('PUT using a path', ()=> {
-    return oada.put({
+    return connection.put({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee/test/123',
       type: 'application/vnd.oada.as-harvested.yield-moisture.dataset.1+json',
       data: `"some test"`,
@@ -77,7 +74,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: test', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test',
     }).then((response) => {
       expect(response.cached).to.equal(true)
@@ -90,7 +87,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: aaa', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -102,7 +99,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: bbb', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -114,7 +111,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: index-one', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -126,7 +123,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: ccc', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -137,7 +134,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: index-two', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -149,7 +146,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: ddd', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -161,7 +158,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: index-three', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -174,7 +171,7 @@ describe(`PUT with tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: eee', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -185,13 +182,8 @@ describe(`PUT with tree parameter supplied`, function() {
     })
   })
 
-})
-
-describe(`Now a second PUT the same tree parameter supplied`, function() {
-  this.timeout(connectTime);
-
-  it('PUT using a path', ()=> {
-    return oada.put({
+  it('PUT to a different path using the same tree.', ()=> {
+    return connection.put({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three/hhh/test/123',
       type: 'application/vnd.oada.as-harvested.yield-moisture.dataset.1+json',
       data: `"some test"`,
@@ -203,7 +195,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: test', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -215,7 +207,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: aaa', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -227,7 +219,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: bbb', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -239,7 +231,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: index-one', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -251,7 +243,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: ccc', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -262,7 +254,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: index-two', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -274,7 +266,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: ggg', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -286,7 +278,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: index-three', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -299,7 +291,7 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
   })
 
   it('Now test what weve created: hhh', () => {
-    return oada.get({
+    return connection.get({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three/hhh',
     }).then((response) => {
       expect(response.status).to.equal(200)
@@ -309,5 +301,4 @@ describe(`Now a second PUT the same tree parameter supplied`, function() {
       expect(response.data['test']).to.include.keys(['123'])
     })
   })
-
 })
