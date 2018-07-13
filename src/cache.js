@@ -73,7 +73,7 @@ export default function setupCache({name, req, exp}) {
     return getUpsertDoc(req, res).then((dbPut) => {
       return db.put(dbPut).then((result) => {
         req.method = 'get';
-        return getResFromDb(req)
+        return getResFromDb(req, res)
       }).catch((err) => {
         //console.log(err)
         if (err.name === 'conflict') {
@@ -102,7 +102,7 @@ export default function setupCache({name, req, exp}) {
     })
   }
 
-  function getResFromDb(req) {
+  function getResFromDb(req, res) {
     let urlObj = url.parse(req.url)
     let pieces = urlObj.path.split('/')
     let resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
@@ -121,7 +121,7 @@ export default function setupCache({name, req, exp}) {
             'content-location': resourceId+pathLeftover
           },
           status: 200,
-          cached: true,
+          cached: res ? res.cached : true,
         }
       })
     }).catch((err) => {

@@ -6,7 +6,7 @@ var pointer = require('json-pointer');
 var websocket = require('./websocket');
 const Promise = require('bluebird');
 var axios = require('axios');
-let hostLogin = require('oada-id-client').node
+let oadaIdClient = require('oada-id-client');
 
 var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let CACHE = undefined;
@@ -321,12 +321,18 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     })
   }
 
+  function disconnect() {
+    if (CACHE) CACHE.db.destroy();
+    if (CACHE) CACHE.db.close();
+    if (SOCKET) SOCKET.close();
+  }
+
   let urlObj = urlLib.parse(domain);
   let prom;
   if (token) {
     prom = Promise.resolve({access_token: token})
   } else {
-    prom = hostLogin(urlObj.host, options)
+    prom = oadaIdClient.node(urlObj.host, options)
   }
   return prom.then(async (result) => {
     TOKEN = result.access_token;
@@ -356,7 +362,8 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       put,
       post,
       delete: del,
-      resetCache
+      resetCache,
+      disconnect,
     }
   })
 

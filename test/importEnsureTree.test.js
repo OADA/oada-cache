@@ -54,7 +54,7 @@ describe('~~~~IMPORT SCRIPT TEST - ENSURE TREE METHOD~~~~~~~', () => {
       cache: {name: 'testDb'}
     }).then((result) => {
       connection = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
       expect(result.cache).to.not.equal(undefined);
       expect(result.socket).to.not.equal(undefined);
       return connection.resetCache();
@@ -299,6 +299,14 @@ describe('~~~~IMPORT SCRIPT TEST - ENSURE TREE METHOD~~~~~~~', () => {
       expect(response.data).to.include.keys(['_id', '_rev', 'test'])
       expect(response.data['test']).to.not.include.keys(['_id', '_rev'])
       expect(response.data['test']).to.include.keys(['123'])
+    })
+  })
+
+  it('Now clean up', () => {
+    return connection.delete({
+      path: '/bookmarks/test',
+    }).then(() => {
+      return connection.disconnect();
     })
   })
 })
