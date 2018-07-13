@@ -5,7 +5,7 @@ var expect = chai.expect;
 
 let token = 'def';
 let domain = 'https://vip3.ecn.purdue.edu';
-let connections = []
+let connections = new Array(4);
 let contentType = 'application/vnd.oada.yield.1+json';
 let connectTime = 30 * 1000; // seconds to click through oauth
 
@@ -87,104 +87,102 @@ describe('~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
       expect(result.socket).to.equal(undefined);
     })
   })
-
-  it('Now perform GET/PUT/POST/DELETE across each connection', () => {
-    connections.forEach((connection) => {
-      it('GET using a path', () => {
-        return connection.get({
-          path: '/bookmarks', 
-        }).then((response) => {
-          expect(response.status).to.equal(200)
-          expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        })
-      })
-
-      it('GET using a url', () => {
-        return connection.get({
-          url: domain+'/bookmarks',
-        }).then((response) => {
-          expect(response.status).to.equal(200)
-          expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-          expect(response.data).to.include.keys(['_id', '_rev'])
-        })
-      })
-
-      it('PUT using a path', ()=> {
-        return connection.put({
-          path: '/bookmarks/test1', 
-          type: contentType, 
-          data:'123'
-        }).then((response) => {
-          expect(response.status).to.equal(204)
-          expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        })
-      })
-
-      it('PUT using a url', ()=> {
-        return connection.put({
-          url: domain+'/bookmarks/test', 
-          type: contentType, 
-          data:'{}'
-        }).then((response) => {
-          expect(response.status).to.equal(204)
-          expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        })
-      })
-
-      it('POST using a path', ()=> {
-        return connection.post({
-          path: '/bookmarks/test',
-          type: contentType, 
-          data:'123'
-        }).then((response) => {
-          expect(response.status).to.equal(204)
-          expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        })
-      })
-
-      it('POST using a url', ()=> {
-        return connection.post({
-          url: domain+'/bookmarks/test', 
-          type: contentType, 
-          data:'123'
-        }).then((response) => {
-          expect(response.status).to.equal(204)
-          expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        })
-      })
-
-      it('DELETE using a path', ()=> {
-        return connection.delete({
-          path: '/bookmarks/test1', 
-        }).then((response) => {
-          expect(response.status).to.equal(204)
-          return connection.get({
-            path: '/bookmarks/test1'
-          }).catch((err) => {
-            expect(err.response.status).to.equal(404)
-          })
-        })
-      })
-
-      it('DELETE using a url', ()=> {
-        return connection.delete({
-          url: domain+'/bookmarks/test', 
-        }).then((response) => {
-          expect(response.status).to.equal(204)
-          return connection.get({
-            path: '/bookmarks/test'
-          }).catch((err) => {
-            expect(err.response.status).to.equal(404)
-          })
-        })
-      })
-
-      it('Clean up.', () => {
-        return connection.disconnect();
-      })
-
-    })
-  })
-
 })
+  
+for (let i = 0; i < connections.length; i++) {
+  describe(`Testing connection ${i+1}`, () => {
+    it('GET using a path', () => {
+      return connections[i].get({
+        path: '/bookmarks', 
+      }).then((response) => {
+        expect(response.status).to.equal(200)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      })
+    })
 
+    it('GET using a url', () => {
+      return connections[i].get({
+        url: domain+'/bookmarks',
+      }).then((response) => {
+        expect(response.status).to.equal(200)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+        expect(response.data).to.include.keys(['_id', '_rev'])
+      })
+    })
+
+    it('PUT using a path', ()=> {
+      return connections[i].put({
+        path: '/bookmarks/test1', 
+        type: contentType, 
+        data:'123'
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      })
+    })
+
+    it('PUT using a url', ()=> {
+      return connections[i].put({
+        url: domain+'/bookmarks/test', 
+        type: contentType, 
+        data:'{}'
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      })
+    })
+
+    it('POST using a path', ()=> {
+      return connections[i].post({
+        path: '/bookmarks/test',
+        type: contentType, 
+        data:'123'
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      })
+    })
+
+    it('POST using a url', ()=> {
+      return connections[i].post({
+        url: domain+'/bookmarks/test', 
+        type: contentType, 
+        data:'123'
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+      })
+    })
+
+    it('DELETE using a path', ()=> {
+      return connections[i].delete({
+        path: '/bookmarks/test1', 
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        return connections[i].get({
+          path: '/bookmarks/test1'
+        }).catch((err) => {
+          expect(err.response.status).to.equal(404)
+        })
+      })
+    })
+
+    it('DELETE using a url', ()=> {
+      return connections[i].delete({
+        url: domain+'/bookmarks/test', 
+      }).then((response) => {
+        expect(response.status).to.equal(204)
+        return connections[i].get({
+          path: '/bookmarks/test'
+        }).catch((err) => {
+          expect(err.response.status).to.equal(404)
+        })
+      })
+    })
+
+    it('Clean up.', () => {
+      return connections[i].disconnect();
+    })
+
+  })
+}
