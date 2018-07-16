@@ -1,12 +1,12 @@
 import setupCache from './cache'
 import uuid from 'uuid'
 import _ from 'lodash'
-var urlLib = require('url');
-var pointer = require('json-pointer');
-var websocket = require('./websocket');
+const urlLib = require('url');
+const pointer = require('json-pointer');
+const websocket = require('./websocket');
 const Promise = require('bluebird');
-var axios = require('axios');
-let oadaIdClient = require('@oada/oada-id-client');
+const axios = require('axios');
+const oadaIdClient = require('@oada/oada-id-client');
 
 var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let CACHE = undefined;
@@ -335,7 +335,13 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   if (token) {
     prom = Promise.resolve({access_token: token})
   } else {
-    prom = oadaIdClient.node(urlObj.host, options)
+    if (typeof window === 'undefined') {
+      prom = oadaIdClient.node(urlObj.host, options)
+    } else {
+      // the library itself detects a browser environment and delivers .browser
+      var gat = Promise.promisify(oadaIdClient.getAccessToken);
+      prom = gat(urlObj.host, options);
+    }
   }
   return prom.then(async (result) => {
     TOKEN = result.access_token;
