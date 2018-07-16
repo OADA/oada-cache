@@ -6,7 +6,7 @@ var pointer = require('json-pointer');
 var websocket = require('./websocket');
 const Promise = require('bluebird');
 var axios = require('axios');
-let oadaIdClient = require('oada-id-client');
+let oadaIdClient = require('@oada/oada-id-client');
 
 var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let CACHE = undefined;
