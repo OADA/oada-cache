@@ -2,7 +2,6 @@ const Promise = require('bluebird');
 const uuid = require('uuid/v4');
 const WebSocket = require('isomorphic-ws');
 Promise.config({warnings: false})
-let isWindow = false;
 
 function websocket(url) {
 	//Create the message queue
@@ -28,12 +27,10 @@ function websocket(url) {
 			sendMessages();
 			resolve(socket)
 		}
-		if (!isWindow) socket.on('open', socket.onopen)
 
 		socket.onclose = function(event) {
 
 		}
-		if (!isWindow) socket.on('close', socket.onclose)
     socket.onmessage = function(event) {
 			var response = JSON.parse(event.data);
 			//Look for id in httpCallbacks
@@ -75,7 +72,6 @@ function websocket(url) {
 				}
 			}
 		}
-		if (!isWindow) socket.on('message', socket.onclose)
 	}).then(() => {
 
     function _http(request) {
