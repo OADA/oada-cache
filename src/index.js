@@ -327,6 +327,9 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     if (SOCKET) SOCKET.close();
   }
 
+
+  // Now actually make the connection
+
   let urlObj = urlLib.parse(domain);
   let prom;
   if (token) {
