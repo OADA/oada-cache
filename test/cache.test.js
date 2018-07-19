@@ -195,6 +195,30 @@ for (var i = 0; i < 2; i++) {
         done()
       })
     })
+
+    it('Recursive tree get with harvest data tree.', (done) => {
+      connOne.get({
+        path: '/bookmarks',
+        tree: {
+          _type: 'application/vnd.oada.bookmarks.1+json',
+          _rev: '0-0',
+          harvest: tree,
+        },
+      }).then((response) => {
+        console.log(response);
+        expect(response.status).to.equal(200)
+        expect(response.data).to.include.keys(['_id', '_rev'])
+        expect(response.data['tiled-maps']).to.include.keys(['_id', '_rev'])
+        expect(response.data['tiled-maps']['dry-yield-map']).to.include.keys(['_id', '_rev'])
+        Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index']).forEach((key) => {
+          expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]).to.include.keys(['_id', '_rev']);
+          Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index']).forEach((i) => {
+            expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index'][i]).to.include.keys(['_id', '_rev']);
+          })
+        })
+        done()
+      })
+    })
   })
 }
 

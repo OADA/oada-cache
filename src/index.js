@@ -8,6 +8,56 @@ const Promise = require('bluebird');
 const axios = require('axios');
 const oadaIdClient = require('@oada/oada-id-client');
 
+function _replaceLinks(obj) {
+  let ret = (Array.isArray(obj)) ? [] : {};
+  if (!obj) return obj;  // no defined objriptors for this level
+  return Promise.map(Object.keys(obj || {}), (key)  => {
+    if (key === '*') { // Don't put *s into oada. Ignore them
+      return;
+    }
+    let val = obj[key];
+    if (typeof val !== 'object' || !val) {
+      ret[key] = val; // keep it asntType: 'application/vnd.oada.harvest.1+json'
+      return;
+    }
+    if (val._type) { // If it has a '_type' key, don't worry about it.
+      //It'll get created in future iterations of ensureTreeExists
+      return;
+    }
+    if (val._id) { // If it's an object, and has an '_id', make it a link from descriptor
+      ret[key] = { _id: obj[key]._id};
+      if (val._rev) ret[key]._rev = '0-0'
+      return;
+    }
+    // otherwise, recurse into the object looking for more links
+    return _replaceLinks(val).then((result) => {
+      ret[key] = result;
+      return;
+    })
+  }).then(() => {
+    return ret;
+  })
+}
+
+function _makeResourceAndLink({path, data}) {
+  let req = {
+    path: data._id ? data._id : '/resources',
+    contentType: data._type,
+    data,
+  }
+  let resource = data._id ? put(req) : post(req);
+  return resource.then((response) => {
+    data._id = response.headers['content-location'].replace(/^\//, '');
+    let link = {
+      path,
+      'Content-Type': data._type,
+      data: {_id:data._id},
+    }
+    if (data._rev) link.data._rev = '0-0'
+    return put(link)
+  })
+}
+
 var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let CACHE = undefined;
   let REQUEST = axios;
@@ -111,36 +161,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     })
   }
 
-  function _replaceLinks(obj) {
-    let ret = (Array.isArray(obj)) ? [] : {};
-    if (!obj) return obj;  // no defined objriptors for this level
-    return Promise.map(Object.keys(obj || {}), (key)  => {
-      if (key === '*') { // Don't put *s into oada. Ignore them
-        return;
-      }
-      let val = obj[key];
-      if (typeof val !== 'object' || !val) {
-        ret[key] = val; // keep it asntType: 'application/vnd.oada.harvest.1+json'
-        return;
-      }
-      if (val._type) { // If it has a '_type' key, don't worry about it.
-        //It'll get created in future iterations of ensureTreeExists
-        return;
-      }
-      if (val._id) { // If it's an object, and has an '_id', make it a link from descriptor
-        ret[key] = { _id: obj[key]._id};
-        if (val._rev) ret[key]._rev = '0-0'
-        return;
-      }
-      // otherwise, recurse into the object looking for more links
-      return _replaceLinks(val).then((result) => {
-        ret[key] = result;
-        return;
-      })
-    }).then(() => {
-      return ret;
-    })
-  }
+
 
   function _recursiveGet(url, tree, returnData) {
     return Promise.try(() => {
@@ -236,25 +257,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       }
     })
     return '/'+newPieces.join('/')
-  }
-
-  function _makeResourceAndLink({path, data}) {
-    let req = {
-      path: data._id ? data._id : '/resources',
-      contentType: data._type,
-      data,
-    }
-    let resource = data._id ? put(req) : post(req);
-    return resource.then((response) => {
-      data._id = response.headers['content-location'].replace(/^\//, '');
-      let link = {
-        path,
-        'Content-Type': data._type,
-        data: {_id:data._id},
-      }
-      if (data._rev) link.data._rev = '0-0'
-      return put(link)
-    })
   }
 
   // Ensure all resources down to the deepest resource are created before
@@ -380,4 +382,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
 
 export default {
   connect,
+  replaceLinks: _replaceLinks,
+  makeResourceAndLink: _makeResourceAndLink
 }
