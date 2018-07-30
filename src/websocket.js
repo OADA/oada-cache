@@ -96,6 +96,25 @@ function websocket(url) {
         };
 				sendMessages();
 			});
+    }
+
+    function _unwatch(request) {
+			//Watch for changes on requested resource and trigger provided signal
+			return new Promise((resolve, reject) => {
+				let message = {
+					requestId: uuid(),
+					method: 'unwatch',
+					path: request.path,
+					headers: Object.entries(request.headers).map(([key, value]) => {
+						return {[key.toLowerCase()]: value}
+					}).reduce((a,b) => {
+						return {...a, ...b}
+					})
+				};
+        messages.push(message);
+        //unwatchCallbacks[message.requestId] = {resolve, reject, callback};
+				sendMessages();
+			});
 		}
 
     function _watch(request, callback) {
@@ -131,7 +150,8 @@ function websocket(url) {
 			url,
 			http: _http,
 			close: _close,
-			watch: _watch
+			watch: _watch,
+			unwatch: _unwatch,
 		}
 	})
 }

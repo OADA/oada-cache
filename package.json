@@ -1,6 +1,6 @@
 {
   "name": "@oada/oada-cache",
-  "version": "1.1.4",
+  "version": "1.1.7",
   "description": "node library for interacting with and locally caching data served on an oada-compliant server",
   "main": "./build/index.js",
   "directories": {
@@ -10,7 +10,8 @@
     "test": "mocha -w --require babel-polyfill --compilers js:babel-register test/**/*.test.js",
     "build": "babel src --require babel-polyfill --out-dir build --presets=env",
     "build-watch": "babel src --watch --require babel-polyfill --out-dir build --presets=env",
-    "prepublish": "npm run build"
+    "dev": "cpx --watch --verbose './build/**' '../TrialsTracker/node_modules/@oada/oada-cache/build/'",
+    "prepare": "npm run build"
   },
   "author": "oada",
   "license": "Apache-2.0",

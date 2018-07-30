@@ -8,55 +8,8 @@ const Promise = require('bluebird');
 const axios = require('axios');
 const oadaIdClient = require('@oada/oada-id-client');
 
-function _replaceLinks(obj) {
-  let ret = (Array.isArray(obj)) ? [] : {};
-  if (!obj) return obj;  // no defined objriptors for this level
-  return Promise.map(Object.keys(obj || {}), (key)  => {
-    if (key === '*') { // Don't put *s into oada. Ignore them
-      return;
-    }
-    let val = obj[key];
-    if (typeof val !== 'object' || !val) {
-      ret[key] = val; // keep it asntType: 'application/vnd.oada.harvest.1+json'
-      return;
-    }
-    if (val._type) { // If it has a '_type' key, don't worry about it.
-      //It'll get created in future iterations of ensureTreeExists
-      return;
-    }
-    if (val._id) { // If it's an object, and has an '_id', make it a link from descriptor
-      ret[key] = { _id: obj[key]._id};
-      if (val._rev) ret[key]._rev = '0-0'
-      return;
-    }
-    // otherwise, recurse into the object looking for more links
-    return _replaceLinks(val).then((result) => {
-      ret[key] = result;
-      return;
-    })
-  }).then(() => {
-    return ret;
-  })
-}
 
-function _makeResourceAndLink({path, data}) {
-  let req = {
-    path: data._id ? data._id : '/resources',
-    contentType: data._type,
-    data,
-  }
-  let resource = data._id ? put(req) : post(req);
-  return resource.then((response) => {
-    data._id = response.headers['content-location'].replace(/^\//, '');
-    let link = {
-      path,
-      'Content-Type': data._type,
-      data: {_id:data._id},
-    }
-    if (data._rev) link.data._rev = '0-0'
-    return put(link)
-  })
-}
+
 
 var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let CACHE = undefined;
@@ -67,40 +20,56 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let NAME = cache ? cache.name : undefined;
   let EXP = cache ? cache.exp : undefined;
 
-  function post({url, path, data, type, headers, tree}) {
-    url = url || DOMAIN+path;
-    url = url[url.length-1] === '/' ? url+uuid() : url+'/'+uuid();
-    return put({
-      url,
-      data,
-      type,
-      headers,
-      tree
+  function _replaceLinks(obj) {
+    let ret = (Array.isArray(obj)) ? [] : {};
+    if (!obj) return obj;  // no defined objriptors for this level
+    return Promise.map(Object.keys(obj || {}), (key)  => {
+      if (key === '*') { // Don't put *s into oada. Ignore them
+        return;
+      }
+      let val = obj[key];
+      if (typeof val !== 'object' || !val) {
+        ret[key] = val; // keep it asntType: 'application/vnd.oada.harvest.1+json'
+        return;
+      }
+      if (val._type) { // If it has a '_type' key, don't worry about it.
+        //It'll get created in future iterations of ensureTree
+        return;
+      }
+      if (val._id) { // If it's an object, and has an '_id', make it a link from descriptor
+        ret[key] = { _id: obj[key]._id};
+        if (val._rev) ret[key]._rev = '0-0'
+        return;
+      }
+      // otherwise, recurse into the object looking for more links
+      return _replaceLinks(val).then((result) => {
+        ret[key] = result;
+        return;
+      })
+    }).then(() => {
+      return ret;
     })
   }
 
-  function del({url, path, headers}) {
+  function _makeResourceAndLink({path, data}) {
     let req = {
-      method: 'delete',
-      url: url || DOMAIN+path,
-      headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
+      path: data._id ? data._id : '/resources',
+      type: data._type,
+      data,
     }
-    return REQUEST(req)
-  }
-
-  function _configureCache({name, req, exp}) {
-    let res = setupCache({name, req, exp})
-    REQUEST = res.api;
-    CACHE = res;
-    return
-  }
-
-  function _configureWs({domain}) {
-    return websocket(domain).then((socketApi) => {
-      REQUEST = socketApi.http;
-      return SOCKET = socketApi;
+    let resource = data._id ? put(req) : post(req);
+    return resource.then((response) => {
+      data._id = response.headers['content-location'].replace(/^\//, '');
+      let link = {
+        path,
+        type: data._type,
+        data: {_id:data._id},
+      }
+      if (data._rev) link.data._rev = '0-0'
+      return put(link)
     })
   }
+    // Now actually make the connection
 
   function _watch({headers, path, func, payload}) {
     if (SOCKET) {
@@ -150,6 +119,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
 
     return prom.then(async (response) => {
       if (watch) {
+        path = path || urlLib.parse(url).path;
         await _watch({
           headers: req.headers,
           path,
@@ -160,8 +130,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       return response
     })
   }
-
-
 
   function _recursiveGet(url, tree, returnData) {
     return Promise.try(() => {
@@ -217,24 +185,23 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         setup = setup || z;
         if (pointer.has(cachedTree, urlPath)) {
           cached = z;
-          throw z;
+          throw new Error('cached');
         }
         return get({
           path: urlPath
         }).then((response) => {
           pointer.set(cachedTree, urlPath, {})
           cached = z;
-          throw z;
+          throw new Error('cached');
         }).catch((err) => {
-          if (typeof err === 'number') throw z;
+          if (/^cached/.test(err)) throw err;
           return
         })
       }
       return
     }).catch((err) => {
-      //console.log(err);
       // Throwing with a number error only should occur on success.
-      if (typeof err === 'number') return { cached, setup }
+      if (/^cached/.test(err)) return { cached, setup }
     }).then(() => {
       return { 
         cached: cached, 
@@ -259,8 +226,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     return '/'+newPieces.join('/')
   }
 
-  // Ensure all resources down to the deepest resource are created before
-  // performing a PUT.
   function _ensureTree({url, tree}) {
     //If /resources
     
@@ -295,6 +260,54 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     })
   }
 
+  function post({url, path, data, type, headers, tree}) {
+    url = url || DOMAIN+path;
+    url = url[url.length-1] === '/' ? url+uuid() : url+'/'+uuid();
+    return put({
+      url,
+      data,
+      type,
+      headers,
+      tree
+    })
+  }
+
+  function del({url, path, headers, unwatch}) {
+    let req = {
+      method: 'delete',
+      url: url || DOMAIN+path,
+      headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
+    }
+
+    if (unwatch) {
+      path = path || urlLib.parse(url).path;
+      return SOCKET.unwatch({
+        path,
+        headers: req.headers
+      })
+    }
+
+    return REQUEST(req).catch((err) => {
+      console.log(req, err);
+    })
+  }
+
+  function _configureCache({name, req, exp}) {
+    let res = setupCache({name, req, exp})
+    REQUEST = res.api;
+    CACHE = res;
+    return
+  }
+
+  function _configureWs({domain}) {
+    return websocket(domain).then((socketApi) => {
+      REQUEST = socketApi.http;
+      return SOCKET = socketApi;
+    })
+  }
+
+  // Ensure all resources down to the deepest resource are created before
+  // performing a PUT.
   async function put({url, path, data, type, headers, tree}) {
     let req = {
       method: 'put',
@@ -328,9 +341,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     if (CACHE) CACHE.db.close();
     if (SOCKET) SOCKET.close();
   }
-
-
-  // Now actually make the connection
 
   let urlObj = urlLib.parse(domain);
   let prom;
@@ -367,8 +377,8 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   }).then((f) => {
     return {
       token: TOKEN,
-      cache: CACHE,
-      socket: SOCKET,
+      //      cache: CACHE,
+      //socket: SOCKET,
       get,
       put,
       post,
@@ -377,11 +387,8 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       disconnect,
     }
   })
-
 }
 
 export default {
   connect,
-  replaceLinks: _replaceLinks,
-  makeResourceAndLink: _makeResourceAndLink
 }

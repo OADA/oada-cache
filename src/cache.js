@@ -1,6 +1,6 @@
 "use strict"
 var Promise = require('bluebird');
-var PouchDB = require('pouchdb');
+import PouchDB from 'pouchdb';
 var url = require('url');
 var _ = require('lodash');
 var pointer = require('json-pointer');
