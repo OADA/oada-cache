@@ -1,4 +1,5 @@
 const Promise = require('bluebird');
+const urlLib = require('url');
 const uuid = require('uuid/v4');
 const WebSocket = require('isomorphic-ws');
 Promise.config({warnings: false})
@@ -42,7 +43,7 @@ function websocket(url) {
 					} else {
             //Create error like axios
 						let err = new Error('Request failed with status code '+response.status);
-						err.request = httpCallbacks[response.requestId].request;
+            err.request = httpCallbacks[response.requestId].request;
 						err.response = {
 							status: response.status,
 							statusText: response.status,
@@ -77,10 +78,11 @@ function websocket(url) {
     function _http(request) {
 			//Do a HTTP request
       return new Promise((resolve, reject) => {
+        let urlObj = urlLib.parse(request.url);
 				let message = {
 					requestId: uuid(),
 					method: request.method.toLowerCase(),
-					path: (request.url.indexOf(url) === 0) ? request.url.replace(url, '') : request.url,
+					path: urlObj.path,
 					data: request.data,
 					headers: Object.entries(request.headers).map(([key, value]) => {
 						return {[key.toLowerCase()]: value}

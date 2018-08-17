@@ -8,17 +8,16 @@ const Promise = require('bluebird');
 const axios = require('axios');
 const oadaIdClient = require('@oada/oada-id-client');
 
-
-
-
 var connect = function connect({domain, options, cache, token, noWebsocket}) {
   let CACHE = undefined;
   let REQUEST = axios;
   let SOCKET = undefined;
   let TOKEN = undefined;
   let DOMAIN = domain;
-  let NAME = cache ? cache.name : undefined;
+  let NAME = urlLib.parse(domain).hostname.replace(/\./g, '_');
   let EXP = cache ? cache.exp : undefined;
+
+  if (!DOMAIN) throw 'domain undefined'
 
   function _replaceLinks(obj) {
     let ret = (Array.isArray(obj)) ? [] : {};
@@ -53,23 +52,27 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
 
   function _makeResourceAndLink({path, data}) {
     let req = {
-      path: data._id ? data._id : '/resources',
+      path: data._id ? '/'+data._id : '/resources/'+uuid(),
       type: data._type,
       data,
     }
-    let resource = data._id ? put(req) : post(req);
-    return resource.then((response) => {
-      data._id = response.headers['content-location'].replace(/^\//, '');
-      let link = {
-        path,
-        type: data._type,
-        data: {_id:data._id},
-      }
-      if (data._rev) link.data._rev = '0-0'
-      return put(link)
+    let link = {
+      path,
+      type: data._type,
+      data: {_id:data._id || req.path.replace(/^\//, '')}
+    }
+    if (data._rev) link.data._rev = '0-0'
+    return put(link).then(() => {
+      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~now making resource~~~~~~~~~~')
+      return put(req).catch((er) => {
+        console.log('resource', req)
+        console.log(er)
+      })
+    }).catch((err) => {
+      console.log('link', link)
+      console.log(err)
     })
   }
-    // Now actually make the connection
 
   function _watch({headers, path, func, payload}) {
     if (SOCKET) {
@@ -107,7 +110,14 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     let prom;
 
     if (tree) {
+      // Tree must be rooted at /bookmarks. Get the subtree for the given path.
+      var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
+      let treePath = _convertSetupTreePath(pieces, tree);
+      if (!pointer.has(tree, treePath)) return get({url})
+      tree = pointer.get(tree, treePath)
+
       prom = _recursiveGet(req.url, tree, {}).then((res) => {
+        console.log('yup here tis', res)
         return {
           data: res,
           status: 200,
@@ -130,19 +140,33 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       return response
     })
   }
+    /*
+  function _recursiveGet(url, tree) {
+    let pieces = urlLib.parse(url).path.replace(/^\//, '').split('/');
+    let treePath = _convertSetupTreePath(pieces, tree);
+    let treePieces = treePath.split('/');
+    return Promise.map(treePieces, (piece, i) => {
+      
+    })
+  }*/
+    
+
 
   function _recursiveGet(url, tree, returnData) {
+    console.log('recursiveGet', url, tree)
     return Promise.try(() => {
       // Perform a GET if we have reached the next resource break.
       if (tree._type) { // its a resource
+        console.log('getting', url)
         return get({
           url
         }).then((response) => {
+          console.log('got', url, response.data)
           returnData = response.data;
           return
         })
       }
-      return
+      return tree
     }).then(() => {
       // Walk down the data at this url and continue recursion.
       return Promise.map(Object.keys(tree), (key) => {
@@ -157,6 +181,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
           })
         } else if (typeof tree[key] === 'object') {
           return _recursiveGet(url+'/'+key, tree[key] || {}, returnData[key]).then((res) => {
+            console.log('setting', url, returnData, key, res)
             return returnData[key] = res;
           })
         } else return returnData[key]
@@ -164,6 +189,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         return returnData
       })
     }).catch((err) => {
+      console.log(err, url)
       if (err.response.status === 404) {
         return
       }
@@ -181,27 +207,28 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       let treePath = _convertSetupTreePath(pieces.slice(0, z+1), tree);
       // Check that its in the cached tree then look for deepest _resource_.
       // If successful, break from the loop by throwing
+      console.log(pointer.has(tree, treePath+'/_type'), treePath, tree)
       if (pointer.has(tree, treePath+'/_type')) {
         setup = setup || z;
         if (pointer.has(cachedTree, urlPath)) {
-          cached = z;
+          cached = _.clone(z);
           throw new Error('cached');
         }
         return get({
           path: urlPath
         }).then((response) => {
           pointer.set(cachedTree, urlPath, {})
-          cached = z;
+          cached = _.clone(z);
           throw new Error('cached');
         }).catch((err) => {
-          if (/^cached/.test(err)) throw err;
+          if (/^cached/.test(err.message)) throw err;
           return
         })
       }
       return
     }).catch((err) => {
       // Throwing with a number error only should occur on success.
-      if (/^cached/.test(err)) return { cached, setup }
+      if (/^cached/.test(err.message)) return { cached, setup }
     }).then(() => {
       return { 
         cached: cached, 
@@ -230,9 +257,10 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     //If /resources
     
     //If /bookmarks
-    let path = urlLib.parse(url).path;
-    path = path.replace(/^\//, '');
+    let path = urlLib.parse(url).path.replace(/^\//, '');
     let pieces = path.replace(/\/$/, '').split('/');
+    //    let treePath = _convertSetupTreePath(pieces, tree);
+    //    if (pointer.has(tree, treePath)) pointer.set(tree, treePath, _.merge(pointer.get(tree, treePath),data))
     let cachedTree = {};
     // Find the deepest part of the path that exists. Once found, work back down.
     return _findDeepestResources(pieces, tree, cachedTree).then((ret) => {
@@ -246,16 +274,22 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
           return _replaceLinks(pointer.get(tree, treePath)).then((content) => {
             return _makeResourceAndLink({
               path: urlPath,
-              data: content
-            }).then(() => {
+              data: _.cloneDeep(content)
+            }).then((resp) => {
               pointer.set(cachedTree, urlPath, content)
-              return
+              return resp
+            }).catch((err) => {
+              console.log(err, urlPath, content);
+              return err
             })
           })
         } else return
       })
+    }).then((responses) => {
+      console.log('ensureTree returned', responses[responses.length-1])
+      return responses[responses.length-1]
     }).catch((err) => {
-      //console.log(err);
+      console.log(err);
       return err
     })
   }
@@ -316,13 +350,14 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       data,
     }
     if (type) req.headers['Content-Type'] = type;
-    if (tree) {
-      let ret = await _ensureTree({
-        url: req.url,
-        tree,
-      })
-    }
 
+    if (tree) {
+      await _ensureTree({
+        url: req.url,
+        tree: _.cloneDeep(tree),
+        data
+      })
+    } 
     return REQUEST(req)
   }
 
@@ -330,7 +365,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     if (!CACHE) return
     await CACHE.resetCache();
     return _configureCache({
-      name: name || NAME,
+      name: NAME,
       req: SOCKET.http || axios,
       exp: exp || EXP, 
     })
@@ -366,13 +401,12 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     } else wsProm = Promise.resolve();
     return wsProm.then(() => {
       let cacheProm;
-      if (cache) {
-        return _configureCache({
-          name: NAME || uuid(),
-          req: REQUEST,
-          exp: EXP,
-        })
-      } else return
+      if (cache === false) return
+      return _configureCache({
+        name: NAME || uuid(),
+        req: REQUEST,
+        exp: EXP,
+      })
     })
   }).then((f) => {
     return {
