@@ -63,14 +63,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     }
     if (data._rev) link.data._rev = '0-0'
     return put(link).then(() => {
-      console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~now making resource~~~~~~~~~~')
-      return put(req).catch((er) => {
-        console.log('resource', req)
-        console.log(er)
-      })
-    }).catch((err) => {
-      console.log('link', link)
-      console.log(err)
+      return put(req)
     })
   }
 
@@ -78,7 +71,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     if (SOCKET) {
       return SOCKET.watch({
         path,
-        headers: {Authorization: 'Bearer '+TOKEN},
+        headers,
       }, async function watchResponse(response) {
         if (!payload) payload = {};
         payload.response = response;
@@ -115,13 +108,13 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       let treePath = _convertSetupTreePath(pieces, tree);
       if (!pointer.has(tree, treePath)) return get({url})
       tree = pointer.get(tree, treePath)
-
       prom = _recursiveGet(req.url, tree, {}).then((res) => {
-        console.log('yup here tis', res)
         return {
           data: res,
           status: 200,
         }
+      }).catch((err) => {
+        return
       })
     } else {
       prom = REQUEST(req);
@@ -130,6 +123,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     return prom.then(async (response) => {
       if (watch) {
         path = path || urlLib.parse(url).path;
+        req.headers['x-oada-rev'] = response.data._rev;
         await _watch({
           headers: req.headers,
           path,
@@ -140,28 +134,14 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       return response
     })
   }
-    /*
-  function _recursiveGet(url, tree) {
-    let pieces = urlLib.parse(url).path.replace(/^\//, '').split('/');
-    let treePath = _convertSetupTreePath(pieces, tree);
-    let treePieces = treePath.split('/');
-    return Promise.map(treePieces, (piece, i) => {
-      
-    })
-  }*/
-    
-
 
   function _recursiveGet(url, tree, returnData) {
-    console.log('recursiveGet', url, tree)
     return Promise.try(() => {
       // Perform a GET if we have reached the next resource break.
       if (tree._type) { // its a resource
-        console.log('getting', url)
         return get({
           url
         }).then((response) => {
-          console.log('got', url, response.data)
           returnData = response.data;
           return
         })
@@ -169,19 +149,18 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       return tree
     }).then(() => {
       // Walk down the data at this url and continue recursion.
-      return Promise.map(Object.keys(tree), (key) => {
+      return Promise.map(Object.keys(tree || {}), (key) => {
         // If tree contains a *, this means we should get ALL content on the server
         // at this level and continue recursion for each returned key.
         if (key === '*') {
-          return Promise.map(Object.keys(returnData), (resKey) => {
+          return Promise.map(Object.keys(returnData || {}), (resKey) => {
             if (resKey.charAt(0) === '_') return
-            return _recursiveGet(url+'/'+resKey, tree[key] || {}, returnData[key]).then((res) => {
+            return _recursiveGet(url+'/'+resKey, tree[key] || {}, returnData[resKey]).then((res) => {
               return returnData[resKey] = res;
             })
           })
         } else if (typeof tree[key] === 'object') {
           return _recursiveGet(url+'/'+key, tree[key] || {}, returnData[key]).then((res) => {
-            console.log('setting', url, returnData, key, res)
             return returnData[key] = res;
           })
         } else return returnData[key]
@@ -189,7 +168,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         return returnData
       })
     }).catch((err) => {
-      console.log(err, url)
+      console.log(url, err)
       if (err.response.status === 404) {
         return
       }
@@ -207,7 +186,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       let treePath = _convertSetupTreePath(pieces.slice(0, z+1), tree);
       // Check that its in the cached tree then look for deepest _resource_.
       // If successful, break from the loop by throwing
-      console.log(pointer.has(tree, treePath+'/_type'), treePath, tree)
       if (pointer.has(tree, treePath+'/_type')) {
         setup = setup || z;
         if (pointer.has(cachedTree, urlPath)) {
@@ -279,17 +257,14 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
               pointer.set(cachedTree, urlPath, content)
               return resp
             }).catch((err) => {
-              console.log(err, urlPath, content);
               return err
             })
           })
         } else return
       })
     }).then((responses) => {
-      console.log('ensureTree returned', responses[responses.length-1])
       return responses[responses.length-1]
     }).catch((err) => {
-      console.log(err);
       return err
     })
   }
@@ -321,9 +296,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       })
     }
 
-    return REQUEST(req).catch((err) => {
-      console.log(req, err);
-    })
+    return REQUEST(req)
   }
 
   function _configureCache({name, req, exp}) {
@@ -358,6 +331,9 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         data
       })
     } 
+    var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
+    let treePath = _convertSetupTreePath(pieces, tree)+'/_type';
+    if (pointer.has(tree, treePath)) req.headers['Content-Type'] = pointer.get(tree, treePath)
     return REQUEST(req)
   }
 

@@ -50,6 +50,7 @@ function websocket(url) {
 							headers: response.headers,
 							data: response.data
 						};
+            console.log('websocket', err.request, err.response)
 						httpCallbacks[response.requestId].reject(err);
 					}
 					delete httpCallbacks[response.requestId];
