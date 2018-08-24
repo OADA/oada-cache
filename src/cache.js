@@ -204,8 +204,6 @@ export default function setupCache({name, req, exp}) {
             return getLookup(req)
           }
         })
-      }).catch((e) => {
-        throw e	
       })
     })
   }

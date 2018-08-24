@@ -17,13 +17,13 @@ function websocket(url) {
 	function sendMessages() {
 		if (!connected) return;
 		messages.forEach((message) => {
-			socket.send(JSON.stringify(message));
+      socket.send(JSON.stringify(message));
 		});
 		messages = [];
 	}
 
 	return new Promise((resolve, reject) => {
-		socket.onopen = function(event) {
+    socket.onopen = function(event) {
 			connected = true;
 			sendMessages();
 			resolve(socket)
@@ -42,6 +42,7 @@ function websocket(url) {
 						httpCallbacks[response.requestId].resolve(response);
 					} else {
             //Create error like axios
+            console.log(httpCallbacks[response.requestId].request, response);
 						let err = new Error('Request failed with status code '+response.status);
             err.request = httpCallbacks[response.requestId].request;
 						err.response = {
@@ -49,8 +50,7 @@ function websocket(url) {
 							statusText: response.status,
 							headers: response.headers,
 							data: response.data
-						};
-            console.log('websocket', err.request, err.response)
+            };
 						httpCallbacks[response.requestId].reject(err);
 					}
 					delete httpCallbacks[response.requestId];
@@ -60,8 +60,10 @@ function websocket(url) {
 							//Successfully setup websocket, resolve promise
 							watchCallbacks[response.requestId].resolve(response);
             } else {
+              console.log(watchCallbacks[response.requestId].request, response);
 							let err = new Error('Request failed with status code '+response.status);
 							err.response = response;
+              err.request = watchCallbacks[response.requestId].request;
 							watchCallbacks[response.requestId].reject(err);
 						}
 						//Remove resolve and reject so we process change as a signal next time

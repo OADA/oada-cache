@@ -168,7 +168,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         return returnData
       })
     }).catch((err) => {
-      console.log(url, err)
       if (err.response.status === 404) {
         return
       }
