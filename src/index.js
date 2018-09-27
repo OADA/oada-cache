@@ -51,6 +51,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   }
 
   function _makeResourceAndLink({path, data}) {
+    console.log('making resource and linking', path, data)
     let req = {
       path: data._id ? '/'+data._id : '/resources/'+uuid(),
       type: data._type,
@@ -73,15 +74,15 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         path,
         headers,
       }, async function watchResponse(response) {
-        if (!payload) payload = {};
-        payload.response = response;
-        payload.request = {
+        var watchPayload = _.cloneDeep(payload) || {};
+        watchPayload.response = response;
+        watchPayload.request = {
           url: DOMAIN+path,
           headers,
-          method: payload.response.change.type,
+          method: response.change.type,
         }
-        if (CACHE) await CACHE.handleWatchChange(payload)
-        return func(payload)
+        if (CACHE) await CACHE.handleWatchChange(_.cloneDeep(watchPayload))
+        return func(watchPayload)
       })
     } else {
       // Ping a normal GET every 5 seconds in the absense of a websocket
@@ -106,7 +107,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       // Tree must be rooted at /bookmarks. Get the subtree for the given path.
       var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
       let treePath = _convertSetupTreePath(pieces, tree);
-      if (!pointer.has(tree, treePath)) return get({url})
+      if (!pointer.has(tree, treePath)) return get({url: req.url})
       tree = pointer.get(tree, treePath)
       prom = _recursiveGet(req.url, tree, {}).then((res) => {
         return {
@@ -124,6 +125,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       if (watch) {
         path = path || urlLib.parse(url).path;
         req.headers['x-oada-rev'] = response.data._rev;
+        //        console.log('GET WATCH REV', path, response.data._rev)
         await _watch({
           headers: req.headers,
           path,
@@ -144,6 +146,11 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
         }).then((response) => {
           returnData = response.data;
           return
+        }).catch((err) => {
+          if (err.response.status === 404) {
+            return
+          }
+          throw err
         })
       }
       return tree
@@ -175,12 +182,13 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     })
   }
 
+  // Identify the cached resources vs those that need to be setup.
   function _findDeepestResources(pieces, tree, cachedTree) {
     let cached = 0;
     let setup;
     // Walk down the url in reverse order
     return Promise.mapSeries(pieces, (piece, i) => {
-      let z = pieces.length - 1 - i; //
+      let z = pieces.length - 1 - i; //use z to create paths in reverse order
       let urlPath = '/'+pieces.slice(0, z+1).join('/');
       let treePath = _convertSetupTreePath(pieces.slice(0, z+1), tree);
       // Check that its in the cached tree then look for deepest _resource_.
@@ -198,6 +206,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
           cached = _.clone(z);
           throw new Error('cached');
         }).catch((err) => {
+          //          pointer.set(cachedTree, urlPath, {})
           if (/^cached/.test(err.message)) throw err;
           return
         })
@@ -230,20 +239,25 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     return '/'+newPieces.join('/')
   }
 
-  function _ensureTree({url, tree}) {
+  function _ensureTree({url, tree, data}) {
+    console.log('ENSURETREE', url)
     //If /resources
     
     //If /bookmarks
     let path = urlLib.parse(url).path.replace(/^\//, '');
     let pieces = path.replace(/\/$/, '').split('/');
-    //    let treePath = _convertSetupTreePath(pieces, tree);
+    if (data._id) {
+      let firstPath = _convertSetupTreePath(pieces, tree);
+      pointer.set(tree, firstPath+'/_id', data._id)
+    }
     //    if (pointer.has(tree, treePath)) pointer.set(tree, treePath, _.merge(pointer.get(tree, treePath),data))
     let cachedTree = {};
     // Find the deepest part of the path that exists. Once found, work back down.
     return _findDeepestResources(pieces, tree, cachedTree).then((ret) => {
-      // Create all the resources on the way down. ret.cached is an index. Subtract
-      // one from pieces.length so its in terms of an index as well.
-      return Promise.mapSeries(pieces.slice(0, pieces.length - 1 - ret.cached), (piece, j) => {
+      console.log('FOUND DEEPEST', ret)
+      // Create all the resources on the way down. ret.cached is an index. Slice
+      // takes the length to slice, so no need to subtract 1.
+      return Promise.mapSeries(pieces.slice(0, pieces.length - ret.cached), (piece, j) => {
         let i = ret.cached+1 + j; // ret.cached exists; add one to continue beyond.
         let urlPath = '/'+pieces.slice(0, i+1).join('/');
         let treePath = _convertSetupTreePath(pieces.slice(0, i+1), tree);
@@ -292,7 +306,9 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       return SOCKET.unwatch({
         path,
         headers: req.headers
-      })
+      })/*.then(() => {
+        return
+      })*/
     }
 
     return REQUEST(req)

@@ -5,6 +5,9 @@ var url = require('url');
 var _ = require('lodash');
 var pointer = require('json-pointer');
 
+//TODO: Should getLookup throw an error or return undefined?
+// This needs to be handled by all that call getLookup!!!
+
 
 export default function setupCache({name, req, exp}) {
 
@@ -26,7 +29,7 @@ export default function setupCache({name, req, exp}) {
         _accessed: Date.now(),
       }
     }
-    // ALL updates to existing docs (upserts), need to supply the current _rev.
+    // ALL updates to existing docs (upserts) need to supply the current _rev.
     return db.get(resourceId).then((result) => {
     //If theres a path leftover, create an empty object, add a key to warn users
     //that the data is incomplete, and put the data at that path Leftover
@@ -69,9 +72,6 @@ export default function setupCache({name, req, exp}) {
     })
   }
 
-  //TODO: Not sure why a GET (getResFromDb) is necessary in an upsert
-  //I think it is to handle the moments when resources are invalidated and there 
-  //is a need to give it an opportunity to repopulate data.
   function dbUpsert(req, res) {
     return getUpsertDoc(req, res).then((dbPut) => {
       return db.put(dbPut) /*.then((result) => {
@@ -151,15 +151,11 @@ export default function setupCache({name, req, exp}) {
       try {
         let lookup = await getLookup(req)
         req.url = urlObj.protocol+'//'+urlObj.host+'/'+lookup.doc.resourceId+lookup.doc.pathLeftover;
-      } catch (error) {
-        throw error
+      } catch(err) {
+        throw err
       }
     }
-    return getResFromDb(req).then((result) => {
-      return result
-    }).catch((err) => {
-      throw err
-    })
+    return getResFromDb(req)
   }
 
   // Perform lookup from bookmarks to resource id (and path leftover) mapping.
@@ -170,7 +166,6 @@ export default function setupCache({name, req, exp}) {
   function getLookup(req) {
     let urlObj = url.parse(req.url)
     let lookup = urlObj.host+urlObj.path;
-
     return db.get(lookup).catch(() => {
     //Not found. Go to the oada server, get the associated resource and path 
     //leftover, and save the lookup.
@@ -203,6 +198,7 @@ export default function setupCache({name, req, exp}) {
             // another simultaneous request
             return getLookup(req)
           }
+          console.log('ERR')
         })
       })
     })
@@ -271,6 +267,41 @@ export default function setupCache({name, req, exp}) {
     })
   }
 
+    /*  async function _recursivePut(req) {
+    let urlObj = url.parse(req.url);
+    return Promise.map(Object.keys(req.data || {}), (data) => {
+      var newData = replaceLinks(data, req)
+    })
+    if (body._rev) {
+      let lookup = await getLookup({
+        url: req.url,
+        headers: req.headers,
+        _id: body._id
+      })
+      let newBody = replaceLinks(body, {
+        url: req.url,
+        headers: req.headers
+      });
+      await dbUpsert({
+        url: urlObj.protocol+'//'+urlObj.host+'/'+(body._id || lookup.doc.resourceId),
+        headers: req.headers
+      }, {
+        data: newBody,
+        headers: { 'x-oada-rev': newBody._rev },
+      })
+    }
+    if (typeof body === 'object') {
+      return Promise.map(Object.keys(body || {}), (key) => {
+        if (key.charAt(0) === '_') return
+        if (!body[key]) return
+        return _recursiveUpsert({
+          url: req.url+'/'+key,
+          headers: req.headers
+        }, body[key])
+      })
+    } else return
+  }*/
+
   async function deleteCheckParent(req, res) {
     let urlObj = url.parse(req.url)
     let _rev = res.headers['x-oada-rev'];
@@ -308,7 +339,7 @@ export default function setupCache({name, req, exp}) {
   // 4a. GET parent from server to cache the new, unlinked data
   // If pathleftover
   // 2b. GET the child to confirm and cache the new state
-  function dbDelete(req, res) {
+  async function dbDelete(req, res) {
     let urlObj = url.parse(req.url)
     let _rev = res.headers['x-oada-rev'];
     let pieces = res.headers['content-location'].split('/')
@@ -316,6 +347,13 @@ export default function setupCache({name, req, exp}) {
     let pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
     // If it is itself a resource, we only need to invalidate the cache entry for
     // the parent (which links to the child)
+    try {
+      let lookup = await getLookup({
+        url: req.url,
+        headers: req.headers
+      })
+      await db.remove(lookup)
+    } catch(err) {}
     if (!pathLeftover) return deleteCheckParent(req, res)
     // Else, invalidate the cache entry for the resource itself
     return dbUpsert({
@@ -370,6 +408,7 @@ export default function setupCache({name, req, exp}) {
   }
 
   async function _recursiveUpsert(req, body) {
+    console.log('recursiveUpsert', req)
     let urlObj = url.parse(req.url);
     if (body._rev) {
       let lookup = await getLookup({
@@ -474,6 +513,7 @@ export default function setupCache({name, req, exp}) {
           break;
         // Recursively update all of the resources down the returned change body
         case 'merge':
+          console.log('merge', payload)
           return _recursiveUpsert(payload.request, payload.response.change.body)
           break;
 

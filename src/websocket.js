@@ -33,7 +33,7 @@ function websocket(url) {
 
 		}
     socket.onmessage = function(event) {
-			var response = JSON.parse(event.data);
+      var response = JSON.parse(event.data);
 			//Look for id in httpCallbacks
 			if (response.requestId) {
 				if (httpCallbacks[response.requestId]) {
@@ -70,10 +70,10 @@ function websocket(url) {
 						delete watchCallbacks[response.requestId]['resolve'];
 						delete watchCallbacks[response.requestId]['reject'];
           } else {
-						if (watchCallbacks[response.requestId].callback == null) throw new Error('The given watch function has an undefined callback:', watchCallbacks[response.requestId]);
+            if (watchCallbacks[response.requestId].callback == null) throw new Error('The given watch function has an undefined callback:', watchCallbacks[response.requestId]);
 						watchCallbacks[response.requestId].callback(response);
 					}
-				}
+        }
 			}
 		}
 	}).then(() => {
@@ -103,7 +103,7 @@ function websocket(url) {
 			});
     }
 
-    function _unwatch(request) {
+    function _unwatch(request, callback) {
 			//Watch for changes on requested resource and trigger provided signal
 			return new Promise((resolve, reject) => {
 				let message = {
@@ -117,7 +117,7 @@ function websocket(url) {
 					})
 				};
         messages.push(message);
-        //unwatchCallbacks[message.requestId] = {resolve, reject, callback};
+        watchCallbacks[message.requestId] = {request, resolve, reject, callback};
 				sendMessages();
 			});
 		}
@@ -136,7 +136,7 @@ function websocket(url) {
 					})
 				};
         messages.push(message);
-				watchCallbacks[message.requestId] = {resolve, reject, callback};
+				watchCallbacks[message.requestId] = {request, resolve, reject, callback};
 				sendMessages();
 			});
 		}
