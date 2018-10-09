@@ -50,21 +50,22 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     })
   }
 
-  function _makeResourceAndLink({path, data}) {
-    let req = {
+  async function _makeResourceAndLink({path, data}) {
+    let resReq = {
       path: data._id ? '/'+data._id : '/resources/'+uuid(),
       type: data._type,
       data,
     }
-    let link = {
+    let linkReq = {
       path,
       type: data._type,
-      data: {_id:data._id || req.path.replace(/^\//, '')}
+      data: {_id:data._id || resReq.path.replace(/^\//, '')}
     }
-    if (data._rev) link.data._rev = '0-0'
-    return put(link).then(() => {
-      return put(req)
-    })
+    if (data._rev) linkReq.data._rev = '0-0'
+    var link = await put(linkReq);
+    var resource = await put(resReq)
+
+    return {link, resource}
   }
 
   function _watch({headers, path, func, payload}) {
@@ -103,12 +104,8 @@ var connect = function connect({domain, options, cache, token, websocket}) {
 
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
-    var response;
-    try {
-      response = await REQUEST(req)
-    } catch (error) {
-      return error
-    }
+    var response = await REQUEST(req)
+
     if (tree) {
       if (!tree.bookmarks) throw new Error('Tree must be rooted at bookmarks')
       var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
@@ -154,7 +151,6 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     /*
   // recursively get data based on the supplied tree
   function _recursiveGet(url, tree, returnData) {
-    console.log('recursiveGet', url, returnData)
     return Promise.try(() => {
       // Perform a GET if we have reached the next resource break.
       if (tree._type) { // its a resource
@@ -175,69 +171,71 @@ var connect = function connect({domain, options, cache, token, websocket}) {
           return Promise.map(Object.keys(returnData || {}), (resKey) => {
             if (resKey.charAt(0) === '_') return
             return _recursiveGet(url+'/'+resKey, tree[key] || {}, returnData[resKey]).then((res) => {
-            console.log('returnData', resKey, res)
               return returnData[resKey] = res;
             })
           })
         } else if (typeof tree[key] === 'object') {
           return _recursiveGet(url+'/'+key, tree[key] || {}, returnData[key]).then((res) => {
-            console.log('returnData', key, res)
             if (res !== undefined) return returnData[key] = res;
             return
           })
         } else {
-          console.log('returning', key, returnData[key])
           return
         }
       }).then(() => {
         return returnData
       })
     }).catch((err) => {
-      console.log(err)
       if (err.response.status === 404) return
       return err
     })
   }
   */
 
+  function makeIntoResource() {
+    //1. Get the current content of the object at that endpoint 
+    //1. Create a resource with the content from (1)
+    //2. Delete the current content at that key
+    //3. Create a link
+    
+  }
 
-
-  // Identify the cached resources vs those that need to be setup.
-  function _findDeepestResources(pieces, tree, cachedTree) {
-    let cached = 0;
+  // Identify the stored resources vs those that need to be setup.
+  function _findDeepestResources(pieces, tree, storedTree) {
+    let stored = 0;
     let setup;
     // Walk down the url in reverse order
     return Promise.mapSeries(pieces, (piece, i) => {
       let z = pieces.length - 1 - i; //use z to create paths in reverse order
       let urlPath = '/'+pieces.slice(0, z+1).join('/');
       let treePath = _convertSetupTreePath(pieces.slice(0, z+1), tree);
-      // Check that its in the cached tree then look for deepest _resource_.
+      // Check that its in the stored tree then look for deepest _resource_.
       // If successful, break from the loop by throwing
       if (pointer.has(tree, treePath+'/_type')) {
         setup = setup || z;
-        if (pointer.has(cachedTree, urlPath)) {
-          cached = _.clone(z);
-          throw new Error('cached');
+        if (pointer.has(storedTree, urlPath)) {
+          stored = _.clone(z);
+          throw new Error('stored');
         }
         return get({
           path: urlPath
         }).then((response) => {
-          pointer.set(cachedTree, urlPath, {})
-          cached = _.clone(z);
-          throw new Error('cached');
+          //TODO: Detect whether the returned data matches the given tree
+          pointer.set(storedTree, urlPath, {})
+          stored = _.clone(z);
+          throw new Error('stored');
         }).catch((err) => {
-          //          pointer.set(cachedTree, urlPath, {})
-          if (/^cached/.test(err.message)) throw err;
+          if (/^stored/.test(err.message)) throw err;
           return
         })
       }
       return
     }).catch((err) => {
       // Throwing with a number error only should occur on success.
-      if (/^cached/.test(err.message)) return { cached, setup }
+      if (/^stored/.test(err.message)) return { stored, setup }
     }).then(() => {
       return { 
-        cached: cached, 
+        stored: stored, 
         setup: setup || 0
       }
     })
@@ -270,13 +268,14 @@ var connect = function connect({domain, options, cache, token, websocket}) {
       pointer.set(tree, firstPath+'/_id', data._id)
     }
     //    if (pointer.has(tree, treePath)) pointer.set(tree, treePath, _.merge(pointer.get(tree, treePath),data))
-    let cachedTree = {};
+    let storedTree = {};
+    var responses = [];
     // Find the deepest part of the path that exists. Once found, work back down.
-    return _findDeepestResources(pieces, tree, cachedTree).then((ret) => {
-      // Create all the resources on the way down. ret.cached is an index. Slice
+    return _findDeepestResources(pieces, tree, storedTree).then((ret) => {
+      // Create all the resources on the way down. ret.stored is an index. Slice
       // takes the length to slice, so no need to subtract 1.
-      return Promise.mapSeries(pieces.slice(0, pieces.length - ret.cached), (piece, j) => {
-        let i = ret.cached+1 + j; // ret.cached exists; add one to continue beyond.
+      return Promise.mapSeries(pieces.slice(0, pieces.length - ret.stored), (piece, j) => {
+        let i = ret.stored+1 + j; // ret.stored exists; add one to continue beyond.
         let urlPath = '/'+pieces.slice(0, i+1).join('/');
         let treePath = _convertSetupTreePath(pieces.slice(0, i+1), tree);
         if (pointer.has(tree, treePath+'/_type') && i <= ret.setup) { // its a resource
@@ -285,7 +284,9 @@ var connect = function connect({domain, options, cache, token, websocket}) {
               path: urlPath,
               data: _.cloneDeep(content)
             }).then((resp) => {
-              pointer.set(cachedTree, urlPath, content)
+              pointer.set(storedTree, urlPath, content)
+              resp.path = urlPath;
+              responses.push(resp)
               return resp
             }).catch((err) => {
               return err
@@ -293,8 +294,8 @@ var connect = function connect({domain, options, cache, token, websocket}) {
           })
         } else return
       })
-    }).then((responses) => {
-      return responses[responses.length-1]
+    }).then(() => {
+      return responses
     }).catch((err) => {
       return err
     })
@@ -349,25 +350,32 @@ var connect = function connect({domain, options, cache, token, websocket}) {
   // Ensure all resources down to the deepest resource are created before
   // performing a PUT.
   async function put({url, path, data, type, headers, tree}) {
+    if (!path && !url) throw new Error('Either path or url must be specified.')
     let req = {
       method: 'put',
       url: url || DOMAIN+path,
-      headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
+      headers: {'authorization': 'Bearer '+TOKEN},
       data,
     }
-    req.headers['Content-Type'] = req.headers['Content-Type'] || type || data.type;
-    if (!req.headers['Content-Type']) throw new Error(`Content-Type header must be specified`)
+    //handle headers
+    Object.keys(headers || {}).forEach((header) => {
+      req.headers[header.toLowerCase()] = headers[header];
+    })
+    req.headers['content-type'] = req.headers['content-type'] || type || data._type;
 
+    // Ensure parent resources are created
     if (tree) {
-      await _ensureTree({
+      var responses = await _ensureTree({
         url: req.url,
         tree: _.cloneDeep(tree),
         data
       })
+
+      var pieces = responses[responses.length-1].path.replace(/^\//, '').split('/');
+      let treePath = _convertSetupTreePath(pieces, tree)+'/_type';
+      if (pointer.has(tree, treePath)) req.headers['content-type'] = _.clone(pointer.get(tree, treePath))
     } 
-    var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
-    let treePath = _convertSetupTreePath(pieces, tree)+'/_type';
-    if (pointer.has(tree, treePath)) req.headers['Content-Type'] = pointer.get(tree, treePath)
+    if (!req.headers['content-type']) throw new Error(`'content-type' header must be specified.`)
     return REQUEST(req)
   }
 
@@ -403,7 +411,7 @@ var connect = function connect({domain, options, cache, token, websocket}) {
   return prom.then(async (result) => {
     TOKEN = result.access_token;
     let wsProm;
-    if (websocket === false) {
+    if (websocket !== false) {
       wsProm = ws(domain).then((socketApi) => {
         REQUEST = socketApi.http;
 		    return SOCKET = socketApi;

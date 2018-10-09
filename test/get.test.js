@@ -154,9 +154,18 @@ describe('GET', async function() {
     })
   })
 
+  it(`Should allow for a basic GET request without tree parameter`, async function() {
+    var conn = connections[0];
+    var test = await conn.get({
+      path: '/bookmarks/test'
+    })
+    expect(test.data).to.include.key('aaa')
+    expect(test.data).to.include.keys(['_id', '_meta', '_type', '_rev'])
+  })
+
   //connections.forEach((conn, i) => {
   //  describe(`Testing connection ${i+1}`, async function() {
-  it(`Should not error when the root path exists`, async function() {
+  it(`Should perform a recursive GET when a 'tree' is supplied. Should not error when the root path exists`, async function() {
     var conn = connections[0];
     var test = await conn.get({
       path: '/bookmarks/test',
@@ -172,7 +181,7 @@ describe('GET', async function() {
     expect(test.data['aaa']['bbb']['index-one']['ccc']).to.include.keys(['_id', '_meta', '_type', '_rev'])
   })
 
-  it(`Should error when the root path doesn't exist`, async function() {
+  it(`GETs with a 'tree' supplied should error when the root path doesn't exist`, async function() {
     var conn = connections[0];
     try {
       var test = await conn.get({

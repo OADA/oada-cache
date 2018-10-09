@@ -1,5 +1,6 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
 const oada = require('../src/index')
+const _ = require('lodash');
 const {expect} = require('chai');
 const config = require('./config.js');
 const {cleanUp, getConnections} = require('./utils.js');
@@ -57,33 +58,90 @@ describe('~~~~IMPORT SCRIPT TEST - ENSURE TREE METHOD~~~~~~~', () => {
     })
     conn = connections[0]
   })
-    
-  it('Should provide expected response status and headers', async function() {
+
+  it(`Should error when neither 'url' nor 'path' are supplied`, async function() {
+    try {
+      var response = await conn.put({
+        data: `"123"`,
+        tree,
+        type: 'application/json'
+      })
+    } catch (error) {
+      expect(error.message).to.equal('Either path or url must be specified.')
+    }
+  })
+
+  it(`Shouldn't error when 'data' contains a _type key.`, async function() {
+    var response = await conn.put({
+      path: '/bookmarks/testA/sometest',
+      data: { _type: 'application/json'},
+    })
+    expect(response.status).to.equal(204)
+  })   
+
+  it(`Shouldn't error when 'type' is specified.`, async function() {
+    var response = await conn.put({
+      path: '/bookmarks/testA/somethingnew',
+      data: `"abc123"`,
+      type: 'application/json'
+    })
+    expect(response.status).to.equal(204)
+  })
+
+  it(`Shouldn't error when 'Content-Type' header is specified.`, async function() {
+    var response = await conn.put({
+      path: '/bookmarks/testA/somethingnew',
+      data: `"abc123"`,
+      headers: {'Content-Type': 'application/json'}
+    })
+    expect(response.status).to.equal(204)
+  })
+
+  it(`Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async function() {
+    var response = await conn.put({
+      path: '/bookmarks/test/aaa/bbb/sometest',
+      tree,
+      data: `"123"`
+    })
+    expect(response.status).to.equal(204)
+  })
+
+  it(`Should error when _type cannot be derived from the above tested sources`, async function() {
+    try {
+      var response = await conn.put({
+        path: '/bookmarks/test/sometest',
+        data: `"abc123"`,
+      })
+    } catch (error) {
+      expect(error.message).to.equal(`'content-type' header must be specified.`)
+    }
+  })
+
+  it('Should provide the expected response status and headers when a tree is supplied.', async function() {
     var response = await conn.put({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee/test/123',
       type: 'application/vnd.oada.as-harvested.yield-moisture.dataset.1+json',
-      data: "some test",
+      data: `"some test"`,
       tree,
     })
     expect(response.status).to.equal(204)
     expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
   })
 
-  it('Should provide expected response status and headers', async function() {
+  it('Should provide expected response status and headers when no tree is supplied.', async function() {
     var response = await conn.put({
       path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee/test/123',
       type: 'application/vnd.oada.as-harvested.yield-moisture.dataset.1+json',
-      data: "some test",
+      data: `"some test"`,
     })
     expect(response.status).to.equal(204)
     expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
   })
 
-  it(`Should've create the data PUT in the previous test.`, async function() {
+  it(`Should create the data PUT in the previous test.`, async function() {
     var response = await conn.get({
       path: '/bookmarks/test',
     })
-    expect(response.cached).to.equal(true)
     expect(response.status).to.equal(200)
     expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
     expect(response.data).to.include.keys(['_id', '_rev', 'aaa'])
@@ -289,6 +347,74 @@ describe('~~~~IMPORT SCRIPT TEST - ENSURE TREE METHOD~~~~~~~', () => {
     expect(response.data['test']).to.include.keys(['123'])
   })
 
+  it('Now clean up', () => {
+    var conn = connections[0];
+    conn.resetCache();
+    return cleanUp(resources, domain, token);
+  })
+
+    /*
+  it('Should fix resource structure when a tree is supplied and resource breaks are missing', async function() {
+    var putOneResponse = await conn.put({
+      path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three/hhh/something',
+      tree,
+      data: 123
+    })
+    var newTree = _.cloneDeep(tree)
+    newTree.bookmarks.test.aaa.bbb['index-one']._type = 'application/vnd.oada.yield.1+json'
+    newTree.bookmarks.test.aaa.bbb['index-one']._rev = '0-0'
+    var putResponse = await conn.put({
+      path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three/hhh',
+      tree: newTree
+    })
+    expect(response.status).to.equal(200)
+    expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+    expect(response.data).to.include.keys(['_id', '_rev', 'test'])
+    expect(response.data['test']).to.not.include.keys(['_id', '_rev'])
+    expect(response.data['test']).to.include.keys(['123'])
+  })
+  */
+
+  it(`Should use an _id specified via the 'tree'`, async function() {
+    var newTree = _.cloneDeep(tree)
+    newTree.bookmarks.test.aaa.sss = {
+      _id: 'resources/sssssssss',
+      _type: 'application/vnd.oada.yield.1+json',
+      _rev: '0-0'
+    }
+    var putResponse = await conn.put({
+      path: '/bookmarks/test/aaa/sss',
+      tree: newTree,
+      data: {anothertest: 123},
+    })
+    var response = await conn.get({
+      path: '/bookmarks/test/aaa/sss',
+    })
+    expect(response.status).to.equal(200)
+    expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+    expect(response.data).to.include.keys(['_id', '_rev', 'anothertest'])
+    expect(response.data._id).to.equal('resources/sssssssss')
+  })
+
+  it(`Should use an _id specified via the 'data'`, async function() {
+    var putResponse = await conn.put({
+      path: '/bookmarks/test/aaa/bbb',
+      tree: tree,
+      data: {_id: 'resources/foobar_foobar', sometest: 123},
+    })
+    var response = await conn.get({
+      path: '/bookmarks/test/aaa/bbb',
+    })
+    expect(response.status).to.equal(200)
+    expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+    expect(response.data).to.include.keys(['_id', '_rev', 'sometest'])
+    expect(response.data._id).to.equal('resources/foobar_foobar')
+    expect(response.data.sometest).to.equal(123)
+  })
+
+  it('Should make unversioned links where _rev is not specified on resources', async function() {
+
+  })
   it('Now clean up', () => {
     var conn = connections[0];
     conn.resetCache();

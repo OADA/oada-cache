@@ -5,8 +5,7 @@ async function getConnections({domain, options, token}) {
   var yy = await oada.connect({
     domain,
     options,
-    token,
-    token: 'def',
+    token
   })
 
   var yn = await oada.connect({
