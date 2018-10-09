@@ -33,29 +33,23 @@ describe('~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
   it('Making connection 1', function() {
     this.timeout(connectTime);
     return oada.connect({
-      cache: {name: 'testOne'},
       domain,
       token: 'def',
     }).then((result) => {
       connections[0] = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
-      expect(result.cache).to.not.equal(undefined);
-      expect(result.socket).to.not.equal(undefined);
+      expect(result).to.have.keys(['token', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
     })
   })
 
   it('Making connection 2', function() {
     this.timeout(connectTime);
     return oada.connect({
-      cache: {name: 'testTwo'},
       domain,
       token: 'def',
       noWebsocket: true,
     }).then((result) => {
       connections[1] = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
-      expect(result.cache).to.not.equal(undefined);
-      expect(result.socket).to.equal(undefined);
+      expect(result).to.have.keys(['token', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
     })
   })
 
@@ -67,9 +61,7 @@ describe('~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
       cache: false,
     }).then((result) => {
       connections[2] = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
-      expect(result.cache).to.equal(undefined);
-      expect(result.socket).to.not.equal(undefined);
+      expect(result).to.have.keys(['token', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
     })
   })
 

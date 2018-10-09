@@ -408,7 +408,6 @@ export default function setupCache({name, req, exp}) {
   }
 
   async function _recursiveUpsert(req, body) {
-    console.log('recursiveUpsert', req)
     let urlObj = url.parse(req.url);
     if (body._rev) {
       let lookup = await getLookup({
@@ -480,6 +479,8 @@ export default function setupCache({name, req, exp}) {
     let urlObj = url.parse(payload.request.url)
     // Give the change body an _id so the deepest resource can be found
     payload.response.change.body._id = payload.response.resourceId;
+    //TODO: This should be unnecessary. The payload ought to specify the root
+    //of the watch as a resource.
     return findDeepestResource(payload.response.change.body, '', {
       path: '',
       data: payload.response.change.body,
@@ -513,7 +514,6 @@ export default function setupCache({name, req, exp}) {
           break;
         // Recursively update all of the resources down the returned change body
         case 'merge':
-          console.log('merge', payload)
           return _recursiveUpsert(payload.request, payload.response.change.body)
           break;
 

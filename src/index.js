@@ -3,12 +3,12 @@ import uuid from 'uuid'
 import _ from 'lodash'
 const urlLib = require('url');
 const pointer = require('json-pointer');
-const websocket = require('./websocket');
+const ws = require('./websocket');
 const Promise = require('bluebird');
 const axios = require('axios');
 const oadaIdClient = require('@oada/oada-id-client');
 
-var connect = function connect({domain, options, cache, token, noWebsocket}) {
+var connect = function connect({domain, options, cache, token, websocket}) {
   let CACHE = undefined;
   let REQUEST = axios;
   let SOCKET = undefined;
@@ -51,7 +51,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   }
 
   function _makeResourceAndLink({path, data}) {
-    console.log('making resource and linking', path, data)
     let req = {
       path: data._id ? '/'+data._id : '/resources/'+uuid(),
       type: data._type,
@@ -81,63 +80,81 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
           headers,
           method: response.change.type,
         }
-        if (CACHE) await CACHE.handleWatchChange(_.cloneDeep(watchPayload))
+        if (CACHE) await CACHE.handleWatchChange(watchPayload)
         return func(watchPayload)
       })
     } else {
       // Ping a normal GET every 5 seconds in the absense of a websocket
       return setInterval(() => {
-        this.get({url}).then((result) => {
+        get({url}).then((result) => {
           func(payload)
         })
       }, 5000)
     }
   }
 
-  function get({url, path, headers, watch, tree}) {
+  async function get({url, path, headers, watch, tree}) {
     let req = {
       method: 'get',
       url: url || DOMAIN+path,
       headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
     }
+    if (!req.url) throw new Error('path or url must be supplied')
 
-    let prom;
-
+    // If a tree is supplied, recursively GET data according to the data tree
+    // The tree must be rooted at /bookmarks.
+    var response;
+    try {
+      response = await REQUEST(req)
+    } catch (error) {
+      return error
+    }
     if (tree) {
-      // Tree must be rooted at /bookmarks. Get the subtree for the given path.
+      if (!tree.bookmarks) throw new Error('Tree must be rooted at bookmarks')
       var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
       let treePath = _convertSetupTreePath(pieces, tree);
-      if (!pointer.has(tree, treePath)) return get({url: req.url})
-      tree = pointer.get(tree, treePath)
-      prom = _recursiveGet(req.url, tree, {}).then((res) => {
-        return {
-          data: res,
-          status: 200,
-        }
-      }).catch((err) => {
-        return
-      })
-    } else {
-      prom = REQUEST(req);
+      if (!pointer.has(tree, treePath)) throw new Error('The path does not exist on the given tree.')
+        //return get({url: req.url})
+      var subTree = pointer.get(tree, treePath)
+      response.data = await _recursiveGet(req.url, subTree, {})
     }
 
-    return prom.then(async (response) => {
-      if (watch) {
-        path = path || urlLib.parse(url).path;
-        req.headers['x-oada-rev'] = response.data._rev;
-        //        console.log('GET WATCH REV', path, response.data._rev)
-        await _watch({
-          headers: req.headers,
-          path,
-          func: watch.func,
-          payload: watch.payload
-        })
-      }
-      return response
+    // Handle watch
+    if (watch) {
+      path = path || urlLib.parse(url).path;
+      req.headers['x-oada-rev'] = response.data._rev;
+      await _watch({
+        headers: req.headers,
+        path,
+        func: watch.func,
+        payload: watch.payload
+      })
+    }
+    return response
+  }
+
+  async function _recursiveGet(url, tree, returnData) {
+    // Perform a GET if we have reached the next resource break.
+    if (tree._type) { // its a resource
+      var got = await get({
+        url
+      })
+      returnData = got.data;
+    }
+    return Promise.map(Object.keys(returnData || {}), async function(key) {
+      if (typeof returnData[key] === 'object') {
+        if (tree[key]) return returnData[key] = await _recursiveGet(url+'/'+key, tree[key], returnData[key])
+        if (tree['*']) return returnData[key] = await _recursiveGet(url+'/'+key, tree['*'], returnData[key])
+      } else return
+    }).then(() => {
+      return returnData
     })
   }
 
+    /*
+  // recursively get data based on the supplied tree
   function _recursiveGet(url, tree, returnData) {
+    console.log('recursiveGet', url, returnData)
     return Promise.try(() => {
       // Perform a GET if we have reached the next resource break.
       if (tree._type) { // its a resource
@@ -145,12 +162,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
           url
         }).then((response) => {
           returnData = response.data;
-          return
-        }).catch((err) => {
-          if (err.response.status === 404) {
-            return
-          }
-          throw err
+          return tree
         })
       }
       return tree
@@ -163,24 +175,32 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
           return Promise.map(Object.keys(returnData || {}), (resKey) => {
             if (resKey.charAt(0) === '_') return
             return _recursiveGet(url+'/'+resKey, tree[key] || {}, returnData[resKey]).then((res) => {
+            console.log('returnData', resKey, res)
               return returnData[resKey] = res;
             })
           })
         } else if (typeof tree[key] === 'object') {
           return _recursiveGet(url+'/'+key, tree[key] || {}, returnData[key]).then((res) => {
-            return returnData[key] = res;
+            console.log('returnData', key, res)
+            if (res !== undefined) return returnData[key] = res;
+            return
           })
-        } else return returnData[key]
+        } else {
+          console.log('returning', key, returnData[key])
+          return
+        }
       }).then(() => {
         return returnData
       })
     }).catch((err) => {
-      if (err.response.status === 404) {
-        return
-      }
-      throw err
+      console.log(err)
+      if (err.response.status === 404) return
+      return err
     })
   }
+  */
+
+
 
   // Identify the cached resources vs those that need to be setup.
   function _findDeepestResources(pieces, tree, cachedTree) {
@@ -240,7 +260,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   }
 
   function _ensureTree({url, tree, data}) {
-    console.log('ENSURETREE', url)
     //If /resources
     
     //If /bookmarks
@@ -254,7 +273,6 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
     let cachedTree = {};
     // Find the deepest part of the path that exists. Once found, work back down.
     return _findDeepestResources(pieces, tree, cachedTree).then((ret) => {
-      console.log('FOUND DEEPEST', ret)
       // Create all the resources on the way down. ret.cached is an index. Slice
       // takes the length to slice, so no need to subtract 1.
       return Promise.mapSeries(pieces.slice(0, pieces.length - ret.cached), (piece, j) => {
@@ -322,7 +340,7 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   }
 
   function _configureWs({domain}) {
-    return websocket(domain).then((socketApi) => {
+    return ws(domain).then((socketApi) => {
       REQUEST = socketApi.http;
       return SOCKET = socketApi;
     })
@@ -337,7 +355,8 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
       headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
       data,
     }
-    if (type) req.headers['Content-Type'] = type;
+    req.headers['Content-Type'] = req.headers['Content-Type'] || type || data.type;
+    if (!req.headers['Content-Type']) throw new Error(`Content-Type header must be specified`)
 
     if (tree) {
       await _ensureTree({
@@ -384,8 +403,8 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   return prom.then(async (result) => {
     TOKEN = result.access_token;
     let wsProm;
-    if (!noWebsocket) {
-      wsProm = websocket(domain).then((socketApi) => {
+    if (websocket === false) {
+      wsProm = ws(domain).then((socketApi) => {
         REQUEST = socketApi.http;
 		    return SOCKET = socketApi;
       })
@@ -402,8 +421,8 @@ var connect = function connect({domain, options, cache, token, noWebsocket}) {
   }).then((f) => {
     return {
       token: TOKEN,
-      //      cache: CACHE,
-      //socket: SOCKET,
+      cache: CACHE ? true : false,
+      socket: SOCKET ? true: false,
       get,
       put,
       post,

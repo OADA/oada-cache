@@ -33,10 +33,10 @@ let tree = {
 		}
 	}
 }
-describe('~~~~~~~~~~Cache testing~~~~~~~~~~', () => {
 
+describe('Cache', () => {
 
-  it('Make the connection. Cache + websocket enabled.', function() {
+  before('Make the connection. Cache + websocket enabled.', function() {
     this.timeout(connectTime);
     return oada.connect({
       domain,
@@ -280,6 +280,10 @@ describe('make a second connection, put over that connection, and check first ca
     }).then((response) => {
       expect(response.cached).is.equal(false)
     })
+  })
+
+  it('Should return undefined when the cache returns a resource that no longer exists', () => {
+
   })
 
   it('Clean up the server.', () => {

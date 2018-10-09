@@ -42,7 +42,7 @@ describe('~~~~~~~~~~~WATCH TESTING~~~~~~~~~~~~~~', function() {
       cache: {name: 'testOne'},
     }).then((result) => {
       connOne = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result).to.have.keys(['token', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
       expect(result.cache).to.not.equal(undefined);
       expect(result.socket).to.not.equal(undefined);
       return connOne.resetCache().then(() => {
@@ -96,7 +96,7 @@ describe('~~~~~~~~~~~WATCH TESTING~~~~~~~~~~~~~~', function() {
       cache: {name: 'testTwo'}
     }).then((result) => {
       connTwo = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result).to.have.keys(['token', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
       expect(result.cache).to.not.equal(undefined);
       expect(result.socket).to.not.equal(undefined);
       return connTwo.resetCache();
