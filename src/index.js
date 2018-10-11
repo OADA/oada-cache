@@ -1,14 +1,24 @@
-import setupCache from './cache'
-import uuid from 'uuid'
-import _ from 'lodash'
-const urlLib = require('url');
-const pointer = require('json-pointer');
-const ws = require('./websocket');
-const Promise = require('bluebird');
-const axios = require('axios');
-const oadaIdClient = require('@oada/oada-id-client');
+import setupCache from "./cache";
+import uuid from "uuid";
+import _ from "lodash";
+const urlLib = require("url");
+const pointer = require("json-pointer");
+const ws = require("./websocket");
+const Promise = require("bluebird");
+const axios = require("axios");
+const oadaIdClient = require("@oada/oada-id-client");
 
-var connect = function connect({domain, options, cache, token, websocket}) {
+var connect = function connect({ domain, options, cache, token, websocket }) {
+  if (!domain) throw "domain undefined";
+  if (typeof domain !== string) throw "domain must be a string";
+  if (!options && !token) throw "options and token undefined";
+  if (token && typeof token !== "string") throw "token must be a string";
+  //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
+  //throw "cache must be boolean";
+  if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
+    throw "websocket must be boolean";
+
+
   let CACHE = undefined;
   let REQUEST = axios;
   let SOCKET = undefined;
@@ -16,143 +26,160 @@ var connect = function connect({domain, options, cache, token, websocket}) {
   if (!domain) throw 'domain undefined'
   let DOMAIN = domain;
   let NAME = (cache && cache.name) ? cache.name : urlLib.parse(domain).hostname.replace(/\./g, '_');
-  let EXP = cache ? cache.exp : undefined;
+  let EXP = (cache && cache.exp) ? cache.exp : undefined;
 
   function _replaceLinks(obj) {
-    let ret = (Array.isArray(obj)) ? [] : {};
-    if (!obj) return obj;  // no defined objriptors for this level
-    return Promise.map(Object.keys(obj || {}), (key)  => {
-      if (key === '*') { // Don't put *s into oada. Ignore them
+    let ret = Array.isArray(obj) ? [] : {};
+    if (!obj) return obj; // no defined objriptors for this level
+    return Promise.map(Object.keys(obj || {}), key => {
+      if (key === "*") {
+        // Don't put *s into oada. Ignore them
         return;
       }
       let val = obj[key];
-      if (typeof val !== 'object' || !val) {
+      if (typeof val !== "object" || !val) {
         ret[key] = val; // keep it asntType: 'application/vnd.oada.harvest.1+json'
         return;
       }
-      if (val._type) { // If it has a '_type' key, don't worry about it.
+      if (val._type) {
+        // If it has a '_type' key, don't worry about it.
         //It'll get created in future iterations of ensureTree
         return;
       }
-      if (val._id) { // If it's an object, and has an '_id', make it a link from descriptor
-        ret[key] = { _id: obj[key]._id};
-        if (val._rev) ret[key]._rev = '0-0'
+      if (val._id) {
+        // If it's an object, and has an '_id', make it a link from descriptor
+        ret[key] = { _id: obj[key]._id };
+        if (val._rev) ret[key]._rev = "0-0";
         return;
       }
       // otherwise, recurse into the object looking for more links
-      return _replaceLinks(val).then((result) => {
+      return _replaceLinks(val).then(result => {
         ret[key] = result;
         return;
-      })
+      });
     }).then(() => {
       return ret;
-    })
+    });
   }
 
-  async function _makeResourceAndLink({path, data}) {
+  async function _makeResourceAndLink({ path, data }) {
     let resReq = {
-      path: data._id ? '/'+data._id : '/resources/'+uuid(),
+      path: data._id ? "/" + data._id : "/resources/" + uuid(),
       type: data._type,
-      data,
-    }
+      data
+    };
     let linkReq = {
       path,
       type: data._type,
-      data: {_id:data._id || resReq.path.replace(/^\//, '')}
-    }
-    if (data._rev) linkReq.data._rev = '0-0'
+      data: { _id: data._id || resReq.path.replace(/^\//, "") }
+    };
+    if (data._rev) linkReq.data._rev = "0-0";
     var link = await put(linkReq);
-    var resource = await put(resReq)
+    var resource = await put(resReq);
 
-    return {link, resource}
+    return { link, resource };
   }
 
-  function _watch({headers, path, func, payload}) {
+  function _watch({ headers, path, func, payload }) {
     if (SOCKET) {
-      return SOCKET.watch({
-        path,
-        headers,
-      }, async function watchResponse(response) {
-        var watchPayload = _.cloneDeep(payload) || {};
-        watchPayload.response = response;
-        watchPayload.request = {
-          url: DOMAIN+path,
-          headers,
-          method: response.change.type,
+      return SOCKET.watch(
+        {
+          path,
+          headers
+        },
+        async function watchResponse(response) {
+          var watchPayload = _.cloneDeep(payload) || {};
+          watchPayload.response = response;
+          watchPayload.request = {
+            url: DOMAIN + path,
+            headers,
+            method: response.change.type
+          };
+          if (CACHE) await CACHE.handleWatchChange(watchPayload);
+          return func(watchPayload);
         }
-        if (CACHE) await CACHE.handleWatchChange(watchPayload)
-        return func(watchPayload)
-      })
+      );
     } else {
       // Ping a normal GET every 5 seconds in the absense of a websocket
       return setInterval(() => {
-        get({url}).then((result) => {
-          func(payload)
-        })
-      }, 5000)
+        get({ url }).then(result => {
+          func(payload);
+        });
+      }, 5000);
     }
   }
 
-  async function get({url, path, headers, watch, tree}) {
+  async function get({ url, path, headers, watch, tree }) {
     let req = {
-      method: 'get',
-      url: url || DOMAIN+path,
-      headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
-    }
-    if (!req.url) throw new Error('path or url must be supplied')
+      method: "get",
+      url: url || DOMAIN + path,
+      headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
+    };
+    if (!req.url) throw new Error("path or url must be supplied");
 
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
-    try {
     var response = await REQUEST(req)
-    } catch(error) {
-      console.log(error)
-    }
+
     if (tree) {
-      if (!tree.bookmarks) throw new Error('Tree must be rooted at bookmarks')
-      var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
+      if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
+      var pieces = urlLib
+        .parse(req.url)
+        .path.replace(/^\//, "")
+        .split("/");
       let treePath = _convertSetupTreePath(pieces, tree);
-      if (!pointer.has(tree, treePath)) throw new Error('The path does not exist on the given tree.')
-        //return get({url: req.url})
-      var subTree = pointer.get(tree, treePath)
-      response.data = await _recursiveGet(req.url, subTree, {})
+      if (!pointer.has(tree, treePath))
+        throw new Error("The path does not exist on the given tree.");
+      //return get({url: req.url})
+      var subTree = pointer.get(tree, treePath);
+      response.data = await _recursiveGet(req.url, subTree, {});
     }
 
     // Handle watch
     if (watch) {
       path = path || urlLib.parse(url).path;
-      req.headers['x-oada-rev'] = response.data._rev;
+      req.headers["x-oada-rev"] = response.data._rev;
       await _watch({
         headers: req.headers,
         path,
         func: watch.func,
         payload: watch.payload
-      })
+      });
     }
-    return response
+    return response;
   }
 
   async function _recursiveGet(url, tree, returnData) {
     console.log(url, returnData)
     // Perform a GET if we have reached the next resource break.
-    if (tree._type) { // its a resource
+    if (tree._type) {
+      // its a resource
       var got = await get({
         url
-      })
+      });
       returnData = got.data;
     }
     return Promise.map(Object.keys(returnData || {}), async function(key) {
-      if (typeof returnData[key] === 'object') {
-        console.log(key)
-        if (tree[key]) return returnData[key] = await _recursiveGet(url+'/'+key, tree[key], returnData[key])
-        if (tree['*']) return returnData[key] = await _recursiveGet(url+'/'+key, tree['*'], returnData[key])
-      } else return
+      if (typeof returnData[key] === "object") {
+        if (tree[key])
+          return (returnData[key] = await _recursiveGet(
+            url + "/" + key,
+            tree[key],
+            returnData[key]
+          ));
+        if (tree["*"])
+          return (returnData[key] = await _recursiveGet(
+            url + "/" + key,
+            tree["*"],
+            returnData[key]
+          ));
+      } else return;
     }).then(() => {
-      return returnData
-    })
+      return returnData;
+    });
   }
 
-    /*
+  /*
   // recursively get data based on the supplied tree
   function _recursiveGet(url, tree, returnData) {
     return Promise.try(() => {
@@ -197,11 +224,10 @@ var connect = function connect({domain, options, cache, token, websocket}) {
   */
 
   function makeIntoResource() {
-    //1. Get the current content of the object at that endpoint 
+    //1. Get the current content of the object at that endpoint
     //1. Create a resource with the content from (1)
     //2. Delete the current content at that key
     //3. Create a link
-    
   }
 
   // Identify the stored resources vs those that need to be setup.
@@ -211,161 +237,177 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     // Walk down the url in reverse order
     return Promise.mapSeries(pieces, (piece, i) => {
       let z = pieces.length - 1 - i; //use z to create paths in reverse order
-      let urlPath = '/'+pieces.slice(0, z+1).join('/');
-      let treePath = _convertSetupTreePath(pieces.slice(0, z+1), tree);
+      let urlPath = "/" + pieces.slice(0, z + 1).join("/");
+      let treePath = _convertSetupTreePath(pieces.slice(0, z + 1), tree);
       // Check that its in the stored tree then look for deepest _resource_.
       // If successful, break from the loop by throwing
-      if (pointer.has(tree, treePath+'/_type')) {
+      if (pointer.has(tree, treePath + "/_type")) {
         setup = setup || z;
         if (pointer.has(storedTree, urlPath)) {
           stored = _.clone(z);
-          throw new Error('stored');
+          throw new Error("stored");
         }
         return get({
           path: urlPath
-        }).then((response) => {
-          //TODO: Detect whether the returned data matches the given tree
-          pointer.set(storedTree, urlPath, {})
-          stored = _.clone(z);
-          throw new Error('stored');
-        }).catch((err) => {
-          if (/^stored/.test(err.message)) throw err;
-          return
         })
+          .then(response => {
+            //TODO: Detect whether the returned data matches the given tree
+            pointer.set(storedTree, urlPath, {});
+            stored = _.clone(z);
+            throw new Error("stored");
+          })
+          .catch(err => {
+            if (/^stored/.test(err.message)) throw err;
+            return;
+          });
       }
-      return
-    }).catch((err) => {
-      // Throwing with a number error only should occur on success.
-      if (/^stored/.test(err.message)) return { stored, setup }
-    }).then(() => {
-      return { 
-        stored: stored, 
-        setup: setup || 0
-      }
+      return;
     })
+      .catch(err => {
+        // Throwing with a number error only should occur on success.
+        if (/^stored/.test(err.message)) return { stored, setup };
+      })
+      .then(() => {
+        return {
+          stored: stored,
+          setup: setup || 0
+        };
+      });
   }
 
   // Loop over the keys of the path and determine whether the object at that level
-  // contains a * key. The path must be updated along the way, replacing *s as 
+  // contains a * key. The path must be updated along the way, replacing *s as
   // necessary.
   function _convertSetupTreePath(pathPieces, tree) {
     let newPieces = _.clone(pathPieces);
-    newPieces =	pathPieces.map((piece, i) => {
-      if (pointer.has(tree, '/'+newPieces.slice(0, i).join('/')+'/*')) {
-        newPieces[i] = '*';
-        return '*';
+    newPieces = pathPieces.map((piece, i) => {
+      if (pointer.has(tree, "/" + newPieces.slice(0, i).join("/") + "/*")) {
+        newPieces[i] = "*";
+        return "*";
       } else {
-        return piece
+        return piece;
       }
-    })
-    return '/'+newPieces.join('/')
+    });
+    return "/" + newPieces.join("/");
   }
 
-  function _ensureTree({url, tree, data}) {
+  function _ensureTree({ url, tree, data }) {
     //If /resources
-    
+
     //If /bookmarks
-    let path = urlLib.parse(url).path.replace(/^\//, '');
-    let pieces = path.replace(/\/$/, '').split('/');
+    let path = urlLib.parse(url).path.replace(/^\//, "");
+    let pieces = path.replace(/\/$/, "").split("/");
     if (data._id) {
       let firstPath = _convertSetupTreePath(pieces, tree);
-      pointer.set(tree, firstPath+'/_id', data._id)
+      pointer.set(tree, firstPath + "/_id", data._id);
     }
     //    if (pointer.has(tree, treePath)) pointer.set(tree, treePath, _.merge(pointer.get(tree, treePath),data))
     let storedTree = {};
     var responses = [];
     // Find the deepest part of the path that exists. Once found, work back down.
-    return _findDeepestResources(pieces, tree, storedTree).then((ret) => {
-      // Create all the resources on the way down. ret.stored is an index. Slice
-      // takes the length to slice, so no need to subtract 1.
-      return Promise.mapSeries(pieces.slice(0, pieces.length - ret.stored), (piece, j) => {
-        let i = ret.stored+1 + j; // ret.stored exists; add one to continue beyond.
-        let urlPath = '/'+pieces.slice(0, i+1).join('/');
-        let treePath = _convertSetupTreePath(pieces.slice(0, i+1), tree);
-        if (pointer.has(tree, treePath+'/_type') && i <= ret.setup) { // its a resource
-          return _replaceLinks(pointer.get(tree, treePath)).then((content) => {
-            return _makeResourceAndLink({
-              path: urlPath,
-              data: _.cloneDeep(content)
-            }).then((resp) => {
-              pointer.set(storedTree, urlPath, content)
-              resp.path = urlPath;
-              responses.push(resp)
-              return resp
-            }).catch((err) => {
-              return err
-            })
-          })
-        } else return
+    return _findDeepestResources(pieces, tree, storedTree)
+      .then(ret => {
+        // Create all the resources on the way down. ret.stored is an index. Slice
+        // takes the length to slice, so no need to subtract 1.
+        return Promise.mapSeries(
+          pieces.slice(0, pieces.length - ret.stored),
+          (piece, j) => {
+            let i = ret.stored + 1 + j; // ret.stored exists; add one to continue beyond.
+            let urlPath = "/" + pieces.slice(0, i + 1).join("/");
+            let treePath = _convertSetupTreePath(pieces.slice(0, i + 1), tree);
+            if (pointer.has(tree, treePath + "/_type") && i <= ret.setup) {
+              // its a resource
+              return _replaceLinks(pointer.get(tree, treePath)).then(
+                content => {
+                  return _makeResourceAndLink({
+                    path: urlPath,
+                    data: _.cloneDeep(content)
+                  })
+                    .then(resp => {
+                      pointer.set(storedTree, urlPath, content);
+                      resp.path = urlPath;
+                      responses.push(resp);
+                      return resp;
+                    })
+                    .catch(err => {
+                      return err;
+                    });
+                }
+              );
+            } else return;
+          }
+        );
       })
-    }).then(() => {
-      return responses
-    }).catch((err) => {
-      return err
-    })
+      .then(() => {
+        return responses;
+      })
+      .catch(err => {
+        return err;
+      });
   }
 
-  function post({url, path, data, type, headers, tree}) {
-    url = url || DOMAIN+path;
-    url = url[url.length-1] === '/' ? url+uuid() : url+'/'+uuid();
+  function post({ url, path, data, type, headers, tree }) {
+    url = url || DOMAIN + path;
+    url = url[url.length - 1] === "/" ? url + uuid() : url + "/" + uuid();
     return put({
       url,
       data,
       type,
       headers,
       tree
-    })
+    });
   }
 
-  function del({url, path, headers, unwatch}) {
+  function del({ url, path, headers, unwatch }) {
     let req = {
-      method: 'delete',
-      url: url || DOMAIN+path,
-      headers: _.merge({'Authorization': 'Bearer '+TOKEN}, headers),
-    }
+      method: "delete",
+      url: url || DOMAIN + path,
+      headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
+    };
 
     if (unwatch) {
       path = path || urlLib.parse(url).path;
       return SOCKET.unwatch({
         path,
         headers: req.headers
-      })/*.then(() => {
+      }); /*.then(() => {
         return
       })*/
     }
 
-    return REQUEST(req)
+    return REQUEST(req);
   }
 
-  function _configureCache({name, req, exp}) {
-    let res = setupCache({name, req, exp})
+  function _configureCache({ name, req, exp }) {
+    let res = setupCache({ name, req, exp });
     REQUEST = res.api;
     CACHE = res;
-    return
+    return;
   }
 
-  function _configureWs({domain}) {
-    return ws(domain).then((socketApi) => {
+  function _configureWs({ domain }) {
+    return ws(domain).then(socketApi => {
       REQUEST = socketApi.http;
-      return SOCKET = socketApi;
-    })
+      return (SOCKET = socketApi);
+    });
   }
 
   // Ensure all resources down to the deepest resource are created before
   // performing a PUT.
-  async function put({url, path, data, type, headers, tree}) {
-    if (!path && !url) throw new Error('Either path or url must be specified.')
+  async function put({ url, path, data, type, headers, tree }) {
+    if (!path && !url) throw new Error("Either path or url must be specified.");
     let req = {
-      method: 'put',
-      url: url || DOMAIN+path,
-      headers: {'authorization': 'Bearer '+TOKEN},
-      data,
-    }
+      method: "put",
+      url: url || DOMAIN + path,
+      headers: { authorization: "Bearer " + TOKEN },
+      data
+    };
     //handle headers
-    Object.keys(headers || {}).forEach((header) => {
+    Object.keys(headers || {}).forEach(header => {
       req.headers[header.toLowerCase()] = headers[header];
-    })
-    req.headers['content-type'] = req.headers['content-type'] || type || data._type;
+    });
+    req.headers["content-type"] =
+      req.headers["content-type"] || type || data._type;
 
     // Ensure parent resources are created
     if (tree) {
@@ -373,18 +415,22 @@ var connect = function connect({domain, options, cache, token, websocket}) {
         url: req.url,
         tree: _.cloneDeep(tree),
         data
-      })
+      });
 
-      var pieces = responses[responses.length-1].path.replace(/^\//, '').split('/');
-      let treePath = _convertSetupTreePath(pieces, tree)+'/_type';
-      if (pointer.has(tree, treePath)) req.headers['content-type'] = _.clone(pointer.get(tree, treePath))
-    } 
-    if (!req.headers['content-type']) throw new Error(`'content-type' header must be specified.`)
-    return REQUEST(req)
+      var pieces = responses[responses.length - 1].path
+        .replace(/^\//, "")
+        .split("/");
+      let treePath = _convertSetupTreePath(pieces, tree) + "/_type";
+      if (pointer.has(tree, treePath))
+        req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
+    }
+    if (!req.headers["content-type"])
+      throw new Error(`'content-type' header must be specified.`);
+    return REQUEST(req);
   }
 
   async function resetCache(name, exp) {
-    if (!CACHE) return
+    if (!CACHE) return;
     await CACHE.resetCache();
     return _configureCache({
       name: NAME,
@@ -399,15 +445,13 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     if (SOCKET) SOCKET.close();
   }
 
-
-
-  //
-
+  // Get a token
   if (token) {
     TOKEN = token;
   } else {
     let urlObj = urlLib.parse(domain);
     var result;
+    // Open the browser and the login popup
     if (typeof window === 'undefined') {
       result = await oadaIdClient.node(urlObj.host, options)
     } else {
@@ -446,5 +490,5 @@ var connect = function connect({domain, options, cache, token, websocket}) {
 }
 
 export default {
-  connect,
-}
+  connect
+};
