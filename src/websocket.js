@@ -42,7 +42,7 @@ function websocket(url) {
 						httpCallbacks[response.requestId].resolve(response);
 					} else {
             //Create error like axios
-            console.log(httpCallbacks[response.requestId].request, response);
+            //console.log(httpCallbacks[response.requestId].request, response);
 						let err = new Error('Request failed with status code '+response.status);
             err.request = httpCallbacks[response.requestId].request;
 						err.response = {
@@ -60,7 +60,7 @@ function websocket(url) {
 							//Successfully setup websocket, resolve promise
 							watchCallbacks[response.requestId].resolve(response);
             } else {
-              console.log(watchCallbacks[response.requestId].request, response);
+              //console.log(watchCallbacks[response.requestId].request, response);
 							let err = new Error('Request failed with status code '+response.status);
 							err.response = response;
               err.request = watchCallbacks[response.requestId].request;

@@ -23,9 +23,9 @@ describe('~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
       },
       cache: false
     }).then((result) => {
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
-      expect(result.cache).to.equal(undefined);
-      expect(result.socket).to.not.equal(undefined);
+      expect(result).to.have.keys(['token', 'cache', 'websocket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result.cache).to.equal(false);
+      expect(result.websocket).to.equal(true);
     })
   })
 
@@ -80,9 +80,9 @@ describe('~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
       cache: false,
     }).then((result) => {
       connections[3] = result;
-      expect(result).to.have.keys(['token', 'cache', 'socket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
+      expect(result).to.have.keys(['token', 'cache', 'websocket', 'disconnect', 'get', 'put', 'post', 'delete', 'resetCache'])
       expect(result.cache).to.equal(false);
-      expect(result.socket).to.equal(false);
+      expect(result.websocket).to.equal(false);
     })
   })
 })

@@ -13,11 +13,10 @@ var connect = function connect({domain, options, cache, token, websocket}) {
   let REQUEST = axios;
   let SOCKET = undefined;
   let TOKEN = undefined;
+  if (!domain) throw 'domain undefined'
   let DOMAIN = domain;
-  let NAME = urlLib.parse(domain).hostname.replace(/\./g, '_');
+  let NAME = (cache && cache.name) ? cache.name : urlLib.parse(domain).hostname.replace(/\./g, '_');
   let EXP = cache ? cache.exp : undefined;
-
-  if (!DOMAIN) throw 'domain undefined'
 
   function _replaceLinks(obj) {
     let ret = (Array.isArray(obj)) ? [] : {};
@@ -104,8 +103,11 @@ var connect = function connect({domain, options, cache, token, websocket}) {
 
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
+    try {
     var response = await REQUEST(req)
-
+    } catch(error) {
+      console.log(error)
+    }
     if (tree) {
       if (!tree.bookmarks) throw new Error('Tree must be rooted at bookmarks')
       var pieces = urlLib.parse(req.url).path.replace(/^\//, '').split('/');
@@ -131,6 +133,7 @@ var connect = function connect({domain, options, cache, token, websocket}) {
   }
 
   async function _recursiveGet(url, tree, returnData) {
+    console.log(url, returnData)
     // Perform a GET if we have reached the next resource break.
     if (tree._type) { // its a resource
       var got = await get({
@@ -140,6 +143,7 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     }
     return Promise.map(Object.keys(returnData || {}), async function(key) {
       if (typeof returnData[key] === 'object') {
+        console.log(key)
         if (tree[key]) return returnData[key] = await _recursiveGet(url+'/'+key, tree[key], returnData[key])
         if (tree['*']) return returnData[key] = await _recursiveGet(url+'/'+key, tree['*'], returnData[key])
       } else return
@@ -384,7 +388,7 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     await CACHE.resetCache();
     return _configureCache({
       name: NAME,
-      req: SOCKET.http || axios,
+      req: (SOCKET && SOCKET.http) ? SOCKET.http : axios,
       exp: exp || EXP, 
     })
   }
@@ -395,50 +399,50 @@ var connect = function connect({domain, options, cache, token, websocket}) {
     if (SOCKET) SOCKET.close();
   }
 
-  let urlObj = urlLib.parse(domain);
-  let prom;
+
+
+  //
+
   if (token) {
-    prom = Promise.resolve({access_token: token})
+    TOKEN = token;
   } else {
+    let urlObj = urlLib.parse(domain);
+    var result;
     if (typeof window === 'undefined') {
-      prom = oadaIdClient.node(urlObj.host, options)
+      result = await oadaIdClient.node(urlObj.host, options)
     } else {
       // the library itself detects a browser environment and delivers .browser
       var gat = Promise.promisify(oadaIdClient.getAccessToken);
-      prom = gat(urlObj.host, options);
+      result = await gat(urlObj.host, options);
     }
-  }
-  return prom.then(async (result) => {
     TOKEN = result.access_token;
-    let wsProm;
-    if (websocket !== false) {
-      wsProm = ws(domain).then((socketApi) => {
-        REQUEST = socketApi.http;
-		    return SOCKET = socketApi;
-      })
-    } else wsProm = Promise.resolve();
-    return wsProm.then(() => {
-      let cacheProm;
-      if (cache === false) return
-      return _configureCache({
-        name: NAME || uuid(),
-        req: REQUEST,
-        exp: EXP,
-      })
-    })
-  }).then((f) => {
-    return {
-      token: TOKEN,
-      cache: CACHE ? true : false,
-      socket: SOCKET ? true: false,
-      get,
-      put,
-      post,
-      delete: del,
-      resetCache,
-      disconnect,
-    }
+  }
+
+  // Setup websockets
+  if (websocket !== false) {
+    var socketApi = await ws(domain)
+    REQUEST = socketApi.http;
+    SOCKET = await socketApi;
+  }
+
+  //Setup the cache
+  if (cache !== false) await _configureCache({
+    name: NAME || uuid(),
+    req: REQUEST,
+    exp: EXP,
   })
+
+  return {
+    token: TOKEN,
+    cache: CACHE ? true : false,
+    websocket: SOCKET ? true: false,
+    get,
+    put,
+    post,
+    delete: del,
+    resetCache,
+    disconnect,
+  }
 }
 
 export default {

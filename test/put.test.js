@@ -412,9 +412,30 @@ describe('~~~~IMPORT SCRIPT TEST - ENSURE TREE METHOD~~~~~~~', () => {
     expect(response.data.sometest).to.equal(123)
   })
 
-  it('Should make unversioned links where _rev is not specified on resources', async function() {
-
+  it('Now clean up', () => {
+    var conn = connections[0];
+    conn.resetCache();
+    return cleanUp(resources, domain, token);
   })
+
+  it('Should make unversioned links where _rev is not specified on resources', async function() {
+    var newTree = _.cloneDeep(tree)
+    delete newTree.bookmarks.test.aaa.bbb._rev
+
+    var putResponse = await conn.put({
+      path: '/bookmarks/test/aaa/bbb/index-one/ccc/',
+      tree: newTree,
+      data: {anothertest: 123},
+    })
+    var response = await conn.get({
+      path: '/bookmarks/test/aaa',
+    })
+    expect(response.status).to.equal(200)
+    expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+    expect(response.data.bbb).to.include.keys(['_id'])
+    expect(response.data.bbb).to.not.include.keys(['_rev'])
+  })
+
   it('Now clean up', () => {
     var conn = connections[0];
     conn.resetCache();
