@@ -5,13 +5,12 @@ import { cleanUp, makeConnections, tree } from './utils'
 import { token, domain } from './config'
 var expect = chai.expect;
 
-let domain = 'https://vip3.ecn.purdue.edu';
 let contentType = 'application/vnd.oada.yield.1+json';
 let connectTime = 30 * 1000; // seconds to click through oauth
 let connOne;
 let connTwo;
 
-describe('Cache', () => {
+describe('~~~~~~~~~Cache Testing~~~~~~~~', () => {
 
   before('Make the connection. Cache + websocket enabled.', async function() {
     this.timeout(connectTime);
@@ -27,83 +26,82 @@ describe('Cache', () => {
 
   it('reset cache and DELETE to initialize the state', async function() {
     await connOne.resetCache()
-    var response = await connOne.delete({
-        path: '/bookmarks/test', 
-      })
-    expect(response.status).to.equal(204)
-    expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
   })
 })
 
-for (var i = 0; i < 2; i++) {
-  describe(`Test GET 2x to ensure its in the cache. Running ${i+1} of 2 times`, function() {
-    it('GET using a path', () => {
-      return connOne.get({
-        path: '/bookmarks', 
-      }).then((response) => {
-        expect(response.cached).to.equal(i === 1)
-        expect(response.status).to.equal(200)
-        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        expect(response.data).to.include.keys(['_id', '_rev'])
-      })
+describe(`Test GET 2x to ensure its in the cache on the 2nd time`, function() {
+  before('Create some things before testing GETs on them', async function() {
+    var response = await connOne.put({
+      path: '/bookmarks/test/aaa/bbb/index-one/lmnop',
+      data: {somethinggreat: "hello world"},
+      tree,
     })
+    expect(response.status).to.equal(204)
+  })
 
-    it('GET using a url. This second GET should come from cache.', () => {
-      return connOne.get({
-        url: domain+'/bookmarks',
-      }).then((response) => {
-        expect(response.status).to.equal(200)
-        expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-        expect(response.data).to.include.keys(['_id', '_rev'])
-      })
+  it('GET using a path', async function() {
+    var response = await connOne.get({
+      path: '/bookmarks', 
     })
+    expect(response.cached).to.equal(false)
+    expect(response.status).to.equal(200)
+    expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
+    expect(response.data).to.include.keys(['_id', '_rev'])
+  })
 
-  it('Recursive tree get with harvest data tree', async function() {
-      try {
-      var response = await connOne.get({
-        path: '/bookmarks/test',
-        tree,
-      })
+  it('GET using a url. This second GET should come from cache.', () => {
+    return connOne.get({
+      url: domain+'/bookmarks',
+    }).then((response) => {
+      expect(response.cached).to.equal(true)
       expect(response.status).to.equal(200)
+      expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
       expect(response.data).to.include.keys(['_id', '_rev'])
-      expect(response.data['tiled-maps']).to.include.keys(['_id', '_rev'])
-      expect(response.data['tiled-maps']['dry-yield-map']).to.include.keys(['_id', '_rev'])
-      Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index']).forEach((key) => {
-        expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]).to.include.keys(['_id', '_rev']);
-        Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index']).forEach((i) => {
-          expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index'][i]).to.include.keys(['_id', '_rev']);
-        })
-      })
-      } catch(err) {
-        console.log(err)
-      }
     })
+  })
 
-    it('Recursive tree get with harvest data tree.', async function() {
-      var response = await connOne.get({
-        path: '/bookmarks',
-        tree
-      })
-      expect(response.status).to.equal(200)
-      expect(response.data).to.include.keys(['_id', '_rev'])
-      expect(response.data['tiled-maps']).to.include.keys(['_id', '_rev'])
-      expect(response.data['tiled-maps']['dry-yield-map']).to.include.keys(['_id', '_rev'])
-      Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index']).forEach((key) => {
-        expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]).to.include.keys(['_id', '_rev']);
-        Object.keys(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index']).forEach((i) => {
-          expect(response.data['tiled-maps']['dry-yield-map']['crop-index'][key]['geohash-length-index'][i]).to.include.keys(['_id', '_rev']);
-        })
+  it(`Recursive get using a 'tree'`, async function() {
+    var response = await connOne.get({
+      path: '/bookmarks/test',
+      tree,
+    })
+    expect(response.status).to.equal(200)
+    expect(response.data).to.include.keys(['_id', '_rev'])
+    expect(response.data['aaa']).to.include.keys(['_id', '_rev'])
+    expect(response.data['aaa']['bbb']).to.include.keys(['_id', '_rev'])
+    Object.keys(response.data['aaa']['bbb']['index-one']).forEach((key) => {
+      expect(response.data['aaa']['bbb']['index-one'][key]).to.include.keys(['_id', '_rev']);
+      Object.keys(response.data['aaa']['bbb']['index-one'][key]['index-two']).forEach((i) => {
+        expect(response.data['aaa']['bbb']['index-one'][key]['index-two'][i]).to.include.keys(['_id', '_rev']);
       })
     })
   })
-}
 
-describe(``, async function() {
+  it(`Second recursive get with a 'tree' parameter`, async function() {
+    var response = await connOne.get({
+      path: '/bookmarks/test',
+      tree
+    })
+    expect(response.status).to.equal(200)
+    expect(response.data).to.include.keys(['_id', '_rev'])
+    expect(response.data['aaa']).to.include.keys(['_id', '_rev'])
+    expect(response.data['aaa']['bbb']).to.include.keys(['_id', '_rev'])
+    Object.keys(response.data['aaa']['bbb']['index-one']).forEach((key) => {
+      expect(response.data['aaa']['bbb']['index-one'][key]).to.include.keys(['_id', '_rev']);
+      Object.keys(response.data['aaa']['bbb']['index-one'][key]['index-two']).forEach((i) => {
+        expect(response.data['aaa']['bbb']['index-one'][key]['index-two'][i]).to.include.keys(['_id', '_rev']);
+      })
+    })
+  })
+
+})
+
+describe(`Test PUT`, async function() {
   it('PUT using a path', ()=> {
     return connOne.put({
       path: '/bookmarks/test1', 
       type: contentType, 
-      data: "123",
+      data: `123`,
     }).then((response) => {
       expect(response.status).to.equal(204)
       expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
@@ -191,14 +189,15 @@ describe(`TEST DELETES`, async function() {
     var res = await connOne.get({
         path: '/bookmarks'
     })
-    expect(response.cached).to.equal(true)
+    expect(res.cached).to.equal(false)
     expect(res.status).to.equal(200)
     expect(res.data).to.include.keys(['_id', '_rev'])
     expect(res.data).to.not.include.keys(['test'])
   })
 })
 
-describe('make a second connection, put over that connection, and check first cache', () => {
+describe('make a second connection, put over that connection, and check first cache', async function( ){
+  this.timeout(8000)
   before('Make second connection and PUT data to each connection.', async function() {
     var result = await oada.connect({
       domain,

@@ -8,9 +8,9 @@ const Promise = require("bluebird");
 const axios = require("axios");
 const oadaIdClient = require("@oada/oada-id-client");
 
-var connect = function connect({ domain, options, cache, token, websocket }) {
+var connect = async function connect({ domain, options, cache, token, websocket }) {
   if (!domain) throw "domain undefined";
-  if (typeof domain !== string) throw "domain must be a string";
+  if (typeof domain !== "string") throw "domain must be a string";
   if (!options && !token) throw "options and token undefined";
   if (token && typeof token !== "string") throw "token must be a string";
   //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
@@ -74,8 +74,8 @@ var connect = function connect({ domain, options, cache, token, websocket }) {
       data: { _id: data._id || resReq.path.replace(/^\//, "") }
     };
     if (data._rev) linkReq.data._rev = "0-0";
-    var link = await put(linkReq);
     var resource = await put(resReq);
+    var link = await put(linkReq);
 
     return { link, resource };
   }
@@ -119,7 +119,7 @@ var connect = function connect({ domain, options, cache, token, websocket }) {
 
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
-    var response = await REQUEST(req)
+    var response = await REQUEST(_.clone(req))
 
     if (tree) {
       if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
@@ -132,7 +132,9 @@ var connect = function connect({ domain, options, cache, token, websocket }) {
         throw new Error("The path does not exist on the given tree.");
       //return get({url: req.url})
       var subTree = pointer.get(tree, treePath);
-      response.data = await _recursiveGet(req.url, subTree, {});
+      var stuff = await _recursiveGet(req.url, subTree, {}, true);
+      response.data = stuff.data;
+      response.cached = stuff.cached;
     }
 
     // Handle watch
@@ -149,33 +151,38 @@ var connect = function connect({ domain, options, cache, token, websocket }) {
     return response;
   }
 
-  async function _recursiveGet(url, tree, returnData) {
-    console.log(url, returnData)
+  async function _recursiveGet(url, tree, data, cached) {
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {
       // its a resource
       var got = await get({
         url
       });
-      returnData = got.data;
+      data = got.data;
+      cached = got.cached ? got.cached : false
     }
-    return Promise.map(Object.keys(returnData || {}), async function(key) {
-      if (typeof returnData[key] === "object") {
-        if (tree[key])
-          return (returnData[key] = await _recursiveGet(
+    return Promise.map(Object.keys(data || {}), async function(key) {
+      if (typeof data[key] === "object") {
+        if (tree[key]) {
+          var res = await _recursiveGet(
             url + "/" + key,
             tree[key],
-            returnData[key]
-          ));
-        if (tree["*"])
-          return (returnData[key] = await _recursiveGet(
+            data[key],
+            cached
+          );
+          return data[key] = res.data
+        } else if (tree["*"]) {
+          var res =  await _recursiveGet(
             url + "/" + key,
             tree["*"],
-            returnData[key]
-          ));
+            data[key],
+            cached
+          );
+          return data[key] = res.data
+        } else return //data[key] is already stored in the data object
       } else return;
     }).then(() => {
-      return returnData;
+      return {data, cached}
     });
   }
 
