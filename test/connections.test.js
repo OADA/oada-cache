@@ -104,6 +104,53 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
       });
   });
 
+  it("Should disconnect connection with websocket and cache", async () => {
+    conn.disconnect();
+  });
+
+  it("Should make a connection with websocket and cache", function() {
+    this.timeout(connectTime);
+    return oada
+      .connect({
+        domain,
+        token: "def"
+      })
+      .then(result => {
+        connections[0] = result;
+        expect(result).to.have.keys([
+          "token",
+          "disconnect",
+          "get",
+          "put",
+          "post",
+          "delete",
+          "resetCache",
+          "cache",
+          "websocket"
+        ]);
+        expect(result.cache).to.equal(true);
+        expect(result.websocket).to.equal(true);
+        expect(result.get).to.satisfy(x => {
+          return typeof x === "function";
+        });
+        expect(result.put).to.satisfy(x => {
+          return typeof x === "function";
+        });
+        expect(result.post).to.satisfy(x => {
+          return typeof x === "function";
+        });
+        expect(result.delete).to.satisfy(x => {
+          return typeof x === "function";
+        });
+        expect(result.resetCache).to.satisfy(x => {
+          return typeof x === "function";
+        });
+        expect(result.disconnect).to.satisfy(x => {
+          return typeof x === "function";
+        });
+      });
+  });
+
   it("Should make a connection with websocket off, cache on", function() {
     this.timeout(connectTime);
     return oada
