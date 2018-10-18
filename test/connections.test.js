@@ -32,6 +32,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
           "cache",
           "websocket",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
@@ -73,6 +74,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         expect(result).to.have.keys([
           "token",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
@@ -105,7 +107,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
   });
 
   it("Should disconnect connection with websocket and cache", async () => {
-    conn.disconnect();
+    connections[0].disconnect();
   });
 
   it("Should make a connection with websocket and cache", function() {
@@ -120,6 +122,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         expect(result).to.have.keys([
           "token",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
@@ -164,6 +167,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         expect(result).to.have.keys([
           "token",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
@@ -208,6 +212,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         expect(result).to.have.keys([
           "token",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
@@ -255,6 +260,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
           "cache",
           "websocket",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",

@@ -6,27 +6,34 @@ const pointer = require("json-pointer");
 const ws = require("./websocket");
 const Promise = require("bluebird");
 const axios = require("axios");
-const oadaIdClient = require("@oada/oada-id-client");
+const _TOKEN = require("./token");
 
-var connect = async function connect({ domain, options, cache, token, websocket }) {
+var connect = async function connect({
+  domain,
+  options,
+  cache,
+  token,
+  websocket
+}) {
   if (!domain) throw "domain undefined";
   if (typeof domain !== "string") throw "domain must be a string";
   if (!options && !token) throw "options and token undefined";
   if (token && typeof token !== "string") throw "token must be a string";
-  //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
-  //throw "cache must be boolean";
   if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
     throw "websocket must be boolean";
-
 
   let CACHE = undefined;
   let REQUEST = axios;
   let SOCKET = undefined;
   let TOKEN = undefined;
-  if (!domain) throw 'domain undefined'
+  let _token = new _TOKEN({ domain, token, options });
+  if (!domain) throw "domain undefined";
   let DOMAIN = domain;
-  let NAME = (cache && cache.name) ? cache.name : urlLib.parse(domain).hostname.replace(/\./g, '_');
-  let EXP = (cache && cache.exp) ? cache.exp : undefined;
+  let NAME =
+    cache && cache.name
+      ? cache.name
+      : urlLib.parse(domain).hostname.replace(/\./g, "_");
+  let EXP = cache && cache.exp ? cache.exp : undefined;
 
   function _replaceLinks(obj) {
     let ret = Array.isArray(obj) ? [] : {};
@@ -119,7 +126,7 @@ var connect = async function connect({ domain, options, cache, token, websocket 
 
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
-    var response = await REQUEST(_.clone(req))
+    var response = await REQUEST(_.clone(req));
 
     if (tree) {
       if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
@@ -159,7 +166,7 @@ var connect = async function connect({ domain, options, cache, token, websocket 
         url
       });
       data = got.data;
-      cached = got.cached ? got.cached : false
+      cached = got.cached ? got.cached : false;
     }
     return Promise.map(Object.keys(data || {}), async function(key) {
       if (typeof data[key] === "object") {
@@ -170,19 +177,19 @@ var connect = async function connect({ domain, options, cache, token, websocket 
             data[key],
             cached
           );
-          return data[key] = res.data
+          return (data[key] = res.data);
         } else if (tree["*"]) {
-          var res =  await _recursiveGet(
+          var res = await _recursiveGet(
             url + "/" + key,
             tree["*"],
             data[key],
             cached
           );
-          return data[key] = res.data
-        } else return //data[key] is already stored in the data object
+          return (data[key] = res.data);
+        } else return; //data[key] is already stored in the data object
       } else return;
     }).then(() => {
-      return {data, cached}
+      return { data, cached };
     });
   }
 
@@ -441,60 +448,56 @@ var connect = async function connect({ domain, options, cache, token, websocket 
     await CACHE.resetCache();
     return _configureCache({
       name: NAME,
-      req: (SOCKET && SOCKET.http) ? SOCKET.http : axios,
-      exp: exp || EXP, 
-    })
+      req: SOCKET && SOCKET.http ? SOCKET.http : axios,
+      exp: exp || EXP
+    });
   }
 
   function disconnect() {
     if (CACHE) CACHE.db.destroy();
     if (CACHE) CACHE.db.close();
     if (SOCKET) SOCKET.close();
+    if (_token.isSet()) {
+      _token.cleanUp();
+    }
   }
 
-  // Get a token
-  if (token) {
-    TOKEN = token;
-  } else {
-    let urlObj = urlLib.parse(domain);
-    var result;
-    // Open the browser and the login popup
-    if (typeof window === 'undefined') {
-      result = await oadaIdClient.node(urlObj.host, options)
-    } else {
-      // the library itself detects a browser environment and delivers .browser
-      var gat = Promise.promisify(oadaIdClient.getAccessToken);
-      result = await gat(urlObj.host, options);
-    }
-    TOKEN = result.access_token;
+  async function reconnect() {
+    // get a new token
+    TOKEN = await _token.renew();
   }
+
+  // get a token
+  TOKEN = await _token.get();
 
   // Setup websockets
   if (websocket !== false) {
-    var socketApi = await ws(domain)
+    var socketApi = await ws(domain);
     REQUEST = socketApi.http;
     SOCKET = await socketApi;
   }
 
   //Setup the cache
-  if (cache !== false) await _configureCache({
-    name: NAME || uuid(),
-    req: REQUEST,
-    exp: EXP,
-  })
+  if (cache !== false)
+    await _configureCache({
+      name: NAME || uuid(),
+      req: REQUEST,
+      exp: EXP
+    });
 
   return {
     token: TOKEN,
     cache: CACHE ? true : false,
-    websocket: SOCKET ? true: false,
+    websocket: SOCKET ? true : false,
     get,
     put,
     post,
     delete: del,
     resetCache,
     disconnect,
-  }
-}
+    reconnect
+  };
+};
 
 export default {
   connect

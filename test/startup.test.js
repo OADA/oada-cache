@@ -69,6 +69,7 @@ describe("~~~~~~ Testing Connect() -> Disconnect() -> Connect() ~~~~~~~", functi
         expect(result).to.have.keys([
           "token",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
@@ -117,6 +118,7 @@ describe("~~~~~~ Testing Connect() -> Disconnect() -> Connect() ~~~~~~~", functi
         expect(result).to.have.keys([
           "token",
           "disconnect",
+          "reconnect",
           "get",
           "put",
           "post",
