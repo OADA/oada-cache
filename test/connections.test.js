@@ -41,23 +41,23 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         ]);
         expect(result.cache).to.equal(false);
         expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.get).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.put).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.post).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.delete).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.resetCache).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.disconnect).to.satisfy(member => {
+          return typeof member === "function";
         });
       });
   });
@@ -85,23 +85,23 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         ]);
         expect(result.cache).to.equal(true);
         expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.get).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.put).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.post).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.delete).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.resetCache).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.disconnect).to.satisfy(member => {
+          return typeof member === "function";
         });
       });
   });
@@ -133,23 +133,23 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         ]);
         expect(result.cache).to.equal(true);
         expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.get).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.put).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.post).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.delete).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.resetCache).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.disconnect).to.satisfy(member => {
+          return typeof member === "function";
         });
       });
   });
@@ -178,23 +178,23 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         ]);
         expect(result.cache).to.equal(true);
         expect(result.websocket).to.equal(false);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.get).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.put).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.post).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.delete).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.resetCache).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.disconnect).to.satisfy(member => {
+          return typeof member === "function";
         });
       });
   });
@@ -223,23 +223,23 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         ]);
         expect(result.cache).to.equal(false);
         expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.get).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.put).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.post).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.delete).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.resetCache).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.disconnect).to.satisfy(member => {
+          return typeof member === "function";
         });
       });
   });
@@ -269,23 +269,23 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
         ]);
         expect(result.cache).to.equal(false);
         expect(result.websocket).to.equal(false);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.get).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.put).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.post).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.delete).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.resetCache).to.satisfy(member => {
+          return typeof member === "function";
         });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
+        expect(result.disconnect).to.satisfy(member => {
+          return typeof member === "function";
         });
       });
   });

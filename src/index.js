@@ -116,17 +116,43 @@ var connect = async function connect({
     }
   }
 
-  async function get({ url, path, headers, watch, tree }) {
+  async function _buildRequest({ method, url, path, headers, data, type }) {
+    if (!path && !url) throw new Error("Either path or url must be specified.");
     let req = {
-      method: "get",
+      method: method,
       url: url || DOMAIN + path,
       headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
     };
-    if (!req.url) throw new Error("path or url must be supplied");
 
+    //handle headers
+    if (method === "put") {
+      Object.keys(headers || {}).forEach(header => {
+        req.headers[header.toLowerCase()] = headers[header];
+      });
+      req.headers["content-type"] =
+        req.headers["content-type"] || type || data._type;
+
+      req.data = data;
+    }
+    return req;
+  } //buildRequest
+
+  async function get({ url, path, headers, watch, tree }) {
+    let req = await _buildRequest({ method: "get", url, path, headers });
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
-    var response = await REQUEST(_.clone(req));
+
+    var response;
+    try {
+      response = await REQUEST(_.clone(req));
+    } catch (error) {
+      if (error && error.response.status === 401) {
+        //token has expired
+        await reconnect();
+        req = await _buildRequest({ method: "get", url, path, headers });
+        response = await REQUEST(_.clone(req));
+      }
+    } //catch
 
     if (tree) {
       if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
@@ -156,7 +182,7 @@ var connect = async function connect({
       });
     }
     return response;
-  }
+  } //get
 
   async function _recursiveGet(url, tree, data, cached) {
     // Perform a GET if we have reached the next resource break.
@@ -372,12 +398,8 @@ var connect = async function connect({
     });
   }
 
-  function del({ url, path, headers, unwatch }) {
-    let req = {
-      method: "delete",
-      url: url || DOMAIN + path,
-      headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
-    };
+  async function del({ url, path, headers, unwatch }) {
+    let req = await _buildRequest({ method: "delete", url, path, headers });
 
     if (unwatch) {
       path = path || urlLib.parse(url).path;
@@ -389,7 +411,21 @@ var connect = async function connect({
       })*/
     }
 
-    return REQUEST(req);
+    var response;
+    try {
+      response = await REQUEST(req);
+    } catch (error) {
+      if (error && error.response.status === 401) {
+        //token has expired
+        //console.log("Token has expired, renewing");
+        await reconnect();
+        req = await _buildRequest({ method: "delete", url, path, headers });
+        response = await REQUEST(req);
+      }
+    } //catch
+
+    //return REQUEST(req);
+    return response;
   }
 
   function _configureCache({ name, req, exp }) {
@@ -409,19 +445,14 @@ var connect = async function connect({
   // Ensure all resources down to the deepest resource are created before
   // performing a PUT.
   async function put({ url, path, data, type, headers, tree }) {
-    if (!path && !url) throw new Error("Either path or url must be specified.");
-    let req = {
+    let req = await _buildRequest({
       method: "put",
-      url: url || DOMAIN + path,
-      headers: { authorization: "Bearer " + TOKEN },
-      data
-    };
-    //handle headers
-    Object.keys(headers || {}).forEach(header => {
-      req.headers[header.toLowerCase()] = headers[header];
+      url,
+      path,
+      data,
+      type,
+      headers
     });
-    req.headers["content-type"] =
-      req.headers["content-type"] || type || data._type;
 
     // Ensure parent resources are created
     if (tree) {
@@ -440,17 +471,37 @@ var connect = async function connect({
     }
     if (!req.headers["content-type"])
       throw new Error(`'content-type' header must be specified.`);
-    return REQUEST(req);
+
+    var response;
+    try {
+      response = await REQUEST(req);
+    } catch (error) {
+      if (error && error.response.status === 401) {
+        //token has expired
+        await reconnect();
+        req = await _buildRequest({
+          method: "put",
+          url,
+          path,
+          data,
+          type,
+          headers
+        });
+        response = await REQUEST(req);
+      } //if
+    } //catch
+
+    return response;
   }
 
   async function resetCache(name, exp) {
     if (!CACHE) return;
     await CACHE.resetCache();
-    return _configureCache({
-      name: NAME,
-      req: SOCKET && SOCKET.http ? SOCKET.http : axios,
-      exp: exp || EXP
-    });
+    // return _configureCache({
+    //   name: NAME,
+    //   req: SOCKET && SOCKET.http ? SOCKET.http : axios,
+    //   exp: exp || EXP
+    // });
   }
 
   function disconnect() {

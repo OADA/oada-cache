@@ -3,16 +3,11 @@ import oada from "../src/index";
 import chai from "chai";
 var expect = chai.expect;
 const status = require("http-status");
-
-let token = "def";
 //let domain = "https://vip3.ecn.purdue.edu";
 let domain = "https://localhost";
 let connectTime = 30 * 1000; // seconds to click through oauth
 let nTests = 5;
 const _ = require("lodash");
-const config = require("./config.js");
-const { cleanUp, getConnections } = require("./utils.js");
-let connection;
 let expiredConnections = new Array(10);
 
 let connectionParameters = {

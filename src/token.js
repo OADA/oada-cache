@@ -143,7 +143,7 @@ class Token {
 
   async renew() {
     this._isSet = false;
-    return this.setup(); //expired = true
+    return this.setup(true); //expired = true
   }
 
   async cleanUp() {
