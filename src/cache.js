@@ -529,11 +529,7 @@ export default function setupCache({name, req, exp}) {
         return del(req)
       case 'put':
         return put(req)
-<<<<<<< Updated upstream
-    }
-=======
 		}
->>>>>>> Stashed changes
   }
 
   return {
@@ -543,7 +539,4 @@ export default function setupCache({name, req, exp}) {
     handleWatchChange,
     //handleWatchChange: _upsertChangeArray,
 	}
-} catch(err) {
-  console.log(err) 
-}
 }
