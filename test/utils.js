@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const oada = require('../build/index.js').default;
 const Promise = require('bluebird');
 var config = require('./config');
@@ -10,13 +9,6 @@ var resources = [];
 
 async function getConnections({domain, options, token}) {
   var cYesWYes = await oada.connect({
-=======
-const oada = require("../build/index.js").default;
-const axios = require("axios");
-
-async function getConnections({ domain, options, token }) {
-  var yy = await oada.connect({
->>>>>>> 87f0ca5fae9ea3e62c9d5119ee65e8954e7740da
     domain,
     options,
     token
@@ -26,15 +18,9 @@ async function getConnections({ domain, options, token }) {
     domain,
     options,
     token,
-<<<<<<< HEAD
     websocket: false,
   })
   var cNoWYes = await oada.connect({
-=======
-    websocket: false
-  });
-  var ny = await oada.connect({
->>>>>>> 87f0ca5fae9ea3e62c9d5119ee65e8954e7740da
     domain,
     options,
     token,
@@ -46,15 +32,9 @@ async function getConnections({ domain, options, token }) {
     options,
     token,
     websocket: false,
-<<<<<<< HEAD
     cache: false,
   })
   return {cNoWNo, cYesWNo, cNoWYes, cYesWYes}
-=======
-    cache: false
-  });
-  return [nn, yn, ny, yy];
->>>>>>> 87f0ca5fae9ea3e62c9d5119ee65e8954e7740da
 }
 
 async function putResource(data, path) {
