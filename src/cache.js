@@ -1,10 +1,10 @@
 "use strict"
 var pretty = require('prettyjson');
-var Promise = require('bluebird');
-var PouchDB = require('pouchdb');
-var url = require('url');
-var _ = require('lodash');
-var pointer = require('json-pointer');
+var Promise = require("bluebird");
+import PouchDB from "pouchdb";
+var url = require("url");
+var _ = require("lodash");
+var pointer = require("json-pointer");
 var OFFLINE = false;
 
 //TODO: Should getLookup throw an error or return undefined?
@@ -124,8 +124,7 @@ try {
       })
     })
   }
-
-      /*
+  /*
   async function dbUpsert(req) {
     var dbPut = await getUpsertDoc(req)
     await db.put(dbPut)
@@ -152,59 +151,6 @@ try {
     req.data = res.data;
     await dbUpsert(req)
     return res
-  }
-
-  function getResFromDb(req, offline) {
-    var urlObj = url.parse(req.url)
-    var pieces = urlObj.path.split('/')
-    var resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
-    var pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
-    return db.get(resourceId).then((resource) => {
-      if (!offline && ((resource.accessed+expiration) <= Date.now() || !resource.valid)) {
-        return getResFromServer(req)
-      }
-      //If no pathLeftover, it'll just return resource!
-      if (pointer.has(resource.doc, pathLeftover)) {
-        var data = pointer.get(resource.doc, pathLeftover)
-        return {
-          data,
-          headers: {
-            'x-oada-rev': data._rev,
-            'content-location': resourceId+pathLeftover
-          },
-          status: 200,
-          cached: true,
-        }
-      } else {
-        return getResFromServer(req)
-      }
-    }).catch((err) => {
-      if (!offline) return getResFromServer(req)
-      return
-    })
-  }
-
-  // Accepts an axios-style request. Returns:
-  // {
-  //
-  //   data: the data requested,
-  //
-  //   _rev: the rev of the parent resource requested
-  //
-  //   location: e.g.: /resources/abc123/some/path/leftover
-  //   
-  // }
-  async function get(req) {
-    var urlObj = url.parse(req.url)
-		var newReq = _.cloneDeep(req)
-    if (!/^\/resources/.test(urlObj.path)) {
-      // First lookup the resourceId in the cache
-      var lookup = await getLookup(req)
-			newReq.url = urlObj.protocol+'//'+urlObj.host+'/'+lookup.resourceId+lookup.pathLeftover;
-    }
-    return getResFromDb(newReq).then((result) => {
-			return result
-		})
   }
 
   // Perform lookup from bookmarks to resource id (and path leftover) mapping.
@@ -265,13 +211,62 @@ try {
   // The cache should go "stale" after some period of time; However, if it cannot
   // establish a connection, it should remain valid, usable data.
 
+	function getResFromDb(req, offline) {
+    var urlObj = url.parse(req.url)
+    var pieces = urlObj.path.split('/')
+    var resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
+    var pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
+    return db.get(resourceId).then((resource) => {
+      if (!offline && ((resource.accessed+expiration) <= Date.now() || !resource.valid)) {
+        return getResFromServer(req)
+      }
+      //If no pathLeftover, it'll just return resource!
+      if (pointer.has(resource.doc, pathLeftover)) {
+        var data = pointer.get(resource.doc, pathLeftover)
+        return {
+          data,
+          headers: {
+            'x-oada-rev': data._rev,
+            'content-location': resourceId+pathLeftover
+          },
+          status: 200,
+          cached: true,
+        }
+      } else {
+        return getResFromServer(req)
+      }
+    }).catch((err) => {
+      if (!offline) return getResFromServer(req)
+      return
+    })
+  }
 
-
-  //TODO: First, get the _rev of the document to check against when the new rev
-  // is determined.  Also, this function should compensate for a slow return time
-  // from the PUT operation; it should repeat the GET process until it finds a new
-  // _rev.
-  
+    // Accepts an axios-style request. Returns:
+    // {
+    //
+    //   data: the data requested,
+    //
+    //   _rev: the rev of the parent resource requested
+    //
+    //   location: e.g.: /resources/abc123/some/path/leftover
+    //
+    // }
+	async function get(req) {
+    var urlObj = url.parse(req.url)
+		var newReq = _.cloneDeep(req)
+    if (!/^\/resources/.test(urlObj.path)) {
+      // First lookup the resourceId in the cache
+      var lookup = await getLookup(req)
+			newReq.url = 
+				urlObj.protocol + 
+				'//' + 
+				urlObj.host + 
+				'/' + 
+				lookup.resourceId + 
+				lookup.pathLeftover;
+    }
+    return getResFromDb(newReq)
+	}
 
   // TODO: Need to update the cache for both the parent resource and child new
   // resource if one is created
@@ -300,7 +295,7 @@ try {
       })
       return response
     }
-  }
+	}
 
   // Remove the deleted key from the parent resource optimistically using
   // put(). Also mark the parent invalid as the _rev update will affect it
@@ -338,7 +333,11 @@ try {
       var resourceId;
       // Remove the lookup. This is specific to the specific endpoint
       var lookup = await getLookup({
-        url: req.url,
+        url:
+          urlObj.protocol +
+          "//" +
+          urlObj.host +
+          reqPieces.slice(0, reqPieces.length - 1).join("/"),
         headers: req.headers
       })
       await db.remove(lookup)
@@ -347,14 +346,42 @@ try {
       if (!lookup.pathLeftover) await updateParent(req)
     }
 
-    // Execute the request if we're online, else queue it up
-    var response;
-    if (!offline) {
-      response = await request(req)
-    } else {}
+    // Issue DELETE to server then update the db
+    async function del(req, offline) {
+      var urlObj = url.parse(req.url);
+      // Handle resource deletion
+      if (/^\/resources/.test(urlObj.path)) {
+        // Submit a dbUpsert to either remove the whole cache document or else
+        // a key within a document
+        var res = await dbUpsert({
+          url: req.url,
+          method: req.method,
+          _valid: false
+        });
+        // Handle bookmarks link deletion
+      } else {
+        var pathLeftover;
+        var resourceId;
+        // Remove the lookup. This is specific to the specific endpoint
+        var lookup = await getLookup({
+          url: req.url,
+          headers: req.headers
+        });
+        await db.remove(lookup);
 
-    return response || res;
-  }
+        // If no path leftover, we just deleted a resource; invalidate parent link
+        if (!lookup.doc.pathLeftover) await updateParent(req);
+      }
+
+      // Execute the request if we're online, else queue it up
+      var response;
+      if (!offline) {
+        response = await request(req);
+      } else {
+      }
+
+      return response || res;
+    }
 
   function replaceLinks(obj, req) {
     let ret = (Array.isArray(obj)) ? [] : {};
@@ -413,22 +440,24 @@ try {
     } else return
   }
 
-  function findNullValue(obj, path, nullPath) {
-    if (typeof obj === 'object') {
-      return Promise.map(Object.keys(obj || {}), (key) => {
-        if (obj[key] === null) {
-          nullPath = path + '/' + key;
+    function findNullValue(obj, path, nullPath) {
+      if (typeof obj === "object") {
+        return Promise.map(Object.keys(obj || {}), key => {
+          if (obj[key] === null) {
+            nullPath = path + "/" + key;
+            return nullPath;
+          }
+          return findNullValue(obj[key], path + "/" + key, nullPath).then(
+            res => {
+              nullPath = res || nullPath;
+              return res || nullPath;
+            }
+          );
+        }).then(() => {
           return nullPath;
-        }
-        return findNullValue(obj[key], path+'/'+key, nullPath).then((res) => {
-          nullPath = res || nullPath;
-          return res || nullPath
-        })
-      }).then(() => {
-        return nullPath
-      })
-    } else return Promise.resolve(undefined)
-  }
+        });
+      } else return Promise.resolve(undefined);
+    }
 
 	/*
   async function _upsertChangeArray(payload) {
@@ -532,7 +561,6 @@ try {
       case 'put':
         return put(req)
     }
-  }
 
   return {
     api,
@@ -541,7 +569,4 @@ try {
     handleWatchChange,
     //handleWatchChange: _upsertChangeArray,
 	}
-} catch(err) {
-  console.log(err) 
-}
 }

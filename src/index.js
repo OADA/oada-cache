@@ -7,28 +7,35 @@ const urlLib = require("url");
 const pointer = require("json-pointer");
 const ws = require("./websocket");
 const axios = require("axios");
-const oadaIdClient = require("@oada/oada-id-client");
+const _TOKEN = require("./token");
 
-var connect = async function connect({ domain, options, cache, token, websocket }) {
+var connect = async function connect({
+  domain,
+  options,
+  cache,
+  token,
+  websocket
+}) {
   if (!domain) throw "domain undefined";
   if (typeof domain !== "string") throw "domain must be a string";
   if (!options && !token) throw "options and token undefined";
   if (token && typeof token !== "string") throw "token must be a string";
-  //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
-  //throw "cache must be boolean";
   if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
     throw "websocket must be boolean";
 
 	var OFFLINE;
-  var CACHE;
-  var REQUEST = axios;
-	var NOCACHEREQUEST = axios;
-  var SOCKET;
-  var TOKEN;
-  if (!domain) throw 'domain undefined'
-  var DOMAIN = domain;
-  var NAME = (cache && cache.name) ? cache.name : urlLib.parse(domain).hostname.replace(/\./g, '_');
-  var EXP = (cache && cache.exp) ? cache.exp : undefined;
+  let CACHE = undefined;
+  let REQUEST = axios;
+  let SOCKET = undefined;
+  let TOKEN = undefined;
+  let _token = new _TOKEN({ domain, token, options });
+  if (!domain) throw "domain undefined";
+  let DOMAIN = domain;
+  let NAME =
+    cache && cache.name
+      ? cache.name
+      : urlLib.parse(domain).hostname.replace(/\./g, "_");
+  let EXP = cache && cache.exp ? cache.exp : undefined;
 
   function _replaceLinks(obj) {
     let ret = Array.isArray(obj) ? [] : {};
@@ -148,17 +155,43 @@ var connect = async function connect({ domain, options, cache, token, websocket 
     }
   }
 
-  async function get({ url, path, headers, watch, tree }) {
+  async function _buildRequest({ method, url, path, headers, data, type }) {
+    if (!path && !url) throw new Error("Either path or url must be specified.");
     let req = {
-      method: "get",
+      method: method,
       url: url || DOMAIN + path,
       headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
     };
-    if (!req.url) throw new Error("path or url must be supplied");
 
+    //handle headers
+    if (method === "put") {
+      Object.keys(headers || {}).forEach(header => {
+        req.headers[header.toLowerCase()] = headers[header];
+      });
+      req.headers["content-type"] =
+        req.headers["content-type"] || type || data._type;
+
+      req.data = data;
+    }
+    return req;
+  } //buildRequest
+
+  async function get({ url, path, headers, watch, tree }) {
+    let req = await _buildRequest({ method: "get", url, path, headers });
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
-    var response = await REQUEST(_.clone(req))
+
+    var response;
+    try {
+      response = await REQUEST(_.clone(req));
+    } catch (error) {
+      if (error && error.response.status === 401) {
+        //token has expired
+        await reconnect();
+        req = await _buildRequest({ method: "get", url, path, headers });
+        response = await REQUEST(_.clone(req));
+      }
+    } //catch
 
     if (tree) {
       if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
@@ -188,7 +221,7 @@ var connect = async function connect({ domain, options, cache, token, websocket 
       });
     }
     return response;
-  }
+  } //get
 
   async function _recursiveGet(url, tree, data, cached) {
     // Perform a GET if we have reached the next resource break.
@@ -198,7 +231,7 @@ var connect = async function connect({ domain, options, cache, token, websocket 
         url
       });
       data = got.data;
-      cached = got.cached ? got.cached : false
+      cached = got.cached ? got.cached : false;
     }
     return Promise.map(Object.keys(data || {}), async function(key) {
       if (typeof data[key] === "object") {
@@ -210,20 +243,20 @@ var connect = async function connect({ domain, options, cache, token, websocket 
             cached
           );
 					cached = res.cached
-          return data[key] = res.data
+          return (data[key] = res.data);
         } else if (tree["*"]) {
-          var res =  await _recursiveGet(
+          var res = await _recursiveGet(
             url + "/" + key,
             tree["*"],
             data[key],
             cached
           );
 					cached = res.cached
-          return data[key] = res.data
-        } else return //data[key] is already stored in the data object
+          return (data[key] = res.data);
+        } else return; //data[key] is already stored in the data object
       } else return;
     }).then(() => {
-      return {data, cached}
+      return { data, cached };
     });
   }
 
@@ -403,18 +436,8 @@ var connect = async function connect({ domain, options, cache, token, websocket 
     });
   }
 
-  function del({ url, path, type, headers, tree, unwatch}) {
-    if (!path && !url) throw new Error("Either path or url must be specified.");
-    let req = {
-      method: "delete",
-      url: url || DOMAIN + path,
-      headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
-    };
-		Object.keys(headers || {}).forEach(header => {
-      req.headers[header.toLowerCase()] = headers[header];
-    });
-    req.headers["content-type"] =
-      req.headers["content-type"] || type;
+  async function del({ url, path, type, headers, tree, unwatch}) {
+    let req = await _buildRequest({ method: "delete", url, path, headers });
 
     if (unwatch) {
       path = path || urlLib.parse(url).path;
@@ -436,25 +459,35 @@ var connect = async function connect({ domain, options, cache, token, websocket 
 
 		if (!req.headers["content-type"])
       throw new Error(`'content-type' header must be specified.`);
-    return REQUEST(req);
+
+    var response;
+    try {
+      response = await REQUEST(req);
+    } catch (error) {
+      if (error && error.response.status === 401) {
+        //token has expired
+        //console.log("Token has expired, renewing");
+        await reconnect();
+        req = await _buildRequest({ method: "delete", url, path, headers });
+        response = await REQUEST(req);
+      }
+    } //catch
+
+    //return REQUEST(req);
+    return response;
   }
 
   // Ensure all resources down to the deepest resource are created before
   // performing a PUT.
   async function put({ url, path, data, type, headers, tree }) {
-    if (!path && !url) throw new Error("Either path or url must be specified.");
-    let req = {
+    let req = await _buildRequest({
       method: "put",
-      url: url || DOMAIN + path,
-      headers: { authorization: "Bearer " + TOKEN },
-      data
-    };
-    //handle headers
-    Object.keys(headers || {}).forEach(header => {
-      req.headers[header.toLowerCase()] = headers[header];
+      url,
+      path,
+      data,
+      type,
+      headers
     });
-    req.headers["content-type"] =
-      req.headers["content-type"] || type || data._type;
 
     // Ensure parent resources are created
     if (tree) {
@@ -476,52 +509,73 @@ var connect = async function connect({ domain, options, cache, token, websocket 
       if (!req.headers["content-type"] && pointer.has(tree, treePath))
         req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
+
     if (!req.headers["content-type"])
       throw new Error(`'content-type' header must be specified.`);
-    return REQUEST(req);
+
+    var response;
+    try {
+      response = await REQUEST(req);
+    } catch (error) {
+      if (error && error.response.status === 401) {
+        //token has expired
+        await reconnect();
+        req = await _buildRequest({
+          method: "put",
+          url,
+          path,
+          data,
+          type,
+          headers
+        });
+        response = await REQUEST(req);
+      } //if
+    } //catch
+
+    return response;
   }
 
   async function resetCache(name, exp) {
     if (!CACHE) return;
-		return CACHE.resetCache();
+    await CACHE.resetCache();
+    // return _configureCache({
+    //   name: NAME,
+    //   req: SOCKET && SOCKET.http ? SOCKET.http : axios,
+    //   exp: exp || EXP
+    // });
   }
 
   function disconnect() {
     if (CACHE) CACHE.db.destroy();
     if (CACHE) CACHE.db.close();
     if (SOCKET) SOCKET.close();
+    if (_token.isSet()) {
+      _token.cleanUp();
+    }
   }
 
-  // Get a token
-  if (token) {
-    TOKEN = token;
-  } else {
-    let urlObj = urlLib.parse(domain);
-    var result;
-    // Open the browser and the login popup
-    if (typeof window === 'undefined') {
-      result = await oadaIdClient.node(urlObj.host, options)
-    } else {
-      // the library itself detects a browser environment and delivers .browser
-      var gat = Promise.promisify(oadaIdClient.getAccessToken);
-      result = await gat(urlObj.host, options);
-    }
-    TOKEN = result.access_token;
+  async function reconnect() {
+    // get a new token
+    TOKEN = await _token.renew();
   }
+
+  // get a token
+  TOKEN = await _token.get();
 
   // Setup websockets
   if (websocket !== false) {
-    var socketApi = await ws(domain)
+    var socketApi = await ws(domain);
     REQUEST = socketApi.http;
     SOCKET = await socketApi;
   }
 
   //Setup the cache
-  if (cache !== false) await _configureCache({
-    name: NAME || uuid(),
-    req: REQUEST,
-    exp: EXP,
-  })
+  if (cache !== false)
+    await _configureCache({
+      name: NAME || uuid(),
+      req: REQUEST,
+      exp: EXP
+    });
 
   return {
     token: TOKEN,
@@ -533,8 +587,9 @@ var connect = async function connect({ domain, options, cache, token, websocket 
     delete: del,
     resetCache,
     disconnect,
-  }
-}
+    reconnect
+  };
+};
 
 export default {
   connect

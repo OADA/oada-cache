@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const oada = require('../build/index.js').default;
 const Promise = require('bluebird');
 var config = require('./config');
@@ -9,32 +10,51 @@ var resources = [];
 
 async function getConnections({domain, options, token}) {
   var cYesWYes = await oada.connect({
+=======
+const oada = require("../build/index.js").default;
+const axios = require("axios");
+
+async function getConnections({ domain, options, token }) {
+  var yy = await oada.connect({
+>>>>>>> 87f0ca5fae9ea3e62c9d5119ee65e8954e7740da
     domain,
     options,
     token
-  })
+  });
 
   var cYesWNo = await oada.connect({
     domain,
     options,
     token,
+<<<<<<< HEAD
     websocket: false,
   })
   var cNoWYes = await oada.connect({
+=======
+    websocket: false
+  });
+  var ny = await oada.connect({
+>>>>>>> 87f0ca5fae9ea3e62c9d5119ee65e8954e7740da
     domain,
     options,
     token,
-    cache: false,
-  })
+    cache: false
+  });
 
   var cNoWNo = await oada.connect({
     domain,
     options,
     token,
     websocket: false,
+<<<<<<< HEAD
     cache: false,
   })
   return {cNoWNo, cYesWNo, cNoWYes, cYesWYes}
+=======
+    cache: false
+  });
+  return [nn, yn, ny, yy];
+>>>>>>> 87f0ca5fae9ea3e62c9d5119ee65e8954e7740da
 }
 
 async function putResource(data, path) {
@@ -70,59 +90,54 @@ async function putResource(data, path) {
 
 async function cleanUp(otherResources) {
   // Delete resources
-	resources.push(...otherResources)
-	await Promise.map(resources, async function(res) {
-		try {
-			await axios({
-				method: 'delete',
-				url: domain+res,
-				headers: {
-					Authorization: 'Bearer '+token,
-					'Content-Type': 'application/json',
-				}
-			})
-		} catch(err) {
-			if (err.response.status === 404 || err.response.status === 403) return;
-			throw err
-		}
-	})
-		// Delete link
-	await axios({
-		method: 'delete',
-		url: domain+'/bookmarks/test',
-		headers: {
-			Authorization: 'Bearer '+token,
-			'Content-Type': 'application/json',
-		}
-	})
-	return 
+  resources.forEach(async function(res) {
+    await axios({
+      method: "delete",
+      url: domain + res,
+      headers: {
+        Authorization: "Bearer " + token
+      }
+    });
+  });
+  // Delete link
+  await axios({
+    method: "delete",
+    url: domain + "/bookmarks/test",
+    headers: {
+      Authorization: "Bearer " + token
+    }
+  });
 }
 
 var tree = {
-  'bookmarks': {
-    '_type': 'application/vnd.oada.bookmarks.1+json',
-    '_rev': '0-0',
-    'test': {
-      '_type': 'application/vnd.oada.harvest.1+json',
-      '_rev': '0-0',
-      'aaa': {
-        '_type': 'application/vnd.oada.as-harvested.1+json',
-        '_rev': '0-0',
-        'bbb': {
-          '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-          '_rev': '0-0',
-          'index-one': {
-            '*': {
-              '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-              '_rev': '0-0',
-              'index-two': {
-                '*': {
-                  '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-                  '_rev': '0-0',
-                  'index-three': {
-                    '*': {
-                      '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-                      'test': {}
+  bookmarks: {
+    _type: "application/vnd.oada.bookmarks.1+json",
+    _rev: "0-0",
+    test: {
+      _type: "application/vnd.oada.harvest.1+json",
+      _rev: "0-0",
+      aaa: {
+        _type: "application/vnd.oada.as-harvested.1+json",
+        _rev: "0-0",
+        bbb: {
+          _type:
+            "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+          _rev: "0-0",
+          "index-one": {
+            "*": {
+              _type:
+                "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+              _rev: "0-0",
+              "index-two": {
+                "*": {
+                  _type:
+                    "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+                  _rev: "0-0",
+                  "index-three": {
+                    "*": {
+                      _type:
+                        "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+                      test: {}
                     }
                   }
                 }
@@ -133,11 +148,11 @@ var tree = {
       }
     }
   }
-}
+};
 
 module.exports = {
-  getConnections, 
+  getConnections,
   cleanUp,
   tree,
 	putResource,
-}
+};
