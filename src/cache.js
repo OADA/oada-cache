@@ -7,21 +7,17 @@ var _ = require("lodash");
 var pointer = require("json-pointer");
 var OFFLINE = false;
 
-//TODO: Should getLookup throw an error or return undefined?
-// This needs to be handled by all that call getLookup!!!
-
-export default function setupCache({name, req, exp}) {
-try {
-
+export default function setupCache({name, req, expires}) {
 // name should be made unique across domains and users
 	var db = db || new PouchDB(name);
+	// This fixes concurrent accesses 
 	PouchDB.on('destroyed', function(dbName) {
 		if (dbName === name) {
 			db = new PouchDB(name)
 		}
 	})
 	var request = req;
-	var expiration = exp || 1000*60*60*24*2;//(ms/s)*(s/min)*(min/hr)*(hr/days)*days
+	var expiration = expires || 1000*60*60*24*2;//(ms/s)*(s/min)*(min/hr)*(hr/days)*days
 
 // Get the resource and merge data if its already in the db.
   function dbUpsert(req, waitTime) {
@@ -199,7 +195,7 @@ try {
     })
   }
 
-    // Create a queue of actual PUTs to make when online.
+  // Create a queue of actual PUTs to make when online.
   // Resource breaks are known via setupTree. 
   // Do the puts, save out the resource IDs, and return to client
   // Create an index on the data to find those that need synced
@@ -560,7 +556,8 @@ try {
         return del(req)
       case 'put':
         return put(req)
-    }
+		}
+  }
 
   return {
     api,

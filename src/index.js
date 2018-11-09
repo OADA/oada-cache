@@ -20,22 +20,27 @@ var connect = async function connect({
   if (typeof domain !== "string") throw "domain must be a string";
   if (!options && !token) throw "options and token undefined";
   if (token && typeof token !== "string") throw "token must be a string";
+	if (cache !== undefined && typeof cache !== "boolean" && typeof cache !== "object") throw new Error(`cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
+  //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
+  //throw "cache must be boolean";
   if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
-    throw "websocket must be boolean";
+    throw new Error("websocket must be boolean");
 
 	var OFFLINE;
-  let CACHE = undefined;
-  let REQUEST = axios;
-  let SOCKET = undefined;
-  let TOKEN = undefined;
+  var CACHE;
+  var REQUEST = axios;
+	var NOCACHEREQUEST = axios;
+  var SOCKET;
+  var TOKEN;
   let _token = new _TOKEN({ domain, token, options });
-  if (!domain) throw "domain undefined";
-  let DOMAIN = domain;
-  let NAME =
+  if (!domain) throw new Error('domain undefined');
+  var DOMAIN = domain;
+	var NAME =
     cache && cache.name
       ? cache.name
       : urlLib.parse(domain).hostname.replace(/\./g, "_");
-  let EXP = cache && cache.exp ? cache.exp : undefined;
+
+  var EXPIRES = (cache && cache.expires) ? cache.expires : undefined;
 
   function _replaceLinks(obj) {
     let ret = Array.isArray(obj) ? [] : {};
@@ -409,8 +414,8 @@ var connect = async function connect({
 		return responses;
   }
 
-  function _configureCache({ name, req, exp }) {
-    let res = setupCache({ name, req, exp });
+  function _configureCache({ name, req, expires }) {
+    let res = setupCache({ name, req, expires });
     REQUEST = res.api;
     CACHE = res;
     return;
@@ -535,7 +540,7 @@ var connect = async function connect({
     return response;
   }
 
-  async function resetCache(name, exp) {
+  async function resetCache(name, expires) {
     if (!CACHE) return;
     await CACHE.resetCache();
     // return _configureCache({
@@ -545,9 +550,9 @@ var connect = async function connect({
     // });
   }
 
-  function disconnect() {
-    if (CACHE) CACHE.db.destroy();
-    if (CACHE) CACHE.db.close();
+  async function disconnect() {
+    if (CACHE) await CACHE.db.close();
+    //if (CACHE) await CACHE.db.destroy();
     if (SOCKET) SOCKET.close();
     if (_token.isSet()) {
       _token.cleanUp();
@@ -570,17 +575,16 @@ var connect = async function connect({
   }
 
   //Setup the cache
-  if (cache !== false)
-    await _configureCache({
-      name: NAME || uuid(),
-      req: REQUEST,
-      exp: EXP
-    });
+  if (cache !== false) await _configureCache({
+    name: NAME || uuid(),
+    req: REQUEST,
+    expires: EXPIRES,
+  })
 
   return {
     token: TOKEN,
     cache: CACHE ? CACHE : false,
-    websocket: SOCKET ? true: false,
+    websocket: SOCKET ? SOCKET : false,
     get,
     put,
     post,
