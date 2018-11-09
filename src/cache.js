@@ -11,8 +11,6 @@ var OFFLINE = false;
 // This needs to be handled by all that call getLookup!!!
 
 export default function setupCache({name, req, exp}) {
-try {
-
 // name should be made unique across domains and users
 	var db = db || new PouchDB(name);
 	PouchDB.on('destroyed', function(dbName) {
@@ -253,7 +251,7 @@ try {
     })
   }
 
-    // Create a queue of actual PUTs to make when online.
+  // Create a queue of actual PUTs to make when online.
   // Resource breaks are known via setupTree. 
   // Do the puts, save out the resource IDs, and return to client
   // Create an index on the data to find those that need synced
@@ -531,7 +529,11 @@ try {
         return del(req)
       case 'put':
         return put(req)
+<<<<<<< Updated upstream
     }
+=======
+		}
+>>>>>>> Stashed changes
   }
 
   return {
