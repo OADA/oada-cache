@@ -1,6 +1,6 @@
 {
   "name": "@oada/oada-cache",
-  "version": "1.0.8",
+  "version": "1.3.1",
   "description": "node library for interacting with and locally caching data served on an oada-compliant server",
   "main": "./build/index.js",
   "directories": {
@@ -10,11 +10,13 @@
     "test": "mocha -w --require babel-polyfill --compilers js:babel-register test/**/*.test.js",
     "build": "babel src --require babel-polyfill --out-dir build --presets=env",
     "build-watch": "babel src --watch --require babel-polyfill --out-dir build --presets=env",
-    "prepublish": "npm run build"
+    "dev": "cpx --watch --verbose './build/**' '../TrialsTracker/node_modules/@oada/oada-cache/build/'",
+    "prepare": "npm run build"
   },
   "author": "oada",
   "license": "Apache-2.0",
   "dependencies": {
+    "@oada/oada-id-client": "^1.0.0",
     "axios": "^0.18.0",
     "babel-cli": "^6.26.0",
     "babel-plugin-transform-runtime": "^6.23.0",
@@ -28,9 +30,13 @@
     "isomorphic-ws": "^4.0.1",
     "json-pointer": "^0.6.0",
     "lodash": "^4.17.10",
-    "oada-id-client": "OADA/oada-id-client-js",
+    "mocha": "^5.2.0",
+    "moment": "^2.22.2",
     "opn": "^5.3.0",
     "pouchdb": "^7.0.0",
+    "pouchdb-upsert": "^2.2.0",
+    "prettyjson": "^1.2.1",
+    "type-is": "^1.6.16",
     "url": "^0.11.0",
     "uuid": "^3.3.2",
     "ws": "^5.2.1"

@@ -1,8 +1,8 @@
 const Promise = require('bluebird');
+const urlLib = require('url');
 const uuid = require('uuid/v4');
 const WebSocket = require('isomorphic-ws');
 Promise.config({warnings: false})
-let isWindow = false;
 
 function websocket(url) {
 	//Create the message queue
@@ -17,25 +17,23 @@ function websocket(url) {
 	function sendMessages() {
 		if (!connected) return;
 		messages.forEach((message) => {
-			socket.send(JSON.stringify(message));
+      socket.send(JSON.stringify(message));
 		});
 		messages = [];
 	}
 
 	return new Promise((resolve, reject) => {
-		socket.onopen = function(event) {
+    socket.onopen = function(event) {
 			connected = true;
 			sendMessages();
 			resolve(socket)
 		}
-		if (!isWindow) socket.on('open', socket.onopen)
 
 		socket.onclose = function(event) {
 
 		}
-		if (!isWindow) socket.on('close', socket.onclose)
     socket.onmessage = function(event) {
-			var response = JSON.parse(event.data);
+      var response = JSON.parse(event.data);
 			//Look for id in httpCallbacks
 			if (response.requestId) {
 				if (httpCallbacks[response.requestId]) {
@@ -44,14 +42,15 @@ function websocket(url) {
 						httpCallbacks[response.requestId].resolve(response);
 					} else {
             //Create error like axios
+            //console.log(httpCallbacks[response.requestId].request, response);
 						let err = new Error('Request failed with status code '+response.status);
-						err.request = httpCallbacks[response.requestId].request;
+            err.request = httpCallbacks[response.requestId].request;
 						err.response = {
 							status: response.status,
-							statusText: response.status,
+							statusText: response.statusText,
 							headers: response.headers,
 							data: response.data
-						};
+            };
 						httpCallbacks[response.requestId].reject(err);
 					}
 					delete httpCallbacks[response.requestId];
@@ -61,30 +60,32 @@ function websocket(url) {
 							//Successfully setup websocket, resolve promise
 							watchCallbacks[response.requestId].resolve(response);
             } else {
+              //console.log(watchCallbacks[response.requestId].request, response);
 							let err = new Error('Request failed with status code '+response.status);
 							err.response = response;
+              err.request = watchCallbacks[response.requestId].request;
 							watchCallbacks[response.requestId].reject(err);
 						}
 						//Remove resolve and reject so we process change as a signal next time
 						delete watchCallbacks[response.requestId]['resolve'];
 						delete watchCallbacks[response.requestId]['reject'];
           } else {
-						if (watchCallbacks[response.requestId].callback == null) throw new Error('The given watch function has an undefined callback:', watchCallbacks[response.requestId]);
+            if (watchCallbacks[response.requestId].callback == null) throw new Error('The given watch function has an undefined callback:', watchCallbacks[response.requestId]);
 						watchCallbacks[response.requestId].callback(response);
 					}
-				}
+        }
 			}
 		}
-		if (!isWindow) socket.on('message', socket.onclose)
 	}).then(() => {
 
     function _http(request) {
 			//Do a HTTP request
       return new Promise((resolve, reject) => {
+        let urlObj = urlLib.parse(request.url);
 				let message = {
 					requestId: uuid(),
 					method: request.method.toLowerCase(),
-					path: (request.url.indexOf(url) === 0) ? request.url.replace(url, '') : request.url,
+					path: urlObj.path,
 					data: request.data,
 					headers: Object.entries(request.headers).map(([key, value]) => {
 						return {[key.toLowerCase()]: value}
@@ -98,6 +99,25 @@ function websocket(url) {
 					resolve: resolve,
 					reject: reject
         };
+				sendMessages();
+			});
+    }
+
+    function _unwatch(request, callback) {
+			//Watch for changes on requested resource and trigger provided signal
+			return new Promise((resolve, reject) => {
+				let message = {
+					requestId: uuid(),
+					method: 'unwatch',
+					path: request.path,
+					headers: Object.entries(request.headers).map(([key, value]) => {
+						return {[key.toLowerCase()]: value}
+					}).reduce((a,b) => {
+						return {...a, ...b}
+					})
+				};
+        messages.push(message);
+        watchCallbacks[message.requestId] = {request, resolve, reject, callback};
 				sendMessages();
 			});
 		}
@@ -116,7 +136,7 @@ function websocket(url) {
 					})
 				};
         messages.push(message);
-				watchCallbacks[message.requestId] = {resolve, reject, callback};
+				watchCallbacks[message.requestId] = {request, resolve, reject, callback};
 				sendMessages();
 			});
 		}
@@ -135,7 +155,8 @@ function websocket(url) {
 			url,
 			http: _http,
 			close: _close,
-			watch: _watch
+			watch: _watch,
+			unwatch: _unwatch,
 		}
 	})
 }
