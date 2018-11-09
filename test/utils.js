@@ -80,6 +80,7 @@ async function cleanUp(otherResources) {
     });
   });
   // Delete link
+	try {
   await axios({
     method: "delete",
     url: domain + "/bookmarks/test",
@@ -87,6 +88,7 @@ async function cleanUp(otherResources) {
       Authorization: "Bearer " + token
     }
   });
+	} catch(err) {}
 }
 
 var tree = {

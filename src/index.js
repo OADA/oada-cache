@@ -16,10 +16,10 @@ var connect = async function connect({
   token,
   websocket
 }) {
-  if (!domain) throw "domain undefined";
-  if (typeof domain !== "string") throw "domain must be a string";
-  if (!options && !token) throw "options and token undefined";
-  if (token && typeof token !== "string") throw "token must be a string";
+  if (!domain) throw new Error("domain undefined");
+  if (typeof domain !== "string") throw new Error("domain must be a string");
+  if (!options && !token) throw new Error("options and token undefined");
+  if (token && typeof token !== "string") throw new Error("token must be a string");
 	if (cache !== undefined && typeof cache !== "boolean" && typeof cache !== "object") throw new Error(`cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
   //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
   //throw "cache must be boolean";
@@ -128,7 +128,6 @@ var connect = async function connect({
     return { link, resource };
   }
 
-
   function _watch({ headers, path, func, payload }) {
     if (SOCKET) {
       return SOCKET.watch(
@@ -160,13 +159,22 @@ var connect = async function connect({
     }
   }
 
+	// Construct the request object and catch any 401s (expired token)
   async function _buildRequest({ method, url, path, headers, data, type }) {
     if (!path && !url) throw new Error("Either path or url must be specified.");
+		if (url) {
+			if ((/^\//).test(url)) {
+				url = domain + url;
+			} else if (url.indexOf(domain) !== 0) {
+				throw new Error(`'url' key must begin with the domain used to connect`);
+			}
+		}
     let req = {
       method: method,
       url: url || DOMAIN + path,
       headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
     };
+		if (/\/$/.test(req.url)) req.url = req.url.slice(0, req.url.length-1)
 
     //handle headers
     if (method === "put") {
@@ -178,25 +186,29 @@ var connect = async function connect({
 
       req.data = data;
     }
-    return req;
-  } //buildRequest
+		
+		return req;
+	}
+
+	async function _sendRequest(req) {
+		try {
+			return REQUEST(req);
+		} catch (error) {
+		  if (error && error.response.status === 401) {
+        //token has expired
+        await reconnect();
+        return REQUEST(req);
+      }
+			throw error;
+    } 
+  }
 
   async function get({ url, path, headers, watch, tree }) {
     let req = await _buildRequest({ method: "get", url, path, headers });
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
 
-    var response;
-    try {
-      response = await REQUEST(_.clone(req));
-    } catch (error) {
-      if (error && error.response.status === 401) {
-        //token has expired
-        await reconnect();
-        req = await _buildRequest({ method: "get", url, path, headers });
-        response = await REQUEST(_.clone(req));
-      }
-    } //catch
+    var response = await _sendRequest(req);
 
     if (tree) {
       if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
@@ -265,57 +277,6 @@ var connect = async function connect({
     });
   }
 
-  /*
-  // recursively get data based on the supplied tree
-  function _recursiveGet(url, tree, returnData) {
-    return Promise.try(() => {
-      // Perform a GET if we have reached the next resource break.
-      if (tree._type) { // its a resource
-        return get({
-          url
-        }).then((response) => {
-          returnData = response.data;
-          return tree
-        })
-      }
-      return tree
-    }).then(() => {
-      // Walk down the data at this url and continue recursion.
-      return Promise.map(Object.keys(tree || {}), (key) => {
-        // If tree contains a *, this means we should get ALL content on the server
-        // at this level and continue recursion for each returned key.
-        if (key === '*') {
-          return Promise.map(Object.keys(returnData || {}), (resKey) => {
-            if (resKey.charAt(0) === '_') return
-            return _recursiveGet(url+'/'+resKey, tree[key] || {}, returnData[resKey]).then((res) => {
-              return returnData[resKey] = res;
-            })
-          })
-        } else if (typeof tree[key] === 'object') {
-          return _recursiveGet(url+'/'+key, tree[key] || {}, returnData[key]).then((res) => {
-            if (res !== undefined) return returnData[key] = res;
-            return
-          })
-        } else {
-          return
-        }
-      }).then(() => {
-        return returnData
-      })
-    }).catch((err) => {
-      if (err.response.status === 404) return
-      return err
-    })
-  }
-  */
-
-  function makeIntoResource() {
-    //1. Get the current content of the object at that endpoint
-    //1. Create a resource with the content from (1)
-    //2. Delete the current content at that key
-    //3. Create a link
-  }
-
   // Identify the stored resources vs those that need to be setup.
   function _findDeepestResources(pieces, tree, storedTree) {
     let stored = 0;
@@ -337,6 +298,7 @@ var connect = async function connect({
         return get({
           path: urlPath
         }).then(response => {
+					console.log(response)
           //TODO: Detect whether the returned data matches the given tree
           pointer.set(storedTree, urlPath, {});
           stored = _.clone(z);
@@ -463,23 +425,9 @@ var connect = async function connect({
     }
 
 		if (!req.headers["content-type"])
-      throw new Error(`'content-type' header must be specified.`);
+      throw new Error(`content-type header must be specified.`);
 
-    var response;
-    try {
-      response = await REQUEST(req);
-    } catch (error) {
-      if (error && error.response.status === 401) {
-        //token has expired
-        //console.log("Token has expired, renewing");
-        await reconnect();
-        req = await _buildRequest({ method: "delete", url, path, headers });
-        response = await REQUEST(req);
-      }
-    } //catch
-
-    //return REQUEST(req);
-    return response;
+    return _sendRequest(req);
   }
 
   // Ensure all resources down to the deepest resource are created before
@@ -515,29 +463,11 @@ var connect = async function connect({
         req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
 
+		console.log(req)
     if (!req.headers["content-type"])
       throw new Error(`'content-type' header must be specified.`);
 
-    var response;
-    try {
-      response = await REQUEST(req);
-    } catch (error) {
-      if (error && error.response.status === 401) {
-        //token has expired
-        await reconnect();
-        req = await _buildRequest({
-          method: "put",
-          url,
-          path,
-          data,
-          type,
-          headers
-        });
-        response = await REQUEST(req);
-      } //if
-    } //catch
-
-    return response;
+    return _sendRequest(req);
   }
 
   async function resetCache(name, expires) {

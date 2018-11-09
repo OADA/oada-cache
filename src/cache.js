@@ -312,72 +312,41 @@ export default function setupCache({name, req, expires}) {
   }
 
   // Issue DELETE to server then update the db
-  async function del(req, offline) {
-    var urlObj = url.parse(req.url)
-    // Handle resource deletion
-    if (/^\/resources/.test(urlObj.path)) {
-      // Submit a dbUpsert to either remove the whole cache document or else
-      // a key within a document
-      var res = await dbUpsert({
-        url: req.url,
-        method: req.method,
-        valid: false,
-      })
-    // Handle bookmarks link deletion
-    } else {
-      var pathLeftover;
-      var resourceId;
-      // Remove the lookup. This is specific to the specific endpoint
-      var lookup = await getLookup({
-        url:
-          urlObj.protocol +
-          "//" +
-          urlObj.host +
-          reqPieces.slice(0, reqPieces.length - 1).join("/"),
-        headers: req.headers
-      })
-      await db.remove(lookup)
+	async function del(req, offline) {
+		var urlObj = url.parse(req.url);
+		// Handle resource deletion
+		if (/^\/resources/.test(urlObj.path)) {
+			// Submit a dbUpsert to either remove the whole cache document or else
+			// a key within a document
+			var res = await dbUpsert({
+				url: req.url,
+				method: req.method,
+				_valid: false
+			});
+			// Handle bookmarks link deletion
+		} else {
+			var pathLeftover;
+			var resourceId;
+			// Remove the lookup. This is specific to the specific endpoint
+			var lookup = await getLookup({
+				url: req.url,
+				headers: req.headers
+			});
+			await db.remove(lookup);
 
-      // If no path leftover, we just deleted a resource; invalidate parent link
-      if (!lookup.pathLeftover) await updateParent(req)
-    }
+			// If no path leftover, we just deleted a resource; invalidate parent link
+			if (!lookup.doc.pathLeftover) await updateParent(req);
+		}
 
-    // Issue DELETE to server then update the db
-    async function del(req, offline) {
-      var urlObj = url.parse(req.url);
-      // Handle resource deletion
-      if (/^\/resources/.test(urlObj.path)) {
-        // Submit a dbUpsert to either remove the whole cache document or else
-        // a key within a document
-        var res = await dbUpsert({
-          url: req.url,
-          method: req.method,
-          _valid: false
-        });
-        // Handle bookmarks link deletion
-      } else {
-        var pathLeftover;
-        var resourceId;
-        // Remove the lookup. This is specific to the specific endpoint
-        var lookup = await getLookup({
-          url: req.url,
-          headers: req.headers
-        });
-        await db.remove(lookup);
+		// Execute the request if we're online, else queue it up
+		var response;
+		if (!offline) {
+			response = await request(req);
+		} else {
+		}
 
-        // If no path leftover, we just deleted a resource; invalidate parent link
-        if (!lookup.doc.pathLeftover) await updateParent(req);
-      }
-
-      // Execute the request if we're online, else queue it up
-      var response;
-      if (!offline) {
-        response = await request(req);
-      } else {
-      }
-
-      return response || res;
-    }
+		return response || res;
+	}
 
   function replaceLinks(obj, req) {
     let ret = (Array.isArray(obj)) ? [] : {};
@@ -436,24 +405,24 @@ export default function setupCache({name, req, expires}) {
     } else return
   }
 
-    function findNullValue(obj, path, nullPath) {
-      if (typeof obj === "object") {
-        return Promise.map(Object.keys(obj || {}), key => {
-          if (obj[key] === null) {
-            nullPath = path + "/" + key;
-            return nullPath;
-          }
-          return findNullValue(obj[key], path + "/" + key, nullPath).then(
-            res => {
-              nullPath = res || nullPath;
-              return res || nullPath;
-            }
-          );
-        }).then(() => {
-          return nullPath;
-        });
-      } else return Promise.resolve(undefined);
-    }
+	function findNullValue(obj, path, nullPath) {
+		if (typeof obj === "object") {
+			return Promise.map(Object.keys(obj || {}), key => {
+				if (obj[key] === null) {
+					nullPath = path + "/" + key;
+					return nullPath;
+				}
+				return findNullValue(obj[key], path + "/" + key, nullPath).then(
+					res => {
+						nullPath = res || nullPath;
+						return res || nullPath;
+					}
+				);
+			}).then(() => {
+				return nullPath;
+			});
+		} else return Promise.resolve(undefined);
+	}
 
 	/*
   async function _upsertChangeArray(payload) {

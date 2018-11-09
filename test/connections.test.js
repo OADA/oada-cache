@@ -11,7 +11,7 @@ let connections = new Array(4);
 let contentType = "application/vnd.oada.yield.1+json";
 let connectTime = 30 * 1000; // seconds to click through oauth
 
-describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) neither~~~~~~~", function() {
+describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
   this.timeout(connectTime);
 
   it("Should connect with metadata. Browser popup must be used to login within 30s.", async function() {
@@ -31,6 +31,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
 			"cache",
 			"websocket",
 			"disconnect",
+			"reconnect",
 			"get",
 			"put",
 			"post",
@@ -56,6 +57,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
 		expect(result).to.have.keys([
 			"token",
 			"disconnect",
+			"reconnect",
 			"get",
 			"put",
 			"post",
@@ -84,6 +86,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
 		expect(result).to.have.keys([
 			"token",
 			"disconnect",
+			"reconnect",
 			"get",
 			"put",
 			"post",
@@ -116,6 +119,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
 			"get",
 			"put",
 			"post",
+			"reconnect",
 			"delete",
 			"resetCache",
 			"cache",
@@ -145,6 +149,7 @@ describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) 
 			"websocket",
 			"disconnect",
 			"get",
+			"reconnect",
 			"put",
 			"post",
 			"delete",

@@ -3,9 +3,11 @@ const oada = require('../build/index').default
 const _ = require('lodash');
 const uuid = require('uuid');
 const chai = require('chai');
+var chaiAsPromised = require("chai-as-promised");
+chai.use(chaiAsPromised);
+var expect = chai.expect;
 const axios = require('axios');
 const { token, domain }= require('./config')
-const expect = chai.expect;
 const {tree, putResource, cleanUp, getConnections} = require('./utils.js');
 
 var connections;
@@ -19,13 +21,13 @@ describe(`------------GET-----------------`, async function() {
 			token: 'def',
 		})
 		connections = Object.values(connections)
-//		connections = connections.filter(co => co.cache ? true: false)
 	})
 
 	for (let i = 0; i < 4; i++) {
 		describe(`Testing connection ${i+1}`, async function() {
 
 			it(`Should allow for a basic GET request without tree parameter`, async function() {
+				this.timeout(4000);
 				await putResource({
 					_type: 'application/vnd.oada.notes.1+json',
 					sometest: 'abc'
@@ -53,15 +55,10 @@ describe(`------------GET-----------------`, async function() {
 			})
 
 			it(`Should error when the root path of a 'tree' GET doesn't exist`, async function() {
-				try {
-					var test = await connections[i].get({
-						path: '/bookmarks/test/testTwo',
-						tree
-					})
-				} catch (error) {
-					expect(error.response.status).to.equal(404)
-					expect(error.response.statusText).to.contain.string('Not Found')
-				}
+				return expect(connections[i].get({
+					path: '/bookmarks/test/testTwo',
+					tree
+				})).to.be.rejectedWith(Error, 'Request failed with status code 404');
 			})
 
 			it(`Should handle when the cache only contains part of the tree which is on the server`, async function() {
@@ -127,7 +124,7 @@ describe(`------------GET-----------------`, async function() {
 					tree
 				})
 				await connections[i].put({
-					url: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/bob/index-three/2014',
+					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/bob/index-three/2014',
 					type: 'application/vnd.oada.yield.1+json',
 					data: {bar: "foo"},
 					tree
@@ -168,8 +165,9 @@ describe(`------------GET-----------------`, async function() {
 			})
 
 			it('clean up', async function() {
-					await connections[i].resetCache();
-					return cleanUp(resources);
+				await connections[i].resetCache();
+				await connections[i].disconnect();
+				await cleanUp(resources);
 			})
 		})
 	}
