@@ -9,15 +9,17 @@ const ws = require("./websocket");
 const axios = require("axios");
 const oadaIdClient = require("@oada/oada-id-client");
 
+try { 
 var connect = async function connect({ domain, options, cache, token, websocket }) {
-  if (!domain) throw "domain undefined";
-  if (typeof domain !== "string") throw "domain must be a string";
-  if (!options && !token) throw "options and token undefined";
-  if (token && typeof token !== "string") throw "token must be a string";
+  if (!domain) throw new Error("domain undefined");
+  if (typeof domain !== "string") throw new Error("domain must be a string");
+  if (!options && !token) throw new Error("options and token undefined");
+  if (token && typeof token !== "string") throw new Error("token must be a string");
+	if (cache !== undefined && typeof cache !== "boolean" && typeof cache !== "object") throw new Error(`cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
   //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
   //throw "cache must be boolean";
   if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
-    throw "websocket must be boolean";
+    throw new Error("websocket must be boolean");
 
 	var OFFLINE;
   var CACHE;
@@ -25,10 +27,10 @@ var connect = async function connect({ domain, options, cache, token, websocket 
 	var NOCACHEREQUEST = axios;
   var SOCKET;
   var TOKEN;
-  if (!domain) throw 'domain undefined'
+  if (!domain) throw new Error('domain undefined');
   var DOMAIN = domain;
   var NAME = (cache && cache.name) ? cache.name : urlLib.parse(domain).hostname.replace(/\./g, '_');
-  var EXP = (cache && cache.exp) ? cache.exp : undefined;
+  var EXPIRES = (cache && cache.expires) ? cache.expires : undefined;
 
   function _replaceLinks(obj) {
     let ret = Array.isArray(obj) ? [] : {};
@@ -376,8 +378,8 @@ var connect = async function connect({ domain, options, cache, token, websocket 
 		return responses;
   }
 
-  function _configureCache({ name, req, exp }) {
-    let res = setupCache({ name, req, exp });
+  function _configureCache({ name, req, expires }) {
+    let res = setupCache({ name, req, expires });
     REQUEST = res.api;
     CACHE = res;
     return;
@@ -481,14 +483,14 @@ var connect = async function connect({ domain, options, cache, token, websocket 
     return REQUEST(req);
   }
 
-  async function resetCache(name, exp) {
+  async function resetCache(name, expires) {
     if (!CACHE) return;
 		return CACHE.resetCache();
   }
 
-  function disconnect() {
-    if (CACHE) CACHE.db.destroy();
-    if (CACHE) CACHE.db.close();
+  async function disconnect() {
+    if (CACHE) await CACHE.db.close();
+    //if (CACHE) await CACHE.db.destroy();
     if (SOCKET) SOCKET.close();
   }
 
@@ -520,13 +522,13 @@ var connect = async function connect({ domain, options, cache, token, websocket 
   if (cache !== false) await _configureCache({
     name: NAME || uuid(),
     req: REQUEST,
-    exp: EXP,
+    expires: EXPIRES,
   })
 
   return {
     token: TOKEN,
     cache: CACHE ? CACHE : false,
-    websocket: SOCKET ? true: false,
+    websocket: SOCKET ? SOCKET : false,
     get,
     put,
     post,
@@ -534,6 +536,9 @@ var connect = async function connect({ domain, options, cache, token, websocket 
     resetCache,
     disconnect,
   }
+}
+} catch(error) {
+	console.log(error)
 }
 
 export default {

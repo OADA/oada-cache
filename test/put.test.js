@@ -5,10 +5,8 @@ const Promise = require('bluebird');
 const oada = require('../build/index')
 const _ = require('lodash');
 const {expect} = require('chai');
-const config = require('./config.js');
+const {token, domain} = require('./config.js');
 const {tree, cleanUp, getConnections} = require('./utils.js');
-var token = config.token;
-var domain = config.domain;
 
 var resources = [];
 var connections;

@@ -1,10 +1,12 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+const {token, domain} = require('./config.js');
 import oada from "../src/index";
 import chai from "chai";
+import { getConnections } from './utils'
+var chaiAsPromised = require("chai-as-promised");
+chai.use(chaiAsPromised);
 var expect = chai.expect;
 
-let token = "def";
-let domain = "https://vip3.ecn.purdue.edu";
 let connections = new Array(4);
 let contentType = "application/vnd.oada.yield.1+json";
 let connectTime = 30 * 1000; // seconds to click through oauth
@@ -12,294 +14,212 @@ let connectTime = 30 * 1000; // seconds to click through oauth
 describe("~~~~~~ TESTING BASIC API - 1) cache+ws, 2) cache only, 3) ws only, 4) neither~~~~~~~", function() {
   this.timeout(connectTime);
 
-  it("Should connect with metadata. Browser popup must be used to login within 30s.", function() {
+  it("Should connect with metadata. Browser popup must be used to login within 30s.", async function() {
     this.timeout(connectTime);
-    let connection = oada
-      .connect({
-        domain,
-        options: {
-          redirect: "http://localhost:8000/oauth2/redirect.html",
-          metadata:
-            "eyJqa3UiOiJodHRwczovL2lkZW50aXR5Lm9hZGEtZGV2LmNvbS9jZXJ0cyIsImtpZCI6ImtqY1NjamMzMmR3SlhYTEpEczNyMTI0c2ExIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJyZWRpcmVjdF91cmlzIjpbImh0dHA6Ly92aXAzLmVjbi5wdXJkdWUuZWR1OjgwMDAvb2F1dGgyL3JlZGlyZWN0Lmh0bWwiLCJodHRwOi8vbG9jYWxob3N0OjgwMDAvb2F1dGgyL3JlZGlyZWN0Lmh0bWwiXSwidG9rZW5fZW5kcG9pbnRfYXV0aF9tZXRob2QiOiJ1cm46aWV0ZjpwYXJhbXM6b2F1dGg6Y2xpZW50LWFzc2VydGlvbi10eXBlOmp3dC1iZWFyZXIiLCJncmFudF90eXBlcyI6WyJpbXBsaWNpdCJdLCJyZXNwb25zZV90eXBlcyI6WyJ0b2tlbiIsImlkX3Rva2VuIiwiaWRfdG9rZW4gdG9rZW4iXSwiY2xpZW50X25hbWUiOiJPcGVuQVRLIiwiY2xpZW50X3VyaSI6Imh0dHBzOi8vdmlwMy5lY24ucHVyZHVlLmVkdSIsImNvbnRhY3RzIjpbIlNhbSBOb2VsIDxzYW5vZWxAcHVyZHVlLmVkdT4iXSwic29mdHdhcmVfaWQiOiIxZjc4NDc3Zi0zNTQxLTQxM2ItOTdiNi04NjQ0YjRhZjViYjgiLCJyZWdpc3RyYXRpb25fcHJvdmlkZXIiOiJodHRwczovL2lkZW50aXR5Lm9hZGEtZGV2LmNvbSIsImlhdCI6MTUxMjAwNjc2MX0.AJSjNlWX8UKfVh-h1ebCe0MEGqKzArNJ6x0nmta0oFMcWMyR6Cn2saR-oHvU8WrtUMEr-w020mAjvhfYav4EdT3GOGtaFgnbVkIs73iIMtr8Z-Y6mDEzqRzNzVRMLghj7CyWRCNJEk0jwWjOuC8FH4UsfHmtw3ouMFomjwsNLY0",
-          scope: "oada.yield:all"
-        },
-        cache: false
-      })
-      .then(result => {
-        expect(result).to.have.keys([
-          "token",
-          "cache",
-          "websocket",
-          "disconnect",
-          "get",
-          "put",
-          "post",
-          "delete",
-          "resetCache"
-        ]);
-        expect(result.cache).to.equal(false);
-        expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
-        });
-      });
+    var result = await oada.connect({
+			domain,
+			options: {
+				redirect: "http://localhost:8000/oauth2/redirect.html",
+				metadata:
+					"eyJqa3UiOiJodHRwczovL2lkZW50aXR5Lm9hZGEtZGV2LmNvbS9jZXJ0cyIsImtpZCI6ImtqY1NjamMzMmR3SlhYTEpEczNyMTI0c2ExIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJyZWRpcmVjdF91cmlzIjpbImh0dHA6Ly92aXAzLmVjbi5wdXJkdWUuZWR1OjgwMDAvb2F1dGgyL3JlZGlyZWN0Lmh0bWwiLCJodHRwOi8vbG9jYWxob3N0OjgwMDAvb2F1dGgyL3JlZGlyZWN0Lmh0bWwiXSwidG9rZW5fZW5kcG9pbnRfYXV0aF9tZXRob2QiOiJ1cm46aWV0ZjpwYXJhbXM6b2F1dGg6Y2xpZW50LWFzc2VydGlvbi10eXBlOmp3dC1iZWFyZXIiLCJncmFudF90eXBlcyI6WyJpbXBsaWNpdCJdLCJyZXNwb25zZV90eXBlcyI6WyJ0b2tlbiIsImlkX3Rva2VuIiwiaWRfdG9rZW4gdG9rZW4iXSwiY2xpZW50X25hbWUiOiJPcGVuQVRLIiwiY2xpZW50X3VyaSI6Imh0dHBzOi8vdmlwMy5lY24ucHVyZHVlLmVkdSIsImNvbnRhY3RzIjpbIlNhbSBOb2VsIDxzYW5vZWxAcHVyZHVlLmVkdT4iXSwic29mdHdhcmVfaWQiOiIxZjc4NDc3Zi0zNTQxLTQxM2ItOTdiNi04NjQ0YjRhZjViYjgiLCJyZWdpc3RyYXRpb25fcHJvdmlkZXIiOiJodHRwczovL2lkZW50aXR5Lm9hZGEtZGV2LmNvbSIsImlhdCI6MTUxMjAwNjc2MX0.AJSjNlWX8UKfVh-h1ebCe0MEGqKzArNJ6x0nmta0oFMcWMyR6Cn2saR-oHvU8WrtUMEr-w020mAjvhfYav4EdT3GOGtaFgnbVkIs73iIMtr8Z-Y6mDEzqRzNzVRMLghj7CyWRCNJEk0jwWjOuC8FH4UsfHmtw3ouMFomjwsNLY0",
+				scope: "oada.yield:all"
+			},
+			cache: false
+		})
+		expect(result).to.have.keys([
+			"token",
+			"cache",
+			"websocket",
+			"disconnect",
+			"get",
+			"put",
+			"post",
+			"delete",
+			"resetCache"
+		]);
+		expect(result.cache).to.equal(false);
+		expect(result.websocket).to.be.a("object");
+		expect(result.get).to.be.a("function");
+		expect(result.put).to.be.a("function");
+		expect(result.post).to.be.a("function");
+		expect(result.resetCache).to.be.a("function");
+		expect(result.disconnect).to.be.a("function");
   });
 
-  it("Should make a connection with websocket and cache", function() {
+  it("Should make a connection with websocket and cache", async function() {
     this.timeout(connectTime);
-    return oada
-      .connect({
-        domain,
-        token: "def"
-      })
-      .then(result => {
-        connections[0] = result;
-        expect(result).to.have.keys([
-          "token",
-          "disconnect",
-          "get",
-          "put",
-          "post",
-          "delete",
-          "resetCache",
-          "cache",
-          "websocket"
-        ]);
-        expect(result.cache).to.equal(true);
-        expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
-        });
-      });
+    var result = await oada.connect({
+      domain,
+      token,
+    })
+		connections[0] = result;
+		expect(result).to.have.keys([
+			"token",
+			"disconnect",
+			"get",
+			"put",
+			"post",
+			"delete",
+			"resetCache",
+			"cache",
+			"websocket"
+		]);
+		expect(result.cache).to.be.a("object");
+		expect(result.websocket).to.be.a("object");
+		expect(result.get).to.be.a("function");
+		expect(result.put).to.be.a("function");
+		expect(result.post).to.be.a("function");
+		expect(result.resetCache).to.be.a("function");
+		expect(result.disconnect).to.be.a("function");
   });
 
-  it("Should make a connection with websocket off, cache on", function() {
+  it("Should make a connection with websocket off, cache on", async function() {
     this.timeout(connectTime);
-    return oada
-      .connect({
-        domain,
-        token: "def",
-        websocket: false
-      })
-      .then(result => {
-        connections[1] = result;
-        expect(result).to.have.keys([
-          "token",
-          "disconnect",
-          "get",
-          "put",
-          "post",
-          "delete",
-          "resetCache",
-          "cache",
-          "websocket"
-        ]);
-        expect(result.cache).to.equal(true);
-        expect(result.websocket).to.equal(false);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
-        });
-      });
+    var result = await oada.connect({
+			domain,
+			token,
+			websocket: false
+		})
+		connections[1] = result;
+		expect(result).to.have.keys([
+			"token",
+			"disconnect",
+			"get",
+			"put",
+			"post",
+			"delete",
+			"resetCache",
+			"cache",
+			"websocket"
+		]);
+
+		expect(result.cache).to.be.a("object");
+		expect(result.websocket).to.equal(false);
+		expect(result.get).to.be.a("function");
+		expect(result.put).to.be.a("function");
+		expect(result.post).to.be.a("function");
+		expect(result.resetCache).to.be.a("function");
+		expect(result.disconnect).to.be.a("function");
   });
 
-  it("Should make a connection with websocket on, cache off", function() {
+  it("Should make a connection with websocket on, cache off", async function() {
     this.timeout(connectTime);
-    return oada
-      .connect({
-        domain,
-        token: "def",
-        cache: false
-      })
-      .then(result => {
-        connections[2] = result;
-        expect(result).to.have.keys([
-          "token",
-          "disconnect",
-          "get",
-          "put",
-          "post",
-          "delete",
-          "resetCache",
-          "cache",
-          "websocket"
-        ]);
-        expect(result.cache).to.equal(false);
-        expect(result.websocket).to.equal(true);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
-        });
-      });
+    var result = await oada.connect({
+			domain,
+			token: "def",
+			cache: false
+		})
+		connections[2] = result;
+		expect(result).to.have.keys([
+			"token",
+			"disconnect",
+			"get",
+			"put",
+			"post",
+			"delete",
+			"resetCache",
+			"cache",
+			"websocket"
+		]);
+		expect(result.cache).to.equal(false);
+		expect(result.websocket).to.be.a("object");
+		expect(result.get).to.be.a("function");
+		expect(result.put).to.be.a("function");
+		expect(result.post).to.be.a("function");
+		expect(result.resetCache).to.be.a("function");
+		expect(result.disconnect).to.be.a("function");
   });
 
-  it("Should make a connection with websocket off, cache off", function() {
+  it("Should make a connection with websocket off, cache off", async function() {
     this.timeout(connectTime);
-    return oada
-      .connect({
-        domain,
+    var result = await oada.connect({
+			domain,
+			token: "def",
+			websocket: false,
+			cache: false
+		})
+		connections[3] = result;
+		expect(result).to.have.keys([
+			"token",
+			"cache",
+			"websocket",
+			"disconnect",
+			"get",
+			"put",
+			"post",
+			"delete",
+			"resetCache"
+		]);
+		expect(result.cache).to.equal(false);
+		expect(result.websocket).to.equal(false);
+		expect(result.get).to.be.a("function");
+		expect(result.put).to.be.a("function");
+		expect(result.post).to.be.a("function");
+		expect(result.resetCache).to.be.a("function");
+		expect(result.disconnect).to.be.a("function");
+  });
+
+  it("Should not make a connection without domain", async function() {
+    this.timeout(connectTime);
+    expect(
+      oada.connect({
         token: "def",
         websocket: false,
         cache: false
       })
-      .then(result => {
-        connections[3] = result;
-        expect(result).to.have.keys([
-          "token",
-          "cache",
-          "websocket",
-          "disconnect",
-          "get",
-          "put",
-          "post",
-          "delete",
-          "resetCache"
-        ]);
-        expect(result.cache).to.equal(false);
-        expect(result.websocket).to.equal(false);
-        expect(result.get).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.put).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.post).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.delete).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.resetCache).to.satisfy(x => {
-          return typeof x === "function";
-        });
-        expect(result.disconnect).to.satisfy(x => {
-          return typeof x === "function";
-        });
-      });
+    ).to.be.rejectedWith(Error, "domain undefined");
   });
 
-  it("Should not make a connection without domain", function() {
+  it("Should not make a connection without options and token", async function() {
     this.timeout(connectTime);
-    expect(
-      oada.connect.bind(oada, {
-        token: "def",
-        websocket: false,
-        cache: false
-      }),
-      "Request did not include a domain"
-    ).to.throw("domain undefined");
-  });
-
-  it("Should not make a connection without options and token", function() {
-    this.timeout(connectTime);
-    expect(
-      oada.connect.bind(oada, {
+    await expect(
+      oada.connect({
         domain,
         websocket: false,
         cache: false
-      }),
-      "Request did not include options and token - at least one is needed "
-    ).to.throw("options and token undefined");
+      })
+    ).to.be.rejectedWith(Error, "options and token undefined");
   });
 
-  it("Should not make a connection if token provided but not a string", function() {
+  it("Should not make a connection if token provided but not a string", async function() {
     this.timeout(connectTime);
-    expect(
-      oada.connect.bind(oada, {
+    await expect(
+      oada.connect({
         domain,
         token: { def: "def" },
         websocket: false,
         cache: false
-      }),
-      "token must be a string"
-    ).to.throw("token must be a string");
+      })
+    ).to.be.rejectedWith(Error, "token must be a string");
   });
 
-  it("Should not make a connection if websocket provided but not a boolean", function() {
+  it("Should not make a connection if websocket provided but not a boolean", async function() {
     this.timeout(connectTime);
-    expect(
-      oada.connect.bind(oada, {
+    await expect(
+      oada.connect({
         domain,
         token: "def",
         websocket: "false"
-      }),
-      "websocket must be a boolean"
-    ).to.throw("websocket must be boolean");
+      })
+    ).to.be.rejectedWith(Error, "websocket must be boolean");
   });
 
-  it("Should not make a connection if cache provided but not a boolean", function() {
+  it("Should not make a connection if cache provided but not a boolean", async function() {
     this.timeout(connectTime);
-    expect(
-      oada.connect.bind(oada, {
+    await expect(
+      oada.connect({
         domain,
         token: "def",
         cache: "false"
-      }),
-      "cache must be a boolean"
-    ).to.throw("cache must be boolean");
+      })
+    ).to.be.rejectedWith(Error, `cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
   });
+	
 
   /**
    * disconnections
    */
+	
   for (let i = 0; i < connections.length; i++) {
     describe(`Disconnecting connection ${i + 1}`, () => {
       it("Should disconnect", function() {
