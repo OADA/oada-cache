@@ -240,6 +240,48 @@ var connect = async function connect({
     return response;
   } //get
 
+  async function _recursiveDelete(url, tree, data) {
+    // Perform a GET if we have reached the next resource break.
+    if (tree._type) {
+      // its a resource
+      var got = await get({
+        url
+      });
+      data = got.data;
+		}
+    return Promise.map(Object.keys(data || {}), async function(key) {
+      if (typeof data[key] === "object") {
+        if (tree[key]) {
+          var res = await _recursiveDelete(
+            url + "/" + key,
+            tree[key],
+            data[key],
+          );
+          return (data[key] = res.data);
+        } else if (tree["*"]) {
+          var res = await _recursiveDelete(
+            url + "/" + key,
+            tree["*"],
+            data[key],
+          );
+          return (data[key] = res.data);
+        } else return; //data[key] is already stored in the data object
+      } else return;
+    }).then(async function() {
+			if (tree._type) {
+				await del({
+					url,
+					headers: {'content-type': tree._type}
+				});
+				await del({
+					path: '/'+data._id,
+					headers: {'content-type': tree._type}
+				});
+			}
+      return { data };
+    });
+  }
+
   async function _recursiveGet(url, tree, data, cached) {
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {
@@ -298,7 +340,6 @@ var connect = async function connect({
         return get({
           path: urlPath
         }).then(response => {
-					console.log(response)
           //TODO: Detect whether the returned data matches the given tree
           pointer.set(storedTree, urlPath, {});
           stored = _.clone(z);
@@ -413,15 +454,23 @@ var connect = async function connect({
         headers: req.headers
       });
     }
-
+    
     if (tree) {
-			var pieces = urlLib.parse(req.url)
-				.path
-				.replace(/^\//, "")
-				.split('/')
-			var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
-      if (!req.headers["content-type"] && pointer.has(tree, treePath))
-        req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
+      if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
+      var pieces = urlLib
+        .parse(req.url)
+        .path.replace(/^\//, "")
+        .split("/");
+      let treePath = _convertSetupTreePath(pieces, tree);
+      if (!pointer.has(tree, treePath))
+        throw new Error("The path does not exist on the given tree.");
+      //return get({url: req.url})
+      var subTree = pointer.get(tree, treePath);
+      return await _recursiveDelete(req.url, subTree, {}, true);
+
+			//var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
+      //if (!req.headers["content-type"] && pointer.has(tree, treePath))
+      //  req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
 
 		if (!req.headers["content-type"])
@@ -463,7 +512,6 @@ var connect = async function connect({
         req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
 
-		console.log(req)
     if (!req.headers["content-type"])
       throw new Error(`'content-type' header must be specified.`);
 

@@ -27,6 +27,7 @@ describe(`------------PUT-----------------`, async function() {
 	for (let i = 0; i < 1; i++) {
 		describe(`Testing connection ${i+1}`, async function() {
 
+			/*
 			it(`Should error when neither 'url' nor 'path' are supplied`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				return expect(connections[i].put({
@@ -96,7 +97,7 @@ describe(`------------PUT-----------------`, async function() {
 					data: {anothertest: 123},
 				})).to.be.rejectedWith(Error, 'Request failed with status code 403')
 			})
-
+*/
 			it(`Should produce a 403 error when using a content-type specified in the middle of the 'tree' for which your token does not have access to read/write`, async function() {
 				this.timeout(4000);
 				await cleanUp(resources);
@@ -109,6 +110,7 @@ describe(`------------PUT-----------------`, async function() {
 					data: {anothertest: 123},
 				})).to.be.rejectedWith(Error, 'Request failed with status code 403')
 			})
+			/*
 
 			it(`Should properly create a single new resource. The link _rev should not remain as "0-0"`, async function() {
 				this.timeout(6000)
@@ -596,7 +598,13 @@ describe(`------------PUT-----------------`, async function() {
 				})
 			})
 
+			*/
 			it('Now clean up', async function() {
+				try {
+					await connections[i].delete({path:'/bookmarks/test', tree});
+				} catch (error) {
+					console.log(error);
+				}
 				await connections[i].resetCache();
 //				await connections[i].disconnect();
 				await cleanUp(resources);
