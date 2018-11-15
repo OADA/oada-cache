@@ -8,7 +8,7 @@ chai.use(chaiAsPromised);
 var expect = chai.expect;
 const axios = require('axios');
 const { token, domain }= require('./config')
-const {tree, putResource, cleanUp, getConnections} = require('./utils.js');
+const {tree, putResource, getConnections} = require('./utils.js');
 
 var connections;
 var resources = [];
@@ -27,6 +27,7 @@ describe(`------------GET-----------------`, async function() {
 		describe(`Testing connection ${i+1}`, async function() {
 
 			it(`Should allow for a basic GET request without tree parameter`, async function() {
+				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				this.timeout(4000);
 				await putResource({
 					_type: 'application/vnd.oada.notes.1+json',
@@ -123,34 +124,40 @@ describe(`------------GET-----------------`, async function() {
 					data: {foo: "bar"},
 					tree
 				})
+
 				await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/bob/index-three/2014',
 					type: 'application/vnd.oada.yield.1+json',
 					data: {bar: "foo"},
 					tree
 				})
+
 				await axios({
 					method: 'put',
 					url: domain+'/bookmarks/test/aaa/bbb/extraKey',
 					headers: {'Authorization': 'Bearer def', 'Content-Type': 'application/vnd.oada.yield.1+json'},
 					data: {hello: "world"},
 				})
+
 				await axios({
 					method: 'put',
 					url: domain+'/resources/7656401651',
 					headers: {'Authorization': 'Bearer def', 'Content-Type': 'application/vnd.oada.yield.1+json'},
 					data: {foobar: 'foobar'},
 				})
+
 				await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/joe/somethingElse',
 					type: 'application/vnd.oada.yield.1+json',
 					data: {_id: "resources/7656401651"},
 					tree
 				})
+
 				var first = await connections[i].get({
 					path: '/bookmarks/test',
 					tree
 				})
+
 				expect(first.data).to.include.key('aaa')
 				expect(first.data['aaa']).to.include.key('bbb')
 				expect(first.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
@@ -165,9 +172,13 @@ describe(`------------GET-----------------`, async function() {
 			})
 
 			it('clean up', async function() {
+				this.timeout(5000);
 				await connections[i].resetCache();
-				await connections[i].disconnect();
-				await cleanUp(resources);
+				try {
+				await connections[i].delete({path:'/bookmarks/test', tree});
+				} catch (error) {
+					console.log(error)
+				}
 			})
 		})
 	}

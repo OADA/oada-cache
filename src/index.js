@@ -21,6 +21,7 @@ var connect = async function connect({
   if (!options && !token) throw new Error("options and token undefined");
   if (token && typeof token !== "string") throw new Error("token must be a string");
 	if (cache !== undefined && typeof cache !== "boolean" && typeof cache !== "object") throw new Error(`cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
+	if (cache && cache.name && typeof cache.name !== "string") throw new Error("cache name must be a string");
   //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
   //throw "cache must be boolean";
   if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
@@ -169,26 +170,33 @@ var connect = async function connect({
 				throw new Error(`'url' key must begin with the domain used to connect`);
 			}
 		}
+		method = method.toLowerCase()
     let req = {
-      method: method,
+      method,
       url: url || DOMAIN + path,
-      headers: _.merge({ Authorization: "Bearer " + TOKEN }, headers)
+      headers: { authorization: "Bearer " + TOKEN }
     };
 		if (/\/$/.test(req.url)) req.url = req.url.slice(0, req.url.length-1)
 
     //handle headers
-    if (method === "put") {
-      Object.keys(headers || {}).forEach(header => {
-        req.headers[header.toLowerCase()] = headers[header];
-      });
+		Object.keys(headers || {}).forEach(header => {
+      req.headers[header.toLowerCase()] = headers[header];
+		});
+
+    if (method === "put" || method === 'post') {
       req.headers["content-type"] =
         req.headers["content-type"] || type || data._type;
+			req.data = data;
+	  }
 
-      req.data = data;
-    }
-		
+
+		if (method === "delete") {
+			req.headers["content-type"] =
+				req.headers["content-type"] || type;
+		}
 		return req;
 	}
+
 
 	async function _sendRequest(req) {
 		try {
@@ -239,48 +247,6 @@ var connect = async function connect({
     }
     return response;
   } //get
-
-  async function _recursiveDelete(url, tree, data) {
-    // Perform a GET if we have reached the next resource break.
-    if (tree._type) {
-      // its a resource
-      var got = await get({
-        url
-      });
-      data = got.data;
-		}
-    return Promise.map(Object.keys(data || {}), async function(key) {
-      if (typeof data[key] === "object") {
-        if (tree[key]) {
-          var res = await _recursiveDelete(
-            url + "/" + key,
-            tree[key],
-            data[key],
-          );
-          return (data[key] = res.data);
-        } else if (tree["*"]) {
-          var res = await _recursiveDelete(
-            url + "/" + key,
-            tree["*"],
-            data[key],
-          );
-          return (data[key] = res.data);
-        } else return; //data[key] is already stored in the data object
-      } else return;
-    }).then(async function() {
-			if (tree._type) {
-				await del({
-					url,
-					headers: {'content-type': tree._type}
-				});
-				await del({
-					path: '/'+data._id,
-					headers: {'content-type': tree._type}
-				});
-			}
-      return { data };
-    });
-  }
 
   async function _recursiveGet(url, tree, data, cached) {
     // Perform a GET if we have reached the next resource break.
@@ -444,8 +410,74 @@ var connect = async function connect({
     });
   }
 
+  async function _recursiveDelete(url, tree, data) {
+    // Perform a GET if we have reached the next resource break.
+    if (tree._type) {
+      // its a resource
+			try {
+				var got = await get({
+					url
+				});
+				data = got.data;
+			} catch (error) {
+				if (error.status === 404) {
+					data = {};
+					return
+				}
+			}
+		}
+    return Promise.map(Object.keys(data || {}), async function(key) {
+      if (typeof data[key] === "object") {
+        if (tree[key]) {
+          var res = await _recursiveDelete(
+            url + "/" + key,
+            tree[key],
+            data[key],
+          );
+          return (data[key] = res.data);
+        } else if (tree["*"]) {
+          var res = await _recursiveDelete(
+            url + "/" + key,
+            tree["*"],
+            data[key],
+          );
+          return (data[key] = res.data);
+        } else return; //data[key] is already stored in the data object
+      } else return;
+    }).then(async function() {
+			var link;
+			if (tree._type) {
+				try {
+					// Delete the resource
+					if (data._id) {
+						await del({
+							path: '/'+data._id,
+							headers: {'content-type': tree._type}
+						});
+					}
+
+					// Delete the link
+					link = await del({
+						url,
+						headers: {
+							'content-type': tree._type
+						}
+					});
+				} catch (error) {
+					if (error.status === 404) {
+						data = {};
+						return
+					}
+				}
+			}
+			return { link, data };
+    });
+  }
+
+
+
   async function del({ url, path, type, headers, tree, unwatch}) {
-    let req = await _buildRequest({ method: "delete", url, path, headers });
+    let req = await _buildRequest({ method: "delete", url, path, type, headers });
 
     if (unwatch) {
       path = path || urlLib.parse(url).path;
@@ -466,7 +498,8 @@ var connect = async function connect({
         throw new Error("The path does not exist on the given tree.");
       //return get({url: req.url})
       var subTree = pointer.get(tree, treePath);
-      return await _recursiveDelete(req.url, subTree, {}, true);
+      var result = await _recursiveDelete(req.url, subTree, {}, true);
+			return result.link
 
 			//var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
       //if (!req.headers["content-type"] && pointer.has(tree, treePath))
@@ -476,7 +509,7 @@ var connect = async function connect({
 		if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
 
-    return _sendRequest(req);
+    return _sendRequest(req)
   }
 
   // Ensure all resources down to the deepest resource are created before
@@ -513,7 +546,7 @@ var connect = async function connect({
     }
 
     if (!req.headers["content-type"])
-      throw new Error(`'content-type' header must be specified.`);
+      throw new Error(`content-type header must be specified.`);
 
     return _sendRequest(req);
   }
@@ -521,11 +554,6 @@ var connect = async function connect({
   async function resetCache(name, expires) {
     if (!CACHE) return;
     await CACHE.resetCache();
-    // return _configureCache({
-    //   name: NAME,
-    //   req: SOCKET && SOCKET.http ? SOCKET.http : axios,
-    //   exp: exp || EXP
-    // });
   }
 
   async function disconnect() {

@@ -1,6 +1,6 @@
 # oada-cache
 
-A client tool for interacting with an [OADA server](https://www.github.com/OADA/oada-srvc-docker/) instance. This library is useful for caching an OADA subgraph to a client application as well as for IoT.
+A client tool for interacting with an [OADA server](https://www.github.com/OADA/oada-srvc-docker/) instance. It can be used for fully cached web applications, data import scripts, IoT devices streaming data, and back-end microservices.
 
 ## Installation
 `npm install @oada/oada-cache`
@@ -22,7 +22,6 @@ var connection = await oada.connect({
 This will initiate OADA OAUTH-style authentication.
 
 #### get
-Simple GET request:
 ```javascript
 var response = await connection.get({path: '/bookmarks/test'})
 ```
@@ -34,6 +33,7 @@ var response = await connection.put({
   data: { "power_level": 9001},
   headers: {"Content-Type": "application/json"}
 })
+
 ```
 #### post
 ```javascript
@@ -42,11 +42,12 @@ var response = await connection.post({
   data: { "power_level": 9001},
   headers: {"Content-Type": "application/json"}
 })
-var  = response.headers["content-location"];
+var  = response.headers["content-location"]; // A path including the uuid created
+
 ```
 #### delete
 ```javascript
-var response = await connection.put({
+var response = await connection.delete({
   path: "/bookmarks/test",
   headers: {"Content-Type": "application/json"}
 })

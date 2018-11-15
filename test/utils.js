@@ -3,13 +3,13 @@ const Promise = require('bluebird');
 const axios = require('axios');
 const uuid = require('uuid');
 var { token, domain} = require('./config');
-var resources = [];
 
 async function getConnections({domain, options, token}) {
   var cYesWYes = await oada.connect({
     domain,
     options,
-    token
+    token,
+		name: 'cYesWYes'
   });
 
   var cYesWNo = await oada.connect({
@@ -17,12 +17,14 @@ async function getConnections({domain, options, token}) {
     options,
     token,
     websocket: false,
+		name: 'cYesWNo'
   })
   var cNoWYes = await oada.connect({
     domain,
     options,
     token,
-    cache: false
+    cache: false,
+		name: 'cNoWYes'
   });
 
   var cNoWNo = await oada.connect({
@@ -31,6 +33,7 @@ async function getConnections({domain, options, token}) {
     token,
     websocket: false,
     cache: false,
+		name: 'cNoWNo'
   })
   return {cNoWNo, cYesWNo, cNoWYes, cYesWYes}
 }
@@ -59,9 +62,6 @@ async function putResource(data, path) {
 		},
 		data: newData
 	})
-
-	resources.push(resource.headers.location)
-
 
 	return {resource, link}
 }
@@ -107,36 +107,8 @@ var tree = {
   }
 };
 
-async function cleanUp(otherResources) {
-  // Delete resources
-  resources.forEach(async function(res) {
-    await axios({
-      method: "delete",
-      url: domain + res,
-      headers: {
-        Authorization: "Bearer " + token,
-				'Content-Type': "application/vnd.oada.harvest.1+json",
-      }
-    });
-  });
-  // Delete link
-	try {
-  await axios({
-    method: "delete",
-    url: domain + "/bookmarks/test",
-    headers: {
-      Authorization: "Bearer " + token,
-      'Content-Type': "application/vnd.oada.harvest.1+json",
-    },
-  });
-	} catch(err) {
-		console.log('wtf', err.response)
-	}
-}
-
 module.exports = {
   getConnections,
-  cleanUp,
   tree,
 	putResource,
 };

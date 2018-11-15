@@ -5,10 +5,9 @@ const pretty = require('prettyjson');
 const _ = require('lodash');
 const {expect} = require('chai');
 const {token, domain} = require('./config.js');
-const {tree, putResource, cleanUp, getConnections} = require('./utils.js');
+const {tree, putResource, getConnections} = require('./utils.js');
 
 var connections;
-var resources = [];
 var expects = {};
 
 async function setupWatch(connOne, tre, payload) {
@@ -50,7 +49,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 
 	it(`Watches should automatically update the cache when a single resource is created (single connection)`, async function() {
 		this.timeout(8000);
-		await cleanUp(resources, domain, token);
+		await connOne.delete({path:'/bookmarks/test', tree})
 		await connOne.resetCache();
 		var result = await setupWatch(connOne);
 		expect(result.getOne.status).to.equal(200)
@@ -77,7 +76,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 
 	it(`Watches should automatically update the cache when a deep endpoint creates many resources (single connection)`, async function() {
 		this.timeout(8000);
-		await cleanUp(resources, domain, token);
+		await connOne.delete({path:'/bookmarks/test', tree})
 		await connOne.resetCache();
 		var result = await setupWatch(connOne);
 		// Execute a deep PUT below the watched resource
@@ -105,7 +104,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 
 	it(`Should receive the watch changes from several concurrent PUTs to the server via another connection.`, async function() {
 		this.timeout(20000);
-		await cleanUp(resources, domain, token);
+		await connOne.delete({path:'/bookmarks/test', tree})
 		await connOne.resetCache();
 
 		// If we do not include the _rev on the deepest resource endpoint, we won't receive
@@ -190,7 +189,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 
 	it(`Should send a change feed when "offline" changes are made before a watch is set. This change feed should bring the cache up to date.`, async function() {
 		this.timeout(15000);
-		await cleanUp(resources, domain, token);
+		await connOne.delete({path:'/bookmarks/test', tree})
 		await connOne.resetCache();
 
 		var newTree = _.cloneDeep(tree)
@@ -210,7 +209,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		})
 		var putThree = connTwo.put({
 			path: '/bookmarks/test/aaa/bbb/index-one/ggg/index-two/ddd/index-three/eee',
-			tree: tree,
+			tree: newTree,
 			data: {testThree: 123},
 		})
 		var putFour = connTwo.put({
@@ -274,12 +273,75 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			expect(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee).to.include.keys(['_id', '_rev', '_type', 'testThree'])
 			expect(response.cached).to.equal(true)
 		})
+		await connOne.delete({path:'/bookmarks/test', tree})
+		await connOne.resetCache();
 	})
 
-/*
+	it(`Should receive watches from 10 independent connections`, async function() {
+		this.timeout(20000);
+		var newTree = _.cloneDeep(tree)
+		newTree.bookmarks.test.aaa.bbb['index-one']['*']['index-two']['*']['index-three']['*']._rev = '0-0';
+
+		var connection = await oada.connect({
+			domain,
+			token,
+		})
+
+		await connection.put({
+			path: '/bookmarks/test',
+			data: {sometest: i},
+			type: 'application/json'
+		})
+
+		var response = await connection.get({
+			path: '/bookmarks/test',
+			watch: {
+				payload: {someExtra: 'payload'},
+			}
+		})
+		expect(response.status).to.equal(200)
+
+		// Create 10 connections
+		var testConnections = [];
+		for (var i = 0; i < 10; i++) {
+			testConnections.push(await oada.connect({
+				domain,
+				token,
+				cache: {name: 'connection'+i.toString()}
+			}))
+		}
+		
+		await Promise.map(testConnections, async function(conn, i) {
+			for (var j = 0; j < 25; j++) {
+				conn.put({
+					path: '/bookmarks/test/conn'+i,
+					type: 'application/json',
+					data: { [`put${j}`]: `value${j}`},
+				})
+			}
+		})
+
+		await Promise.delay(15000);
+
+		var getOne = await connection.get({
+			path: '/bookmarks/test',
+		})
+		expect(getOne.cached).to.equal(true)
+		for (var i = 0; i < 10; i++) {
+			for (var k = 0; k < 25; k++) {
+				expect(getOne.data['conn'+i]).to.include.key('put'+k)
+			}
+		}
+
+		// Now wipe out all of the caches
+		await Promise.map(testConnections, async function(conn, i) {
+			await conn.resetCache();
+		})
+	
+	})
+
   it('Now clean up', async function() {
 		await connOne.resetCache();
-    await cleanUp(resources)
+		await connOne.delete({path:'/bookmarks/test', tree})
   })
-	*/
 })

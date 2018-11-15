@@ -99,6 +99,7 @@ export default function setupCache({name, req, expires}) {
           //Execute the PUT and Warn users that the data is incomplete
           dbPut.doc = {};
           dbPut.INCOMPLETE_RESOURCE = true;
+					dbPut.valid = false;
           pointer.set(dbPut.doc, pathLeftover, _.clone(req.data));
         } else dbPut.doc = req.data;
       }
@@ -120,22 +121,6 @@ export default function setupCache({name, req, expires}) {
       })
     })
   }
-  /*
-  async function dbUpsert(req) {
-    var dbPut = await getUpsertDoc(req)
-    await db.put(dbPut)
-    } catch(err) {
-      if (err.name === 'conflict') {
-        //TODO: avoid infinite loops with this type of call
-        // If there is a conflict in the lookup, repeat the lookup (the HEAD
-        // request likely took too long and the lookup was already created by
-        // another simultaneous request
-        return dbUpsert(req)
-      }
-      throw err
-    }
-  }
-  */
 
   async function getResFromServer(req) {
     var res = await request({
@@ -156,8 +141,7 @@ export default function setupCache({name, req, expires}) {
   // This is primarily for when links are created before the resource itself has been.
   function getLookup(req) {
     var urlObj = url.parse(req.url)
-    var lookup = urlObj.host+urlObj.path;
-    return db.get(lookup).catch(async function() {
+    return db.get(urlObj.path).catch(async function() {
     //Not found. Go to the oada server, get the associated resource and path 
     //leftover, and save the lookup.
 			var resourceId;
@@ -178,7 +162,7 @@ export default function setupCache({name, req, expires}) {
 			}
 			// Put the new lookup
 			return db.put({
-				_id: urlObj.host+urlObj.path,
+				_id: urlObj.path,
 				resourceId,
 				pathLeftover
 			}).then(() => {
@@ -283,7 +267,7 @@ export default function setupCache({name, req, expires}) {
 
       // Invalidate the resource in the cache (if it is cached)
       await dbUpsert({
-        url: urlObj.protocol+'//'+urlObj.host+response.headers['content-location'],
+        url: response.headers['content-location'],
         data: req.data,
 				_rev: response.headers['x-oada-rev'],
 				// TODO: should it be invalidated until pulled from server?
@@ -304,7 +288,7 @@ export default function setupCache({name, req, expires}) {
       headers: req.headers
     })
     await dbUpsert({
-      url: urlObj.protocol+'//'+urlObj.host+'/'+lookup.resourceId+lookup.pathLeftover,
+      url: '/'+lookup.resourceId+lookup.pathLeftover,
       method: 'delete',
       valid: false
     })
@@ -325,17 +309,17 @@ export default function setupCache({name, req, expires}) {
 			});
 			// Handle bookmarks link deletion
 		} else {
-			var pathLeftover;
-			var resourceId;
 			// Remove the lookup. This is specific to the specific endpoint
-			var lookup = await getLookup({
-				url: req.url,
-				headers: req.headers
-			});
-			await db.remove(lookup);
+			try {
+				var lookup = await getLookup({
+					url: req.url,
+					headers: req.headers
+				});
+				await db.remove(lookup);
 
-			// If no path leftover, we just deleted a resource; invalidate parent link
-			if (!lookup.doc.pathLeftover) await updateParent(req);
+				// If no path leftover, we just deleted a resource; invalidate parent link
+				if (!lookup.pathLeftover) await updateParent(req);
+			} catch(err) {}
 		}
 
 		// Execute the request if we're online, else queue it up
@@ -388,7 +372,7 @@ export default function setupCache({name, req, expires}) {
       });
 
 		  await dbUpsert({
-        url: urlObj.protocol+'//'+urlObj.host+'/'+(body._id || lookup.resourceId),
+        url: '/'+(body._id || lookup.resourceId),
         data: newBody,
       })
     }
@@ -491,7 +475,7 @@ export default function setupCache({name, req, expires}) {
           }, {
             headers: {
               'x-oada-rev': deepestResource.data._rev,
-              'content-location':  '/'+lookup.doc.resourceId
+              'content-location':  '/'+lookup.resourceId
             }
           }).then(() => {
             // Update revs on all parents all the way down to (BUT OMITTING) the 
@@ -514,7 +498,14 @@ export default function setupCache({name, req, expires}) {
   }
 
   async function resetCache() {
-    if (db) await db.destroy();
+    try { 
+			if (db) {
+				await db.destroy();
+			}
+		} catch (error) {
+			console.log('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', error)
+			return
+		}
   }
 
   let api = function handleRequest(req) {

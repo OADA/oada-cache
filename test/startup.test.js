@@ -14,50 +14,9 @@ let nTests = 5;
 
 const _ = require("lodash");
 const config = require("./config.js");
-const { cleanUp, getConnections } = require("./utils.js");
+const { tree, getConnections } = require("./utils.js");
 
 let connection;
-var resources = [];
-let tree = {
-  bookmarks: {
-    _type: "application/vnd.oada.bookmarks.1+json",
-    _rev: "0-0",
-    test: {
-      _type: "application/vnd.oada.harvest.1+json",
-      _rev: "0-0",
-      aaa: {
-        _type: "application/vnd.oada.as-harvested.1+json",
-        _rev: "0-0",
-        bbb: {
-          _type:
-            "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-          _rev: "0-0",
-          "index-one": {
-            "*": {
-              _type:
-                "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-              _rev: "0-0",
-              "index-two": {
-                "*": {
-                  _type:
-                    "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-                  _rev: "0-0",
-                  "index-three": {
-                    "*": {
-                      _type:
-                        "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-                      test: {}
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-};
 
 let connectionParameters = {
   domain,
@@ -412,9 +371,9 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     }
   });
 
-  it("Now clean up", () => {
-    conn.resetCache();
-    return cleanUp(resources, domain, token);
+  it("Now clean up", async function() {
+    await conn.resetCache();
+		await conn.delete({path: '/bookmarks/test', tree})
   });
 });
 
@@ -556,6 +515,6 @@ describe("~~~~connect() -> disconnect() -> connect() -> disconnect() -> puts ~~~
 
 //   it("Now clean up", () => {
 //     conn.resetCache();
-//     return cleanUp(resources, domain, token);
+//     await conn.delete({path: '/bookmarks/test', tree})
 //   });
 // });
