@@ -98,8 +98,8 @@ var connect = async function connect({
 		  link = await put(linkReq);
 		} catch (err) {
 			if (err.response && err.response.status === 412) {
-				var pathPieces = path.split('/bookmarks')[1].split('/');
-				var parentPath = '/bookmarks'+pathPieces.splice(0, pathPieces.length-1).join('/');
+        var pathPieces = path.split('/');
+        var parentPath = pathPieces.splice(0, pathPieces.length-1).join('/');
 				// Wait time increases exponentially: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
 				if (waitTime > 16000) throw err;
 				//The parent has been modified
@@ -219,7 +219,6 @@ var connect = async function connect({
     var response = await _sendRequest(req);
 
     if (tree) {
-      if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
       var pieces = urlLib
         .parse(req.url)
         .path.replace(/^\//, "")
@@ -488,7 +487,6 @@ var connect = async function connect({
     }
     
     if (tree) {
-      if (!tree.bookmarks) throw new Error("Tree must be rooted at bookmarks");
       var pieces = urlLib
         .parse(req.url)
         .path.replace(/^\//, "")
