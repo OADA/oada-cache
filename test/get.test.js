@@ -1,202 +1,185 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
 const oada = require('../build/index').default
+const _ = require('lodash');
 const uuid = require('uuid');
 const chai = require('chai');
+var chaiAsPromised = require("chai-as-promised");
+chai.use(chaiAsPromised);
+var expect = chai.expect;
 const axios = require('axios');
-const config = require('./config')
-const expect = chai.expect;
-const {cleanUp, getConnections} = require('./utils.js');
+const { token, domain }= require('./config')
+const {tree, putResource, getConnections} = require('./utils.js');
 
-var token = config.token;
-let domain = config.domain;
-var resource;
-var link;
-var data;
 var connections;
 var resources = [];
 
-let contentType = 'application/vnd.oada.yield.1+json';
-let connectTime = 30 * 1000; // seconds to click through oauth
-let tree = {
-  'bookmarks': {
-    '_type': 'application/vnd.oada.bookmarks.1+json',
-    '_rev': '0-0',
-    'test': {
-      '_type': 'application/vnd.oada.harvest.1+json',
-      '_rev': '0-0',
-      'aaa': {
-        '_type': 'application/vnd.oada.as-harvested.1+json',
-        '_rev': '0-0',
-        'bbb': {
-          '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-          '_rev': '0-0',
-          'index-one': {
-            '*': {
-              '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-              '_rev': '0-0',
-              'index-two': {
-                '*': {
-                  '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-                  '_rev': '0-0',
-                  'index-three': {
-                    '*': {
-                      '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-                      'test': {}
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
 
+describe(`------------GET-----------------`, async function() {
+	before(`Create connection types`, async function() {
+		connections = await getConnections({
+			domain,
+			token: 'def',
+		})
+		connections = Object.values(connections)
+	})
 
+	for (let i = 0; i < 4; i++) {
+		describe(`Testing connection ${i+1}`, async function() {
 
-describe('GET', async function() {
-  var a, b, c , d;
+			it(`Should allow for a basic GET request without tree parameter`, async function() {
+				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
+				this.timeout(4000);
+				await putResource({
+					_type: 'application/vnd.oada.notes.1+json',
+					sometest: 'abc'
+				},
+				domain+'/bookmarks/test')
 
-  before(`Make connections`, async function() {
-    connections = await getConnections({
-      domain,
-      token
-    })
-    data = {
-      _type: 'application/vnd.oada.notes.1+json',
-      sometest: 'abc'
-    }
-    
-    a = await axios({
-      method: 'put',
-      url: domain+'/resources/'+uuid(),
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data
-    })
-    resources.push(a.headers.location)
+				await putResource({'somethingelse': 'okay'}, domain+'/bookmarks/test/aaa')
+				await putResource({'b': 'b'}, domain+'/bookmarks/test/aaa/bbb')
+				await putResource({'c': 'c'}, domain+'/bookmarks/test/aaa/bbb/index-one/ccc')
+				await putResource({'d': 'd'}, domain+'/bookmarks/test/aaa/bbb/index-one/ccc/index-two/bob')
+				await putResource({'e': 'e'}, domain+'/bookmarks/test/aaa/bbb/index-one/ccc/index-two/bob/index-three/2018')
 
-    var aLink = await axios({
-      method: 'put',
-      url: domain+'/bookmarks/test',
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {_id: a.headers.location.replace(/^\//, ''), _rev: '0-0'}
-    })
+				var test = await connections[i].get({
+					path: '/bookmarks/test'
+				})
+				expect(test.data).to.include.key('aaa')
+				expect(test.data).to.include.keys(['_id', '_meta', '_type', '_rev'])
+			})
 
-    b = await axios({
-      method: 'put',
-      url: domain+'/resources/'+uuid(),
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {'somethingelse': 'okay'}
-    })
-    resources.push(b.headers.location)
+			it(`Should allow you to get a resource directly`, async function() {
+				var response = await connections[i].get({
+					path: '/resources/default:resources_bookmarks_321',
+				})
+				expect(response.data).to.include.keys(['_id', '_rev', '_meta'])
+			})
 
-    var bLink = await axios({
-      method: 'put',
-      url: domain+'/bookmarks/test/aaa',
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {_id: b.headers.location.replace(/^\//, ''), _rev: '0-0'}
-    })
+			it(`Should error when the root path of a 'tree' GET doesn't exist`, async function() {
+				return expect(connections[i].get({
+					path: '/bookmarks/test/testTwo',
+					tree
+				})).to.be.rejectedWith(Error, 'Request failed with status code 404');
+			})
 
-    c = await axios({
-      method: 'put',
-      url: domain+'/resources/'+uuid(),
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {'b': 'b'}
-    })
-    resources.push(c.headers.location)
+			it(`Should handle when the cache only contains part of the tree which is on the server`, async function() {
+				if (connections[i].cache) {
+					await connections[i].resetCache()
+					var subTree = _.cloneDeep(tree);
+					delete subTree.bookmarks.test.aaa.bbb['index-one']['*']
+					// Prep the cache with part of the tree
+					var first = await connections[i].get({
+						path: '/bookmarks/test',
+						tree: subTree
+					})
+					expect(first.data).to.include.key('aaa')
+					expect(first.data['aaa']).to.include.key('bbb')
+					expect(first.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(first.data['aaa']['bbb']).to.include.key('index-one')
+					expect(first.data['aaa']['bbb']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(first.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(first.data['aaa']['bbb']['index-one']).to.include.key('ccc')
+					expect(first.data['aaa']['bbb']['index-one']['ccc']).to.have.keys(['_id','_rev'])
 
-    var cLink = await axios({
-      method: 'put',
-      url: domain+'/bookmarks/test/aaa/bbb',
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {_id: c.headers.location.replace(/^\//, ''), _rev: '0-0'}
-    })
+					// Now Attempt to GET the entire tree
+					var second = await connections[i].get({
+						path: '/bookmarks/test',
+						tree
+					})
+					expect(second.data).to.include.key('aaa')
+					expect(second.data['aaa']).to.include.key('bbb')
+					expect(second.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(second.data['aaa']['bbb']).to.include.key('index-one')
+					expect(second.data['aaa']['bbb']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(second.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(second.data['aaa']['bbb']['index-one']).to.include.key('ccc')
+					expect(second.data['aaa']['bbb']['index-one']['ccc']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(second.data['aaa']['bbb']['index-one']['ccc']['index-two']['bob']['index-three']['2018']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(second.cached).to.equal(false)
+				} 
+			})
 
-    d = await axios({
-      method: 'put',
-      url: domain+'/resources/'+uuid(),
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {'c': 'c'}
-    })
-    resources.push(d.headers.location)
+			it(`Should handle fully cached tree`, async function() {
+				if (connections[i].cache) {
+					var test = await connections[i].get({
+						path: '/bookmarks/test',
+						tree
+					})
+					expect(test.data).to.include.key('aaa')
+					expect(test.data['aaa']).to.include.key('bbb')
+					expect(test.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(test.data['aaa']['bbb']).to.include.key('index-one')
+					expect(test.data['aaa']['bbb']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(test.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(test.data['aaa']['bbb']['index-one']).to.include.key('ccc')
+					expect(test.data['aaa']['bbb']['index-one']['ccc']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+					expect(test.cached).to.equal(true)
+				}
+			})
 
-    var dLink = await axios({
-      method: 'put',
-      url: domain+'/bookmarks/test/aaa/bbb/index-one/ccc',
-      headers: {
-        Authorization: 'Bearer '+token,
-        'Content-Type': 'application/vnd.oada.notes.1+json',
-      },
-      data: {_id: d.headers.location.replace(/^\//, ''), _rev: '0-0'}
-    })
-  })
+			it(`Should only return the part of the tree prescribed by the given 'tree' when the server has more data`, async function() {
+				this.timeout(4000)
+				await connections[i].put({
+					path: '/bookmarks/test/aaa/bbb/index-one/hhh',
+					data: {foo: "bar"},
+					tree
+				})
 
-  it(`Should allow for a basic GET request without tree parameter`, async function() {
-    var conn = connections[0];
-    var test = await conn.get({
-      path: '/bookmarks/test'
-    })
-    expect(test.data).to.include.key('aaa')
-    expect(test.data).to.include.keys(['_id', '_meta', '_type', '_rev'])
-  })
+				await connections[i].put({
+					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/bob/index-three/2014',
+					type: 'application/vnd.oada.yield.1+json',
+					data: {bar: "foo"},
+					tree
+				})
 
-  //connections.forEach((conn, i) => {
-  //  describe(`Testing connection ${i+1}`, async function() {
-  it(`Should perform a recursive GET when a 'tree' is supplied. Should not error when the root path exists`, async function() {
-    var conn = connections[0];
-    var test = await conn.get({
-      path: '/bookmarks/test',
-      tree
-    })
-    expect(test.data).to.include.key('aaa')
-    expect(test.data['aaa']).to.include.key('bbb')
-    expect(test.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
-    expect(test.data['aaa']['bbb']).to.include.key('index-one')
-    expect(test.data['aaa']['bbb']).to.include.keys(['_id', '_meta', '_type', '_rev'])
-    expect(test.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_meta', '_type', '_rev'])
-    expect(test.data['aaa']['bbb']['index-one']).to.include.key('ccc')
-    expect(test.data['aaa']['bbb']['index-one']['ccc']).to.include.keys(['_id', '_meta', '_type', '_rev'])
-  })
+				await axios({
+					method: 'put',
+					url: domain+'/bookmarks/test/aaa/bbb/extraKey',
+					headers: {'Authorization': 'Bearer def', 'Content-Type': 'application/vnd.oada.yield.1+json'},
+					data: {hello: "world"},
+				})
 
-  it(`GETs with a 'tree' supplied should error when the root path doesn't exist`, async function() {
-    var conn = connections[0];
-    try {
-      var test = await conn.get({
-        path: '/bookmarks/test/testTwo',
-        tree
-      })
-    } catch (error) {
-      expect(error.response.status).to.equal(404)
-      expect(error.response.message).to.contain.string('Not Found')
-    }
-  })
+				await axios({
+					method: 'put',
+					url: domain+'/resources/7656401651',
+					headers: {'Authorization': 'Bearer def', 'Content-Type': 'application/vnd.oada.yield.1+json'},
+					data: {foobar: 'foobar'},
+				})
 
-  after('clean up', () => {
-    var conn = connections[0];
-    conn.resetCache();
-    return cleanUp(resources, domain, token);
-  })
+				await connections[i].put({
+					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/joe/somethingElse',
+					type: 'application/vnd.oada.yield.1+json',
+					data: {_id: "resources/7656401651"},
+					tree
+				})
+
+				var first = await connections[i].get({
+					path: '/bookmarks/test',
+					tree
+				})
+
+				expect(first.data).to.include.key('aaa')
+				expect(first.data['aaa']).to.include.key('bbb')
+				expect(first.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']).to.include.key('index-one')
+				expect(first.data['aaa']['bbb']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_meta', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']['index-one']).to.include.key('ccc')
+				expect(first.data['aaa']['bbb']['index-one']['hhh']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']).to.include.keys(['bob', 'joe'])
+				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']['joe']).to.include.keys(['somethingElse'])
+				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']['joe']['somethingElse']).to.not.include.keys(['foobar'])
+			})
+
+			it('clean up', async function() {
+				this.timeout(5000);
+				await connections[i].resetCache();
+				try {
+				await connections[i].delete({path:'/bookmarks/test', tree});
+				} catch (error) {
+					console.log(error)
+				}
+			})
+		})
+	}
 })

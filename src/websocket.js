@@ -47,7 +47,7 @@ function websocket(url) {
             err.request = httpCallbacks[response.requestId].request;
 						err.response = {
 							status: response.status,
-							statusText: response.status,
+							statusText: response.statusText,
 							headers: response.headers,
 							data: response.data
             };

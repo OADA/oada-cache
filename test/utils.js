@@ -1,82 +1,100 @@
 const oada = require('../build/index.js').default;
+const Promise = require('bluebird');
 const axios = require('axios');
+const uuid = require('uuid');
+var { token, domain} = require('./config');
 
 async function getConnections({domain, options, token}) {
-  var yy = await oada.connect({
+  var cYesWYes = await oada.connect({
     domain,
     options,
-    token
-  })
+    token,
+		name: 'cYesWYes'
+  });
 
-  var yn = await oada.connect({
+  var cYesWNo = await oada.connect({
     domain,
     options,
     token,
     websocket: false,
+		name: 'cYesWNo'
   })
-  var ny = await oada.connect({
+  var cNoWYes = await oada.connect({
     domain,
     options,
     token,
     cache: false,
-  })
+		name: 'cNoWYes'
+  });
 
-  var nn = await oada.connect({
+  var cNoWNo = await oada.connect({
     domain,
     options,
     token,
     websocket: false,
     cache: false,
+		name: 'cNoWNo'
   })
-  return [nn, yn, ny, yy]
+  return {cNoWNo, cYesWNo, cNoWYes, cYesWYes}
 }
 
-async function cleanUp(resources, domain, token) {
-  // Delete resources
-  resources.forEach(async function(res) {
-    await axios({
-      method: 'delete',
-      url: domain+res,
-      headers: {
-        Authorization: 'Bearer '+token,
-      }
-    })
-  })
-  // Delete link
-  await axios({
-    method: 'delete',
-    url: domain+'/bookmarks/test',
-    headers: {
-      Authorization: 'Bearer '+token,
-    }
-  })
+async function putResource(data, path) {
+	var pieces = path.split('/bookmarks')[1].split('/')
+	var newPath = '/bookmarks'+pieces.splice(0,pieces.length-1).join('/')
+	var _id = 'resources/'+uuid();
+	var newData = {};
+	newData[pieces[0]] = {_id, _rev: '0-0'};
+	var resource = await axios({
+		method: 'put',
+		url: domain+'/'+_id,
+		headers: {
+			Authorization: 'Bearer '+token,
+			'Content-Type': 'application/json',
+		},
+		data
+	})
+	var link = await axios({
+		method: 'put',
+		url: domain+newPath,
+		headers: {
+			Authorization: 'Bearer '+token,
+			'Content-Type': 'application/json',
+		},
+		data: newData
+	})
+
+	return {resource, link}
 }
 
 var tree = {
-  'bookmarks': {
-    '_type': 'application/vnd.oada.bookmarks.1+json',
-    '_rev': '0-0',
-    'test': {
-      '_type': 'application/vnd.oada.harvest.1+json',
-      '_rev': '0-0',
-      'aaa': {
-        '_type': 'application/vnd.oada.as-harvested.1+json',
-        '_rev': '0-0',
-        'bbb': {
-          '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-          '_rev': '0-0',
-          'index-one': {
-            '*': {
-              '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-              '_rev': '0-0',
-              'index-two': {
-                '*': {
-                  '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-                  '_rev': '0-0',
-                  'index-three': {
-                    '*': {
-                      '_type': 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
-                      'test': {}
+  bookmarks: {
+    _type: "application/vnd.oada.bookmarks.1+json",
+    _rev: "0-0",
+    test: {
+      _type: "application/vnd.oada.harvest.1+json",
+      _rev: "0-0",
+      aaa: {
+        _type: "application/vnd.oada.as-harvested.1+json",
+        _rev: "0-0",
+        bbb: {
+          _type:
+            "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+          _rev: "0-0",
+          "index-one": {
+            "*": {
+              _type:
+                "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+              _rev: "0-0",
+              "index-two": {
+                "*": {
+                  _type:
+                    "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+                  _rev: "0-0",
+                  "index-three": {
+                    "*": {
+                      _type:
+                        "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
+                      test: {}
                     }
                   }
                 }
@@ -87,10 +105,10 @@ var tree = {
       }
     }
   }
-}
+};
 
 module.exports = {
-  getConnections, 
-  cleanUp,
-  tree
-}
+  getConnections,
+  tree,
+	putResource,
+};
