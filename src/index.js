@@ -137,6 +137,7 @@ var connect = async function connect({
           headers
         },
         async function watchResponse(response) {
+          console.log('some response');
 					//console.log('_watch', pretty.render(response))
           var watchPayload = _.cloneDeep(payload) || {};
           watchPayload.response = response;
@@ -558,9 +559,9 @@ var connect = async function connect({
     if (CACHE) await CACHE.db.close();
     //if (CACHE) await CACHE.db.destroy();
     if (SOCKET) SOCKET.close();
-    if (_token.isSet()) {
+    //if (_token.isSet()) {
       _token.cleanUp();
-    }
+    //}
   }
 
   async function reconnect() {

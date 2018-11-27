@@ -1,6 +1,6 @@
 {
   "name": "@oada/oada-cache",
-  "version": "2.0.0",
+  "version": "2.0.4",
   "description": "node library for interacting with and locally caching data served on an oada-compliant server",
   "main": "./build/index.js",
   "directories": {
@@ -28,7 +28,6 @@
     "babel-register": "^6.26.0",
     "bluebird": "^3.5.1",
     "chai": "^4.1.2",
-    "debug": "^4.1.0",
     "chai-as-promised": "^7.1.1",
     "isomorphic-ws": "^4.0.1",
     "json-pointer": "^0.6.0",

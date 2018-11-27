@@ -26,7 +26,7 @@ import PouchDB from "pouchdb";
 import { STATUS_CODES } from "http";
 const urlLib = require("url");
 var _ = require("lodash");
-const debug = require("debug")("oada-cache:token");
+//const debug = require("debug")("oada-cache:token");
 const crypto = require("crypto");
 const oadaIdClient = require("@oada/oada-id-client");
 
@@ -59,7 +59,7 @@ class Token {
     try {
       //getting the doc from the server if exists
       let doc = await this._tokenDB.get(this._id);
-      debug("received document ->", doc);
+      //      debug("received document ->", doc);
       result = doc.token;
       this._rev = doc._rev;
     } catch (err) {
@@ -94,7 +94,7 @@ class Token {
           result = await gat(urlObj.host, this._options);
         }
         TOKEN = result.access_token;
-        debug("setup token -> access token:", result.access_token);
+        //        debug("setup token -> access token:", result.access_token);
         this.put(TOKEN);
       } //if !TOKEN
     } //else
@@ -129,7 +129,7 @@ class Token {
         this.token = _token;
       } else {
         //not found
-        debug("not found -> creating one");
+        //        debug("not found -> creating one");
         let response = await this._tokenDB.put({
           _id: this._id,
           token: _token
@@ -137,7 +137,7 @@ class Token {
         this.token = _token;
       } //else
     } catch (err) {
-      debug("Error: not found -> put", err);
+      //      debug("Error: not found -> put", err);
     }
   } //put
 
