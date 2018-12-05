@@ -8,6 +8,8 @@ const pointer = require("json-pointer");
 const ws = require("./websocket");
 const axios = require("axios");
 const _TOKEN = require("./token");
+const error = require('debug')('oada-cache:index:error');
+const info = require('debug')('oada-cache:index:info');
 
 var connect = async function connect({
   domain,
@@ -78,6 +80,7 @@ var connect = async function connect({
   }
 
   async function _makeResourceAndLink({ path, data, headers }, waitTime) {
+    info('_makeResourceAndLink', path, data)
 		var _id = _.clone(data._id) || "resources/" + uuid();
 		let linkReq = {
 			path,
@@ -85,14 +88,14 @@ var connect = async function connect({
 			headers,
       data: {_id}
     };
-		// Create a version link of the tree specifies it so.
+		// Create a versioned link if the tree specifies one.
 		if (data._rev) linkReq.data._rev = '0-0';
     let resReq = {
       path: "/"+_id,
       type: data._type,
       data
     };
-    
+    data._id = _id;
 		var link;
 		try {
 		  link = await put(linkReq);
@@ -100,20 +103,22 @@ var connect = async function connect({
 			if (err.response && err.response.status === 412) {
         var pathPieces = path.split('/');
         var parentPath = pathPieces.splice(0, pathPieces.length-1).join('/');
-				// Wait time increases exponentially: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
+				// Wait time increases: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
 				if (waitTime > 16000) throw err;
-				//The parent has been modified
+				//The parent has been modified; attempt to get the new _rev
 				var response;
 				try {
 					response = await NOCACHEREQUEST({method: 'get', url: DOMAIN+parentPath, headers:{"Authorization": "Bearer "+TOKEN}})
-				} catch (error) {
+				} catch (erro) {
 					waitTime = waitTime || 1000;
 					await Promise.delay(waitTime)
 				  return _makeResourceAndLink({path, data, headers}, waitTime*2)
-				}
+        }
+        // If the key has already been created, set the resource path to the bookmarks path, not a resource id 
 				if (response.data[pathPieces[pathPieces.length-1]]) {
 					resReq.path = path;
-				} else {
+        } else {
+          // The key does not yet exist, adjust the if-match and try again.
 					waitTime = waitTime || 1000;
 					await Promise.delay(waitTime)
 					var newHeaders = _.cloneDeep(headers);
@@ -122,9 +127,9 @@ var connect = async function connect({
 				}
 			} else throw err;
 		}
-		// Delete the _rev  and _id keys. No need for them in the resource object.
-		delete resReq.data._rev;
-		delete resReq.data._id;
+		// Delete the _rev  and _id keys. No need for them in the resource object. They will break things.
+    //delete resReq.data._rev;
+    //delete resReq.data._id;
 		var resource = await put(resReq);
     return { link, resource };
   }
@@ -137,8 +142,6 @@ var connect = async function connect({
           headers
         },
         async function watchResponse(response) {
-          console.log('some response');
-					//console.log('_watch', pretty.render(response))
           var watchPayload = _.cloneDeep(payload) || {};
           watchPayload.response = response;
           watchPayload.request = {
@@ -202,13 +205,13 @@ var connect = async function connect({
 	async function _sendRequest(req) {
 		try {
 			return REQUEST(req);
-		} catch (error) {
-		  if (error && error.response.status === 401) {
+		} catch (err) {
+		  if (err && err.response.status === 401) {
         //token has expired
         await reconnect();
         return REQUEST(req);
       }
-			throw error;
+			throw err;
     } 
   }
 
@@ -229,9 +232,13 @@ var connect = async function connect({
         throw new Error("The path does not exist on the given tree.");
       //return get({url: req.url})
       var subTree = pointer.get(tree, treePath);
-      var stuff = await _recursiveGet(req.url, subTree, {}, true);
-      response.data = stuff.data;
-      response.cached = stuff.cached;
+      try {
+        var stuff = await _recursiveGet(req.url, subTree, {}, true);
+        response.data = stuff.data;
+        response.cached = stuff.cached;
+      } catch (err) {
+        if (err.status !== 404) throw err;
+      }
     }
 
     // Handle watch
@@ -241,7 +248,7 @@ var connect = async function connect({
       await _watch({
         headers: req.headers,
         path,
-        func: watch.func,
+        func: watch.function,
         payload: watch.payload
       });
     }
@@ -249,12 +256,14 @@ var connect = async function connect({
   } //get
 
   async function _recursiveGet(url, tree, data, cached) {
+    info('_recursiveGet', url, tree._type, data)
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {
       // its a resource
       var got = await get({
         url
       });
+      info('_recursiveGet GET data:', got.data)
       data = got.data;
       cached = got.cached ? got.cached : false;
     }
@@ -419,8 +428,8 @@ var connect = async function connect({
 					url
 				});
 				data = got.data;
-			} catch (error) {
-				if (error.status === 404) {
+			} catch (err) {
+				if (err.status === 404) {
 					data = {};
 					return
 				}
@@ -463,8 +472,8 @@ var connect = async function connect({
 							'content-type': tree._type
 						}
 					});
-				} catch (error) {
-					if (error.status === 404) {
+				} catch (err) {
+					if (err.status === 404) {
 						data = {};
 						return
 					}

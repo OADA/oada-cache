@@ -169,7 +169,18 @@ describe(`------------GET-----------------`, async function() {
 				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']).to.include.keys(['bob', 'joe'])
 				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']['joe']).to.include.keys(['somethingElse'])
 				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']['joe']['somethingElse']).to.not.include.keys(['foobar'])
-			})
+      })
+
+        /*      it('should permit a GET on users', async function() {
+        await conections[i].put({
+          path: '/bookmarks/test/_meta/_permissions/users/default:users_audrey_999',
+          data: {
+            read: true,
+            write: true,
+            owner: false
+          }
+        })
+      })*/
 
 			it('clean up', async function() {
 				this.timeout(5000);

@@ -55,7 +55,7 @@ var response = await connection.delete({
 
 ## "Advanced" API
 #### tree
-A `tree` option can be used in many of the `oada-cache` API calls as a means to prescribe the data structure residing on the OADA server. It is used to represent a particular subgraph on the sever. The use of a `_type` key in the tree indicates that a resource break exists at this particular level of the tree and a link should be used to connect the parent resource to the resource(s) at this location. A `_rev` key in the tree indicates that _versioned_ links should be created at this location; versioned links indicate that the parent will be updated with new revision numbers (`_rev`) each time the linked child resource is altered. A `*` key in the tree represents a placeholder when a particular key cannot be specified.
+A `tree` option can be used in many of the `oada-cache` API calls as a means to specify the data structure you intend to create or pull from the OADA server. It is used to represent a particular subgraph on the sever. The use of a `_type` key in the tree indicates that a resource break exists at this particular level of the tree and a link should be used to connect the parent resource to the resource(s) at this location. A `_rev` key in the tree indicates that _versioned_ links should be created at this location; versioned links indicate that the parent will be updated with new revision numbers (`_rev`) each time the linked child resource is altered. A `*` key in the tree represents a placeholder when a particular key cannot be specified.
 
 ```javascript
 var todoTree = {
@@ -114,3 +114,25 @@ var response = await connection.delete({
 ```
 
 ## Watch
+Resource watching provides a change feed of updates on demand from the given resource rooted at `path`. Watches are implemented as an extension of a GET request when the 'watch' key is supplied. When a watch is established, it will automatically keep the cache synced with the incoming change feed. When a watch is initiated, the current `_rev` of the resources is automatically passed along, and any remote changes will be pushed down to bring that resource up to date. The optional `function` key of the `watch` object is used to supply a callback function as changes are received; this callback receives a `payload` argument containing the change. The `payload` key of the `watch` object is used to supply additional data to the callback payload.
+```javascript
+const watchHandler = function(payload) {
+  console.log(payload); // {foo: 'bar', response: {...}, request: {...}}
+  console.log(payload.response.change.type); // Either 'merge' or 'delete' given the particular change that occurred.
+  console.log(payload.response.change.body); //JSON object rooted at the watch path '/bookmarks/todoList'; For deletes, this sparse tree terminates at a key with the value `null` to indicate the deleted key.
+}
+
+var response = await connection.get({
+  path: "/bookmarks/todoList",
+  watch: {
+    payload: { foo: 'bar' }
+    function: watchHandler
+  }
+});
+```
+
+
+
+
+### Developing against an application
+To further develop this library against e.g., a runnning application, utilize the `npm run build-watch` command to continuously build the source code. Utilize the `npm run dev` command to watch for changes to the built code and copy it into another project directory (e.g., node_modules of an application being developed); you must first set the `APP_DIR` environment variable to the root path of a directory containing a node_modules directory.

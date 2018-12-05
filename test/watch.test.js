@@ -338,8 +338,55 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			await conn.resetCache();
 		})
 	
-	})
+  })
+  /*
+  it(`Should "autofix" a broken cache state and shouldn't 404 on recursiveGet`, async function() {
+		this.timeout(15000);
+		await connOne.delete({path:'/bookmarks/test', tree})
+    await connOne.resetCache();
+		var newTree = _.cloneDeep(tree)
+    newTree.bookmarks.test.aaa.bbb['index-one']['*']['index-two']['*']['index-three']['*']._rev = '0-0';
 
+    // 1. Put some deep stuff
+    console.log('putting')
+		var putOne = await connOne.put({
+      path: '/bookmarks/test/aaa/bbb/index-one/ccc',
+			data: {sometest: 'foo'},
+			tree,
+    })
+    var getOne = await connOne.get({
+      path: '/bookmarks/test',
+      tree
+    })
+    getOne = await connOne.get({
+      path: '/bookmarks/test',
+      tree
+    })
+    expect(getOne.cached).to.equal(true);
+    console.log('!!!!!!!!!!!deleting!!!!!!!!!!!!!!!!!')
+    // 2. Delete that deep stuff without affecting connOne's cache
+    var deleteOne = await connTwo.delete({
+      path: '/bookmarks/test/aaa/bbb/index-one/ccc',
+      type: 'application/json',
+    })
+    console.log('watching')
+    // 3. Set a watch on bookmarks/test; we don't want the recursive get to 404
+    // We want the offline changes to fix the cache
+		var response = await connOne.get({
+      path: '/bookmarks/test',
+      tree,
+			watch: {
+				payload: {someExtra: 'payload'},
+			}
+		})
+    expect(response.status).to.equal(200)
+    console.log(pretty.render(response.data));
+    expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
+    expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
+    expect(response.data.aaa.bbb).to.include.keys(['_id', '_rev', 'index-one', '_type'])
+    expect(response.data.aaa.bbb['index-one']).to.include.keys(['ccc'])
+    expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'sometest'])
+  })*/
   it('Now clean up', async function() {
 		await connOne.resetCache();
 		await connOne.delete({path:'/bookmarks/test', tree})

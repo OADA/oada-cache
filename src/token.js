@@ -29,6 +29,8 @@ var _ = require("lodash");
 //const debug = require("debug")("oada-cache:token");
 const crypto = require("crypto");
 const oadaIdClient = require("@oada/oada-id-client");
+const error = require('debug')('oada-cache:index:error');
+const info = require('debug')('oada-cache:index:info');
 
 class Token {
   constructor(param = {}) {
@@ -137,7 +139,7 @@ class Token {
         this.token = _token;
       } //else
     } catch (err) {
-      //      debug("Error: not found -> put", err);
+      error("Error: not found -> put", err);
     }
   } //put
 
@@ -152,7 +154,7 @@ class Token {
       //await this._tokenDB.close();
       this._isSet = false;
     } catch (err) {
-      console.log("deleting token from cache", err);
+      error("deleting token from cache", err);
     }
   } //cleanUp
 

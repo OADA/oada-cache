@@ -1,4 +1,4 @@
 module.exports = {
   "token": "def",
-  domain: 'https://yield.oada-dev.com'
+  domain: 'https://oada.openatk.com'
 }

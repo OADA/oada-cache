@@ -6,6 +6,8 @@ var url = require("url");
 var _ = require("lodash");
 var pointer = require("json-pointer");
 var OFFLINE = false;
+const error = require('debug')('oada-cache:cache:error');
+const info = require('debug')('oada-cache:cache:info');
 
 export default function setupCache({name, req, expires}) {
 // name should be made unique across domains and users
@@ -21,6 +23,7 @@ export default function setupCache({name, req, expires}) {
 
 // Get the resource and merge data if its already in the db.
   function dbUpsert(req, waitTime) {
+    info('dbUpsert', req)
     var urlObj = url.parse(req.url)
     var pieces = urlObj.path.split('/')
     var resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
@@ -75,7 +78,7 @@ export default function setupCache({name, req, expires}) {
       }
 
 			if (req._rev) dbPut.doc._rev = req._rev;
-
+      info('dbUpsert-dbPut', req.url, dbPut)
       return db.put(dbPut).then((rrr) => {
 				return rrr;
 			}).catch((err) => {
@@ -123,6 +126,7 @@ export default function setupCache({name, req, expires}) {
   }
 
   async function getResFromServer(req) {
+    info('getResFromServer', req)
     var res = await request({
       method: 'GET',
       url: req.url,
@@ -149,12 +153,14 @@ export default function setupCache({name, req, expires}) {
 			if (req._id) {
           resourceId = req._id;
           pathLeftover = '';
-			} else {
+      } else {
+        info('getLookup - HEAD request:', req.url, req)
 				var response = await request({
 					method: 'HEAD',
 					url: req.url,
 					headers: req.headers
-				})
+        })
+        info('getLookup - HEAD response:', response)
         //Save the url lookup for future use
         var pieces = response.headers['content-location'].split('/')
         resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
@@ -197,7 +203,7 @@ export default function setupCache({name, req, expires}) {
     var resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
     var pathLeftover = (pieces.length > 3) ? '/'+pieces.slice(3, pieces.length).join('/') : '';
     return db.get(resourceId).then((resource) => {
-      if (!offline && ((resource.accessed+expiration) <= Date.now() || !resource.valid)) {
+      if (!offline && ((resource.accessed+expiration) <= Date.now() || !resource.valid === 'false')) {
         return getResFromServer(req)
       }
       //If no pathLeftover, it'll just return resource!
@@ -234,7 +240,7 @@ export default function setupCache({name, req, expires}) {
 	async function get(req) {
     var urlObj = url.parse(req.url)
 		var newReq = _.cloneDeep(req)
-    if (!/^\/resources/.test(urlObj.path)) {
+    if (!/^\/resources/.test(urlObj.path) || !/^\/users/.test(urlObj.path)) {
       // First lookup the resourceId in the cache
       var lookup = await getLookup(req)
 			newReq.url = 
@@ -296,16 +302,17 @@ export default function setupCache({name, req, expires}) {
   }
 
   // Issue DELETE to server then update the db
-	async function del(req, offline) {
+  async function del(req, offline) {
+    info('delete:', req.url, req);
 		var urlObj = url.parse(req.url);
 		// Handle resource deletion
-		if (/^\/resources/.test(urlObj.path)) {
+    if (!/^\/resources/.test(urlObj.path) || !/^\/users/.test(urlObj.path)) {
 			// Submit a dbUpsert to either remove the whole cache document or else
 			// a key within a document
 			var res = await dbUpsert({
 				url: req.url,
 				method: req.method,
-				_valid: false
+				valid: false
 			});
 			// Handle bookmarks link deletion
 		} else {
@@ -502,8 +509,8 @@ export default function setupCache({name, req, expires}) {
 			if (db) {
 				await db.destroy();
 			}
-		} catch (error) {
-			console.log('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', error)
+    } catch (err) {
+      error('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', err)
 			return
 		}
   }
