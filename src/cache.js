@@ -237,7 +237,7 @@ export default function setupCache({name, req, expires}) {
     //   location: e.g.: /resources/abc123/some/path/leftover
     //
     // }
-	async function get(req) {
+  async function get(req) {
     var urlObj = url.parse(req.url)
 		var newReq = _.cloneDeep(req)
     if (!/^\/resources/.test(urlObj.path) || !/^\/users/.test(urlObj.path)) {
@@ -306,7 +306,7 @@ export default function setupCache({name, req, expires}) {
     info('delete:', req.url, req);
 		var urlObj = url.parse(req.url);
 		// Handle resource deletion
-    if (!/^\/resources/.test(urlObj.path) || !/^\/users/.test(urlObj.path)) {
+    if (/^\/resources/.test(urlObj.path) || /^\/users/.test(urlObj.path)) {
 			// Submit a dbUpsert to either remove the whole cache document or else
 			// a key within a document
 			var res = await dbUpsert({
@@ -331,11 +331,10 @@ export default function setupCache({name, req, expires}) {
 
 		// Execute the request if we're online, else queue it up
 		var response;
-		if (!offline) {
+    if (!offline) {
 			response = await request(req);
 		} else {
-		}
-
+    }
 		return response || res;
 	}
 

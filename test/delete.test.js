@@ -22,8 +22,7 @@ describe(`------------DELETE-----------------`, async function() {
 	})
 
 	for (let i = 0; i < 4; i++) {
-		describe(`Testing connection ${i+1}`, async function() {
-
+    describe(`Testing connection ${i+1}`, async function() {
 			it(`Should error when neither 'url' nor 'path' are supplied`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				await connections[i].resetCache()
@@ -82,11 +81,11 @@ describe(`------------DELETE-----------------`, async function() {
 					})
 				).to.be.rejectedWith(Error, `Request failed with status code 403`)
 			})
-
+  
 			it(`Should allow us to delete only a resource and leave the link alone`, async function() {
 				this.timeout(4000);
 				await connections[i].resetCache()
-				await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].delete({path:'/bookmarks/test', tree})
 				var result = await putResource({'something': 'b'}, '/bookmarks/test')
 				var deleteResponse = await connections[i].delete({
 					path: result.resource.headers['content-location'],
@@ -99,7 +98,7 @@ describe(`------------DELETE-----------------`, async function() {
 				expect(response.status).to.equal(200);
 				expect(response.data).to.include.keys(['_id', '_rev'])
 				expect(response.data).to.not.include.keys(['_meta', '_type', 'something'])
-			})
+      })
 
 			it(`Should allow us to delete only a link and leave the resource alone`, async function() {
 				this.timeout(4000);
@@ -226,7 +225,8 @@ describe(`------------DELETE-----------------`, async function() {
 				})
 			})
 
-			it(`Should gracefully handle a sequence of PUT, DELETE, PUT executed in series`, async function() {
+      it(`Should gracefully handle a sequence of PUT, DELETE, PUT executed in series`, async function() {
+        this.timeout(4000);
 				var putOne = await connections[i].put({
 					path: '/bookmarks/test/aaa',
 					tree,
@@ -262,9 +262,13 @@ describe(`------------DELETE-----------------`, async function() {
 				expect(getOne.data.aaa).to.not.include.key('putOne')
 				expect(getOne.data.aaa.bbb).to.not.include.key('putTwo')
 				expect(getOne.data.aaa.bbb['index-one'].ccc).to.include.key('putThree')
-			})
+      })
 
-			it(`Should gracefully handle a concurrent sequence of PUT, DELETE, PUT`, async function() {
+      it(`Should gracefully handle a concurrent sequence of PUT, DELETE, PUT`, async function() {
+        this.timeout(6000);
+				await connections[i].resetCache();
+        await connections[i].delete({path:'/bookmarks/test', tree})
+
 				var putOne = connections[i].put({
 					path: '/bookmarks/test/aaa',
 					tree,
@@ -284,24 +288,24 @@ describe(`------------DELETE-----------------`, async function() {
 					tree,
 					data: {putThree: 'putThree'}
 				})
-				var result = Promise.join(
+				var result = await Promise.join(
 					putOne, 
 					putTwo, 
 					deleteOne, 
 					putThree, 
-					async function(putOne,putTwo,deleteOne,putThree) {
+          async function(putOne,putTwo,deleteOne,putThree) {
 						expect(putOne.status).to.equal(204)
 						expect(putTwo.status).to.equal(204)
 						expect(deleteOne.status).to.equal(204)
 						expect(putThree.status).to.equal(204)
 					}
 				)
-			})
+      })
 
 			it('Now clean up', async function() {
 				await connections[i].resetCache();
 				await connections[i].delete({path:'/bookmarks/test', tree})
-			})
+      })
 		})
 	}
 })
