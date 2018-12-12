@@ -25,7 +25,7 @@ describe(`------------PUT-----------------`, async function() {
 	})
 
 	for (let i = 0; i < 4; i++) {
-		describe(`Testing connection ${i+1}`, async function() {
+    describe(`Testing connection ${i+1}`, async function() {
 
 			it(`1. Should error when neither 'url' nor 'path' are supplied`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
@@ -62,7 +62,8 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.status).to.equal(204)
 			})
 
-			it(`5. Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async function() {
+      it(`5. Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async function() {
+        this.timeout(5000);
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
 				var response = await connections[i].put({
@@ -80,7 +81,8 @@ describe(`------------PUT-----------------`, async function() {
 				})).to.be.rejectedWith(Error, `content-type header must be specified.`)
 			})
 
-			it(`7. Should produce a 403 error when using a content-type header for which your token does not have access to read/write`, async function() {
+      it(`7. Should produce a 403 error when using a content-type header for which your token does not have access to read/write`, async function() {
+        this.timeout(4000);
 				await connections[i].resetCache()
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				return expect(connections[i].put({
@@ -101,16 +103,18 @@ describe(`------------PUT-----------------`, async function() {
 					tree: newTree,
 					data: {anothertest: 123},
 				})).to.be.rejectedWith(Error, 'Request failed with status code 403')
-			})
+      })
 
 			it(`9. Should properly create a single new resource. The link _rev should not remain as "0-0"`, async function() {
 				await connections[i].resetCache();
-				await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].delete({path:'/bookmarks/test', tree})
+        console.log('READY NOW')
 				var response = await connections[i].put({
-					path: '/bookmarks/test/aaa',
+					path: '/bookmarks/test',
 					data: {'sometest': 123},
 					tree,
 				})
+        console.log('PUT DONE');
 				expect(response.status).to.equal(204)
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
 
@@ -118,10 +122,11 @@ describe(`------------PUT-----------------`, async function() {
 					path: '/bookmarks',
 					tree
 				})
+        console.log('GOT DONE');
 				expect(response.status).to.equal(200)
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'test'])
-				expect(response.data.test._rev).not.to.equal('0-0')
+        expect(response.data.test._rev).not.to.equal('0-0')
 			})
 
 			it(`10. Should create the proper resource breaks on the server when a 'tree' parameter is supplied to a deep endpoint`, async function() {
@@ -256,6 +261,9 @@ describe(`------------PUT-----------------`, async function() {
 			})
 
 			it(`11. Should allow for a PUT request without a 'tree' parameter`, async function() {
+				this.timeout(4000)
+				await connections[i].resetCache();
+				await connections[i].delete({path:'/bookmarks/test', tree})
 				var response = await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee/test/123',
 					type: 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
@@ -269,13 +277,16 @@ describe(`------------PUT-----------------`, async function() {
 				})
 				expect(response.status).to.equal(200)
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-				expect(response.data).to.include.keys(['_id', '_rev', 'aaa'])
-				expect(response.data.aaa).to.have.keys(['_id', '_rev'])
-				expect(response.data.aaa).to.not.include.keys(['bbb'])
+				expect(response.data).to.not.have.keys(['_id', '_rev'])
+				expect(response.data).to.include.keys(['aaa'])
+				expect(response.data.aaa).to.not.have.keys(['_id', '_rev'])
+				expect(response.data.aaa).to.include.keys(['bbb'])
 			})
 
-
-			it('12. Should create the proper resource if we PUT to a different path on an existing subtree', async function() {
+      it('12. Should create the proper resource if we PUT to a different path on an existing subtree', async function() {
+        this.timeout(6000);
+				await connections[i].resetCache();
+				await connections[i].delete({path:'/bookmarks/test', tree})
 				var response = await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three/hhh/test/123',
 					type: 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
@@ -284,7 +295,6 @@ describe(`------------PUT-----------------`, async function() {
 				})
 				expect(response.status).to.equal(204)
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
-
 				response = await connections[i].get({
 					path: '/bookmarks/test',
 				})
@@ -314,8 +324,8 @@ describe(`------------PUT-----------------`, async function() {
 
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one',
-				})
-				expect(response.status).to.equal(200)
+        })
+        expect(response.status).to.equal(200)
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.not.include.keys(['_id', '_rev'])
 				expect(response.data).to.include.keys(['ccc'])
@@ -429,7 +439,8 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.data.bbb).to.not.include.keys(['_rev'])
 			})
 
-			it(`16. Should produce a 412 if the 'If-Match' header doesn't match the existing _rev`, async function() {
+      it(`16. Should produce a 412 if the 'If-Match' header doesn't match the existing _rev`, async function() {
+        this.timeout(4000);
 				await connections[i].resetCache();
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				return expect(connections[i].put({
@@ -464,13 +475,13 @@ describe(`------------PUT-----------------`, async function() {
 						'Content-Type': 'application/json'
 					}
 				})).to.be.rejectedWith(Error, 'Request failed with status code 412');
-			})
+      })
 
 			it(`18. Should produce a 412 if two PUTs are executed in parallel with the same 'If-Match' header`, async function() {
 				await connections[i].resetCache();
-				await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].delete({path:'/bookmarks/test', tree})
 				var response = await connections[i].get({path: '/bookmarks'})
-				expect(response.status).to.equal(200)
+        expect(response.status).to.equal(200)
 				var putOne = connections[i].put({
 					path: '/bookmarks/test',
 					data: {'testOne': 'putOne'},
@@ -488,7 +499,7 @@ describe(`------------PUT-----------------`, async function() {
 					}
 				})
 				return expect(
-					Promise.join(putOne,putTwo, async function(putOne,putTwo) {console.log(putOne,putTwo)})
+					Promise.join(putOne,putTwo, async function(putOne,putTwo) {})
 				).to.be.rejectedWith(Error, 'Request failed with status code 412')
 			})
 
@@ -501,15 +512,18 @@ describe(`------------PUT-----------------`, async function() {
 					tree,
 					data: {sometest: 123},
 				})
+				expect(putOne.status).to.equal(204)
 				var deleteOne = await connections[i].delete({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc',
 					tree,
 				})
+				expect(deleteOne.status).to.equal(204)
 				var putTwo = await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc',
 					tree,
 					data: {anothertest: 123},
 				})
+				expect(putTwo.status).to.equal(204)
 				var response = await connections[i].get({
 					path: '/bookmarks/test',
 					tree
@@ -523,11 +537,12 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'anothertest'])
 				expect(response.data.aaa.bbb['index-one'].ccc).to.not.include.keys(['sometest'])
 			})
-
+ 
 			it(`20. Should work under a sequence of PUTs to similar (same parent tree) endpoints`, async function() {
-				this.timeout(15000);
+				this.timeout(35000);
 				await connections[i].resetCache();
-				await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].delete({path:'/bookmarks/test', tree})
+        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
 				var putOne = connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
 					tree: tree,
@@ -580,7 +595,7 @@ describe(`------------PUT-----------------`, async function() {
 				this.timeout(3000);
 				await connections[i].resetCache();
 				await connections[i].delete({path:'/bookmarks/test', tree})
-			})
+      })
 		})
 	}
 })

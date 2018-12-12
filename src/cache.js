@@ -1,4 +1,5 @@
 "use strict"
+var cq = require('concurrent-queue');
 var pretty = require('prettyjson');
 var Promise = require("bluebird");
 import PouchDB from "pouchdb";
@@ -51,9 +52,10 @@ export default function setupCache({name, req, expires}) {
         } else if (pointer.has(dbPut.doc, pathLeftover)) {
           dbPut.doc = result.doc;
           pointer.remove(dbPut.doc, pathLeftover)
-          return db.put(dbPut).then((rrr) => {
-						return rrr;
-					}).catch((err) => {
+            /*
+          info('dbUpsert-dbPut1', req.url, dbPut)
+          console.log('dbUpsert-dbPut1', req.url, dbPut)
+          return db.put(dbPut).catch((err) => {
 						if (err.status === 409) {
 							waitTime = waitTime || 1000;
 							return Promise.delay(waitTime).then(() => {
@@ -62,7 +64,8 @@ export default function setupCache({name, req, expires}) {
 							})
 						}
 						throw err;
-					})
+          })
+          */
         }
       } else {
         if (pathLeftover) {
@@ -78,7 +81,7 @@ export default function setupCache({name, req, expires}) {
       }
 
 			if (req._rev) dbPut.doc._rev = req._rev;
-      info('dbUpsert-dbPut', req.url, dbPut)
+      info('dbUpsert-dbPut2', req.url, dbPut)
       return db.put(dbPut).then((rrr) => {
 				return rrr;
 			}).catch((err) => {
@@ -109,6 +112,7 @@ export default function setupCache({name, req, expires}) {
 
 			if (req._rev) dbPut.doc._rev = req._rev;
 
+      info('dbUpsert-dbPut3', req.url, dbPut)
       return db.put(dbPut).then((rrr) => {
 				return rrr
 			}).catch((err) => {
@@ -197,7 +201,7 @@ export default function setupCache({name, req, expires}) {
   // The cache should go "stale" after some period of time; However, if it cannot
   // establish a connection, it should remain valid, usable data.
 
-	function getResFromDb(req, offline) {
+  function getResFromDb(req, offline) {
     var urlObj = url.parse(req.url)
     var pieces = urlObj.path.split('/')
     var resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
@@ -294,11 +298,24 @@ export default function setupCache({name, req, expires}) {
       headers: req.headers
     })
     await dbUpsert({
-      url: '/'+lookup.resourceId+lookup.pathLeftover,
+      url: '/'+lookup.resourceId+lookup.pathLeftover+'/'+reqPieces[reqPieces.length-1],
       method: 'delete',
       valid: false
     })
     return
+  }
+
+  async function removeLookup(req) {
+    try {
+			var lookup = await getLookup({
+				url: req.url,
+				headers: req.headers
+			});
+			await db.remove(lookup);
+			// If no path leftover, we just deleted a resource; invalidate parent link
+      //if (!lookup.pathLeftover) await updateParent(req);
+			await updateParent(req);
+		} catch(err) {}
   }
 
   // Issue DELETE to server then update the db
@@ -316,17 +333,7 @@ export default function setupCache({name, req, expires}) {
 			});
 			// Handle bookmarks link deletion
 		} else {
-			// Remove the lookup. This is specific to the specific endpoint
-			try {
-				var lookup = await getLookup({
-					url: req.url,
-					headers: req.headers
-				});
-				await db.remove(lookup);
-
-				// If no path leftover, we just deleted a resource; invalidate parent link
-				if (!lookup.pathLeftover) await updateParent(req);
-			} catch(err) {}
+      await removeLookup(req)
 		}
 
 		// Execute the request if we're online, else queue it up
@@ -453,7 +460,7 @@ export default function setupCache({name, req, expires}) {
     return Promise.resolve(deepestResource);
   }
 
-  function handleWatchChange(payload) {
+  var queue = cq().limit({concurrency: 1}).process(async function(payload) {
     let urlObj = url.parse(payload.request.url)
     // Give the change body an _id so the deepest resource can be found
     payload.response.change.body._id = payload.response.resourceId;
@@ -467,25 +474,21 @@ export default function setupCache({name, req, expires}) {
         case 'delete':
           // DELETE: remove the deepest resource from the change body, execute
           // the delete, and recursively update all other revs in the cache
-          let nullPath = await findNullValue(deepestResource.data, '', '')
-          let deletedPath = deepestResource.path+nullPath
+          let nullPath = await findNullValue(deepestResource.data, '', '');
+          let deletedPath = deepestResource.path+nullPath;
           payload.nullPath = deletedPath;
           let lookup = await getLookup({
-            url: payload.request.url+deepestResource.path+nullPath,
+            url: payload.request.url+deletedPath,
             header: payload.request.headers
           })
-          return dbDelete({
-            url: payload.request.url+deepestResource.path+nullPath,
+          return dbUpsert({
+            url: payload.request.url+deletedPath,
             headers: payload.request.headers,
-            method: payload.response.change.type
-          }, {
-            headers: {
-              'x-oada-rev': deepestResource.data._rev,
-              'content-location':  '/'+lookup.resourceId
-            }
+            method: 'delete',
+            valid: true
           }).then(() => {
             // Update revs on all parents all the way down to (BUT OMITTING) the 
-            // resource on which was the delete was called.
+            // resource on which the delete was called.
             pointer.remove(payload.response.change.body, deepestResource.path || '/')
             return _recursiveUpsert(payload.request, payload.response.change.body)
           })
@@ -501,6 +504,10 @@ export default function setupCache({name, req, expires}) {
     }).catch((err) => {
       return
     })
+  })
+
+  function handleWatchChange(payload) {
+    queue(payload);
   }
 
   async function resetCache() {
@@ -530,6 +537,7 @@ export default function setupCache({name, req, expires}) {
     db,
     resetCache,
     handleWatchChange,
+    removeLookup
     //handleWatchChange: _upsertChangeArray,
 	}
 }

@@ -1,6 +1,6 @@
 {
   "name": "@oada/oada-cache",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "description": "node library for interacting with and locally caching data served on an oada-compliant server",
   "main": "./build/index.js",
   "directories": {
@@ -29,6 +29,7 @@
     "bluebird": "^3.5.1",
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
+    "concurrent-queue": "^7.0.2",
     "debug": "^4.1.0",
     "isomorphic-ws": "^4.0.1",
     "json-pointer": "^0.6.0",
@@ -41,6 +42,7 @@
     "pouchdb-upsert": "^2.2.0",
     "prettyjson": "^1.2.1",
     "type-is": "^1.6.16",
+    "typeis": "^1.1.2",
     "url": "^0.11.0",
     "uuid": "^3.3.2",
     "ws": "^5.2.1"

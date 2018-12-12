@@ -81,26 +81,28 @@ var connect = async function connect({
 
   async function _makeResourceAndLink({ path, data, headers }, waitTime) {
     info('_makeResourceAndLink', path, data)
-		var _id = _.clone(data._id) || "resources/" + uuid();
+    data._id = _.clone(data._id) || "resources/" + uuid();
+
 		let linkReq = {
 			path,
       type: data._type,
 			headers,
-      data: {_id}
+      data: {_id: data._id}
     };
-		// Create a versioned link if the tree specifies one.
-		if (data._rev) linkReq.data._rev = '0-0';
+    // Create a versioned link if the tree specifies one.
+    if (data._rev) linkReq.data._rev = '0-0';
+    // We don't want to attempt to set the rev when we put the resource
+
     let resReq = {
-      path: "/"+_id,
+      path: "/"+data._id,
       type: data._type,
       data
     };
-    data._id = _id;
 		var link;
-		try {
+    try {
 		  link = await put(linkReq);
-		} catch (err) {
-			if (err.response && err.response.status === 412) {
+    } catch (err) {
+      if (err.response && err.response.status === 412) {
         var pathPieces = path.split('/');
         var parentPath = pathPieces.splice(0, pathPieces.length-1).join('/');
 				// Wait time increases: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
@@ -108,15 +110,16 @@ var connect = async function connect({
 				//The parent has been modified; attempt to get the new _rev
 				var response;
 				try {
-					response = await NOCACHEREQUEST({method: 'get', url: DOMAIN+parentPath, headers:{"Authorization": "Bearer "+TOKEN}})
+          response = await NOCACHEREQUEST({method: 'get', url: DOMAIN+parentPath, headers:{"Authorization": "Bearer "+TOKEN}})
 				} catch (erro) {
-					waitTime = waitTime || 1000;
-					await Promise.delay(waitTime)
+          waitTime = waitTime || 1000;
+          await Promise.delay(waitTime)
 				  return _makeResourceAndLink({path, data, headers}, waitTime*2)
         }
-        // If the key has already been created, set the resource path to the bookmarks path, not a resource id 
-				if (response.data[pathPieces[pathPieces.length-1]]) {
-					resReq.path = path;
+        // If the key has already been created, set the resource path to the bookmarks path and let it map automatically, not a resource id 
+        if (response.data[pathPieces[pathPieces.length-1]]) {
+          resReq.data._id = response.data[pathPieces[pathPieces.length-1]]._id;
+          resReq.path = '/'+resReq.data._id;
         } else {
           // The key does not yet exist, adjust the if-match and try again.
 					waitTime = waitTime || 1000;
@@ -128,8 +131,7 @@ var connect = async function connect({
 			} else throw err;
 		}
 		// Delete the _rev  and _id keys. No need for them in the resource object. They will break things.
-    //delete resReq.data._rev;
-    //delete resReq.data._id;
+    if (data._rev) delete resReq.data._rev
 		var resource = await put(resReq);
     return { link, resource };
   }
@@ -203,9 +205,9 @@ var connect = async function connect({
 
 
 	async function _sendRequest(req) {
-		try {
-			return REQUEST(req);
-		} catch (err) {
+    try {
+      return REQUEST(req)
+    } catch (err) {
 		  if (err && err.response.status === 401) {
         //token has expired
         await reconnect();
@@ -354,11 +356,8 @@ var connect = async function connect({
   }
 
   async function _ensureTree({ url, tree, data }) {
-    //If /resources
-
-    //If /bookmarks
     let path = urlLib.parse(url).path.replace(/^\//, "");
-    let pieces = path.replace(/\/$/, "").split("/");
+    let pieces = path.replace(/\/$/, "").split("/"); // replace trailing slashes
     if (data._id) {
       let firstPath = _convertSetupTreePath(pieces, tree);
       pointer.set(tree, firstPath + "/_id", data._id);
@@ -371,13 +370,13 @@ var connect = async function connect({
 		// Create all the resources on the way down. ret.stored is an index. Slice
 		// takes the length to slice, so no need to subtract 1.
 		var parentRev = ret._rev;
-		await Promise.mapSeries(pieces.slice(0, pieces.length - ret.stored), async function (piece, j) {
-			let i = ret.stored + 1 + j; // ret.stored exists; add one to continue beyond.
+    await Promise.mapSeries(pieces.slice(0, pieces.length - ret.stored), async function (piece, j) {
+			let i = ret.stored + 1 + j;
 			let urlPath = "/" + pieces.slice(0, i + 1).join("/");
 			let treePath = _convertSetupTreePath(pieces.slice(0, i + 1), tree);
 			if (pointer.has(tree, treePath + "/_type") && i <= ret.setup) {
-				// its a resource
-				var content = await _replaceLinks(pointer.get(tree, treePath))
+        // its a resource
+        var content = await _replaceLinks(pointer.get(tree, treePath))
 				var resp = await _makeResourceAndLink({
 					path: urlPath,
 					data: _.cloneDeep(content),
@@ -458,7 +457,7 @@ var connect = async function connect({
 			if (tree._type) {
 				try {
 					// Delete the resource
-					if (data._id) {
+          if (data._id) {
 						await del({
 							path: '/'+data._id,
 							headers: {'content-type': tree._type}
@@ -472,13 +471,16 @@ var connect = async function connect({
 							'content-type': tree._type
 						}
 					});
-				} catch (err) {
+        } catch (err) {
 					if (err.status === 404) {
 						data = {};
 						return
 					}
 				}
-			}
+      } else {
+        // Delete the lookup for non resources
+        if (CACHE) await CACHE.removeLookup({url})
+      }
 			return { link, data };
     });
   }
@@ -487,7 +489,6 @@ var connect = async function connect({
 
   async function del({ url, path, type, headers, tree, unwatch}) {
     let req = await _buildRequest({ method: "delete", url, path, type, headers });
-
     if (unwatch) {
       path = path || urlLib.parse(url).path;
       return SOCKET.unwatch({
@@ -495,7 +496,6 @@ var connect = async function connect({
         headers: req.headers
       });
     }
-    
     if (tree) {
       var pieces = urlLib
         .parse(req.url)
@@ -513,7 +513,7 @@ var connect = async function connect({
       //if (!req.headers["content-type"] && pointer.has(tree, treePath))
       //  req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
-
+    
 		if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
 

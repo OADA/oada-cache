@@ -2,8 +2,8 @@ const Promise = require('bluebird');
 const urlLib = require('url');
 const uuid = require('uuid/v4');
 const WebSocket = require('isomorphic-ws');
-const error = require('debug')('oada-cache:index:error');
-const info = require('debug')('oada-cache:index:info');
+const error = require('debug')('oada-cache:websocket:error');
+const info = require('debug')('oada-cache:websocket:info');
 Promise.config({warnings: false})
 
 function websocket(url) {
