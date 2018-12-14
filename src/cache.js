@@ -54,7 +54,6 @@ export default function setupCache({name, req, expires}) {
           pointer.remove(dbPut.doc, pathLeftover)
             /*
           info('dbUpsert-dbPut1', req.url, dbPut)
-          console.log('dbUpsert-dbPut1', req.url, dbPut)
           return db.put(dbPut).catch((err) => {
 						if (err.status === 409) {
 							waitTime = waitTime || 1000;
@@ -501,13 +500,14 @@ export default function setupCache({name, req, expires}) {
         default:
           return;
       }
+      return
     }).catch((err) => {
       return
     })
   })
 
   function handleWatchChange(payload) {
-    queue(payload);
+    return queue(payload);
   }
 
   async function resetCache() {
