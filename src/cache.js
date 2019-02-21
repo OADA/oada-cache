@@ -401,23 +401,25 @@ export default function setupCache({name, req, expires}) {
     } else return
   }
 
-	function findNullValue(obj, path, nullPath) {
+  function findNullValue(obj, path, nullPath) {
 		if (typeof obj === "object") {
-			return Promise.map(Object.keys(obj || {}), key => {
+			return Promise.map(Object.keys(obj || {}), (key) => {
 				if (obj[key] === null) {
-					nullPath = path + "/" + key;
+          nullPath = path + "/" + key;
 					return nullPath;
-				}
-				return findNullValue(obj[key], path + "/" + key, nullPath).then(
-					res => {
-						nullPath = res || nullPath;
-						return res || nullPath;
-					}
-				);
-			}).then(() => {
+        }
+        return findNullValue(obj[key], path + "/" + key, nullPath).then((res) => {
+				  nullPath = res || nullPath;
+				  return res || nullPath;
+				});
+			}, {concurrency: 1}).then(() => {
 				return nullPath;
-			});
-		} else return Promise.resolve(undefined);
+      }).catch((err) => {
+        return
+      })
+    } else {
+        return Promise.resolve(undefined);
+    }
 	}
 
 	/*
@@ -476,33 +478,30 @@ export default function setupCache({name, req, expires}) {
           let nullPath = await findNullValue(deepestResource.data, '', '');
           let deletedPath = deepestResource.path+nullPath;
           payload.nullPath = deletedPath;
-          let lookup = await getLookup({
-            url: payload.request.url+deletedPath,
-            header: payload.request.headers
-          })
           return dbUpsert({
             url: payload.request.url+deletedPath,
             headers: payload.request.headers,
             method: 'delete',
             valid: true
-          }).then(() => {
+          }).then(async function() {
             // Update revs on all parents all the way down to (BUT OMITTING) the 
             // resource on which the delete was called.
             pointer.remove(payload.response.change.body, deepestResource.path || '/')
-            return _recursiveUpsert(payload.request, payload.response.change.body)
+            await _recursiveUpsert(payload.request, payload.response.change.body)
+            return payload;
           })
           break;
         // Recursively update all of the resources down the returned change body
         case 'merge':
-          return _recursiveUpsert(payload.request, payload.response.change.body)
+          await _recursiveUpsert(payload.request, payload.response.change.body)
+          return payload;
           break;
 
         default:
-          return;
+          return payload;
       }
-      return
     }).catch((err) => {
-      return
+      return payload
     })
   })
 
@@ -537,7 +536,9 @@ export default function setupCache({name, req, expires}) {
     db,
     resetCache,
     handleWatchChange,
-    removeLookup
+    removeLookup,
+    findDeepestResource,
+    findNullValue,
     //handleWatchChange: _upsertChangeArray,
 	}
 }

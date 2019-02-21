@@ -151,7 +151,7 @@ var connect = async function connect({
             headers,
             method: response.change.type
           };
-          if (CACHE) await CACHE.handleWatchChange(watchPayload);
+          if (CACHE) watchPayload = await CACHE.handleWatchChange(watchPayload);
 					if (func) await func(watchPayload);
 					return
         }
@@ -555,8 +555,9 @@ var connect = async function connect({
 
     if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
-
-    return _sendRequest(req);
+    return _sendRequest(req).then((result) => {
+      return result;
+    })
   }
 
   async function resetCache(name, expires) {
