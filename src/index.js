@@ -258,6 +258,8 @@ var connect = async function connect({
   } //get
 
   async function _recursiveGet(url, tree, data, cached) {
+
+    console.log('_recursiveGet', url, tree._type, data)
     info('_recursiveGet', url, tree._type, data)
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {

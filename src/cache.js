@@ -382,7 +382,7 @@ export default function setupCache({name, req, expires}) {
         url: req.url,
         headers: req.headers
       });
-
+      console.log('upserting', req.url, body._id || lookup.resourceId, newBody);
 		  await dbUpsert({
         url: '/'+(body._id || lookup.resourceId),
         data: newBody,
@@ -486,8 +486,9 @@ export default function setupCache({name, req, expires}) {
           }).then(async function() {
             // Update revs on all parents all the way down to (BUT OMITTING) the 
             // resource on which the delete was called.
-            pointer.remove(payload.response.change.body, deepestResource.path || '/')
-            await _recursiveUpsert(payload.request, payload.response.change.body)
+            //pointer.remove(payload.response.change.body, deepestResource.path || '/')
+            console.log(payload)
+            //            await _recursiveUpsert(payload.request, payload.response.change.body)
             return payload;
           })
           break;
