@@ -8,8 +8,8 @@ const pointer = require("json-pointer");
 const ws = require("./websocket");
 const axios = require("axios");
 const _TOKEN = require("./token");
-const error = require('debug')('oada-cache:index:error');
-const info = require('debug')('oada-cache:index:info');
+//const error = require('debug')('oada-cache:index:error');
+//const info = require('debug')('oada-cache:index:info');
 
 var connect = async function connect({
   domain,
@@ -80,7 +80,7 @@ var connect = async function connect({
   }
 
   async function _makeResourceAndLink({ path, data, headers }, waitTime) {
-    info('_makeResourceAndLink', path, data)
+    //info('_makeResourceAndLink', path, data)
     data._id = _.clone(data._id) || "resources/" + uuid();
 
 		let linkReq = {
@@ -259,15 +259,14 @@ var connect = async function connect({
 
   async function _recursiveGet(url, tree, data, cached) {
 
-    console.log('_recursiveGet', url, tree._type, data)
-    info('_recursiveGet', url, tree._type, data)
+    //info('_recursiveGet', url, tree._type, data)
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {
       // its a resource
       var got = await get({
         url
       });
-      info('_recursiveGet GET data:', got.data)
+      //info('_recursiveGet GET data:', got.data)
       data = got.data;
       cached = got.cached ? got.cached : false;
     }

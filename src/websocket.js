@@ -2,8 +2,8 @@ const Promise = require('bluebird');
 const urlLib = require('url');
 const uuid = require('uuid/v4');
 const WebSocket = require('isomorphic-ws');
-const error = require('debug')('oada-cache:websocket:error');
-const info = require('debug')('oada-cache:websocket:info');
+//const error = require('debug')('oada-cache:websocket:error');
+//const info = require('debug')('oada-cache:websocket:info');
 Promise.config({warnings: false})
 
 function websocket(url) {
@@ -44,7 +44,7 @@ function websocket(url) {
 						httpCallbacks[response.requestId].resolve(response);
 					} else {
             //Create error like axios
-            error(httpCallbacks[response.requestId].request, response);
+            //error(httpCallbacks[response.requestId].request, response);
 						let err = new Error('Request failed with status code '+response.status);
             err.request = httpCallbacks[response.requestId].request;
 						err.response = {
@@ -62,7 +62,7 @@ function websocket(url) {
 							//Successfully setup websocket, resolve promise
 							watchCallbacks[response.requestId].resolve(response);
             } else {
-              error(watchCallbacks[response.requestId].request, response);
+              //error(watchCallbacks[response.requestId].request, response);
 							let err = new Error('Request failed with status code '+response.status);
 							err.response = response;
               err.request = watchCallbacks[response.requestId].request;

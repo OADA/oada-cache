@@ -7,8 +7,8 @@ var url = require("url");
 var _ = require("lodash");
 var pointer = require("json-pointer");
 var OFFLINE = false;
-const error = require('debug')('oada-cache:cache:error');
-const info = require('debug')('oada-cache:cache:info');
+//const error = require('debug')('oada-cache:cache:error');
+//const info = require('debug')('oada-cache:cache:info');
 
 export default function setupCache({name, req, expires}) {
 // name should be made unique across domains and users
@@ -24,7 +24,7 @@ export default function setupCache({name, req, expires}) {
 
 // Get the resource and merge data if its already in the db.
   function dbUpsert(req, waitTime) {
-    info('dbUpsert', req)
+    //info('dbUpsert', req)
     var urlObj = url.parse(req.url)
     var pieces = urlObj.path.split('/')
     var resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
@@ -80,7 +80,7 @@ export default function setupCache({name, req, expires}) {
       }
 
 			if (req._rev) dbPut.doc._rev = req._rev;
-      info('dbUpsert-dbPut2', req.url, dbPut)
+      //info('dbUpsert-dbPut2', req.url, dbPut)
       return db.put(dbPut).then((rrr) => {
 				return rrr;
 			}).catch((err) => {
@@ -111,7 +111,7 @@ export default function setupCache({name, req, expires}) {
 
 			if (req._rev) dbPut.doc._rev = req._rev;
 
-      info('dbUpsert-dbPut3', req.url, dbPut)
+      //info('dbUpsert-dbPut3', req.url, dbPut)
       return db.put(dbPut).then((rrr) => {
 				return rrr
 			}).catch((err) => {
@@ -129,7 +129,7 @@ export default function setupCache({name, req, expires}) {
   }
 
   async function getResFromServer(req) {
-    info('getResFromServer', req)
+    //info('getResFromServer', req)
     var res = await request({
       method: 'GET',
       url: req.url,
@@ -157,13 +157,13 @@ export default function setupCache({name, req, expires}) {
           resourceId = req._id;
           pathLeftover = '';
       } else {
-        info('getLookup - HEAD request:', req.url, req)
+        //info('getLookup - HEAD request:', req.url, req)
 				var response = await request({
 					method: 'HEAD',
 					url: req.url,
 					headers: req.headers
         })
-        info('getLookup - HEAD response:', response)
+        //info('getLookup - HEAD response:', response)
         //Save the url lookup for future use
         var pieces = response.headers['content-location'].split('/')
         resourceId = pieces.slice(1,3).join('/'); //returns resources/abc
@@ -319,7 +319,7 @@ export default function setupCache({name, req, expires}) {
 
   // Issue DELETE to server then update the db
   async function del(req, offline) {
-    info('delete:', req.url, req);
+    //info('delete:', req.url, req);
 		var urlObj = url.parse(req.url);
 		// Handle resource deletion
     if (/^\/resources/.test(urlObj.path) || /^\/users/.test(urlObj.path)) {
@@ -371,7 +371,6 @@ export default function setupCache({name, req, expires}) {
   }
 
   async function _recursiveUpsert(req, body) {
-    let urlObj = url.parse(req.url);
 		if (body._rev) {
       let lookup = await getLookup({
         url: req.url,
@@ -382,7 +381,6 @@ export default function setupCache({name, req, expires}) {
         url: req.url,
         headers: req.headers
       });
-      console.log('upserting', req.url, body._id || lookup.resourceId, newBody);
 		  await dbUpsert({
         url: '/'+(body._id || lookup.resourceId),
         data: newBody,
@@ -487,7 +485,6 @@ export default function setupCache({name, req, expires}) {
             // Update revs on all parents all the way down to (BUT OMITTING) the 
             // resource on which the delete was called.
             //pointer.remove(payload.response.change.body, deepestResource.path || '/')
-            console.log(payload)
             //            await _recursiveUpsert(payload.request, payload.response.change.body)
             return payload;
           })
@@ -516,7 +513,7 @@ export default function setupCache({name, req, expires}) {
 				await db.destroy();
 			}
     } catch (err) {
-      error('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', err)
+      //error('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', err)
 			return
 		}
   }
