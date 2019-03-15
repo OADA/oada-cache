@@ -246,6 +246,7 @@ var connect = async function connect({
     // Handle watch
     if (watch) {
       path = path || urlLib.parse(url).path;
+      console.log('watch response', response.data, response)
       req.headers["x-oada-rev"] = response.data._rev;
       await _watch({
         headers: req.headers,
