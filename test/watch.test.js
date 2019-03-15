@@ -68,8 +68,8 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			tree,
 		})
 		// Compare the rev of the parent at /bookmarks/test
-		var getOneRev = parseInt(result.getOne.headers['x-oada-rev'].split('-')[0]);
-		var getTwoRev = parseInt(getTwo.headers['x-oada-rev'].split('-')[0]);
+		var getOneRev = parseInt(result.getOne.headers['x-oada-rev']);
+		var getTwoRev = parseInt(getTwo.headers['x-oada-rev']);
 
 		expect(getOneRev < getTwoRev).to.equal(true)
 		expect(getTwo.data.aaa).to.include.keys(['_id','_rev', 'testAAA'])
@@ -99,8 +99,8 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			path: '/bookmarks/test',
 			tree,
 		})
-		var getOneRev = parseInt(result.getOne.headers['x-oada-rev'].split('-')[0]);
-		var getTwoRev = parseInt(getTwo.headers['x-oada-rev'].split('-')[0]);
+		var getOneRev = parseInt(result.getOne.headers['x-oada-rev']);
+		var getTwoRev = parseInt(getTwo.headers['x-oada-rev']);
 		expect(getOneRev < getTwoRev).to.equal(true)
 
 		var getThree = await connOne.get({
@@ -172,24 +172,24 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       path: '/bookmarks/test',
       tree: newTree
     })
-    var putOneRev = parseInt(putOne.headers['x-oada-rev'].split('-')[0]);
-    var putTwoRev = parseInt(putTwo.headers['x-oada-rev'].split('-')[0]);
-    var putThreeRev = parseInt(putThree.headers['x-oada-rev'].split('-')[0]);
-    var putFourRev = parseInt(putFour.headers['x-oada-rev'].split('-')[0]);
+    var putOneRev = parseInt(putOne.headers['x-oada-rev']);
+    var putTwoRev = parseInt(putTwo.headers['x-oada-rev']);
+    var putThreeRev = parseInt(putThree.headers['x-oada-rev']);
+    var putFourRev = parseInt(putFour.headers['x-oada-rev']);
     var maxRev = Math.max(putOneRev, putTwoRev, putThreeRev, putFourRev);
     var minRev = Math.min(putOneRev, putTwoRev, putThreeRev, putFourRev);
 
-    var getOneRev = parseInt(result.getOne.headers['x-oada-rev'].split('-')[0]);
-    var getTwoRev = parseInt(response.headers['x-oada-rev'].split('-')[0]);
-    var responsePutTwo = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].fff['index-three'].eee._rev.split('-')[0]);
-    var responsePutThree = parseInt(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee._rev.split('-')[0]);
-    var responseDERev = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev.split('-')[0]);
+    var getOneRev = parseInt(result.getOne.headers['x-oada-rev']);
+    var getTwoRev = parseInt(response.headers['x-oada-rev']);
+    var responsePutTwo = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].fff['index-three'].eee._rev);
+    var responsePutThree = parseInt(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee._rev);
+    var responseDERev = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev);
     var maxDERev = Math.max(putOneRev, putFourRev);
 
     expect(putTwoRev).to.equal(responsePutTwo)
     expect(putThreeRev).to.equal(responsePutThree)
     expect(responseDERev).to.equal(maxDERev)
-    expect(getTwoRev).to.equal(parseInt(response.data._rev.split('-')[0]));
+    expect(getTwoRev).to.equal(parseInt(response.data._rev));
 
     expect(getOneRev < getTwoRev).to.equal(true)
     expect(getOneRev < maxRev).to.equal(true)
@@ -272,27 +272,27 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       tree: newTree
     })
 
-    var putOneRev = parseInt(putOne.headers['x-oada-rev'].split('-')[0]);
-    var putFourRev = parseInt(putFour.headers['x-oada-rev'].split('-')[0]);
-    var putTwoRev = parseInt(putTwo.headers['x-oada-rev'].split('-')[0]);
-    var putThreeRev = parseInt(putThree.headers['x-oada-rev'].split('-')[0]);
+    var putOneRev = parseInt(putOne.headers['x-oada-rev']);
+    var putFourRev = parseInt(putFour.headers['x-oada-rev']);
+    var putTwoRev = parseInt(putTwo.headers['x-oada-rev']);
+    var putThreeRev = parseInt(putThree.headers['x-oada-rev']);
     var maxRev = Math.max(putOneRev, putTwoRev, putThreeRev, putFourRev);
     var minRev = Math.min(putOneRev, putTwoRev, putThreeRev, putFourRev);
     var maxRev = Math.max(putOneRev, putFourRev);
     var minRev = Math.min(putOneRev, putFourRev);
 
-    var getOneRev = parseInt(result.getOne.headers['x-oada-rev'].split('-')[0]);
-    var getTwoRev = parseInt(response.headers['x-oada-rev'].split('-')[0]);
-    var responsePutTwo = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].fff['index-three'].eee._rev.split('-')[0]);
-    var responsePutThree = parseInt(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee._rev.split('-')[0]);
-    var responsePutFour = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev.split('-')[0]);
-    var responseDERev = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev.split('-')[0]);
+    var getOneRev = parseInt(result.getOne.headers['x-oada-rev']);
+    var getTwoRev = parseInt(response.headers['x-oada-rev']);
+    var responsePutTwo = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].fff['index-three'].eee._rev);
+    var responsePutThree = parseInt(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee._rev);
+    var responsePutFour = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev);
+    var responseDERev = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev);
     var maxDERev = putFourRev;
 
     expect(putTwoRev).to.equal(responsePutTwo)
     expect(putThreeRev).to.equal(responsePutThree)
     expect(responseDERev).to.equal(maxDERev)
-    expect(getTwoRev).to.equal(parseInt(response.data._rev.split('-')[0]));
+    expect(getTwoRev).to.equal(parseInt(response.data._rev));
     expect(getTwoRev > maxRev).to.equal(true)
     expect(getOneRev < minRev).to.equal(true)
 
