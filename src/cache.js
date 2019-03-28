@@ -55,7 +55,7 @@ export default function setupCache({ name, req, expires }) {
   }
 
   /** Save resource to in-memory cache and schedule PUT */
-  function handleMemoryCache(resourceId, data) {
+  function handleMemoryCache(resourceId, data, waitTime) {
     const now = Date.now();
     memoryCache[resourceId] = {
       data,
@@ -66,14 +66,14 @@ export default function setupCache({ name, req, expires }) {
       // Schedule put
       memoryCache[resourceId].promise = Promise.delay(
         dbPutDelay,
-        doPut(resourceId),
+        doPut(resourceId, waitTime),
       );
     }
     return;
   }
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
-  function doPut(resourceId) {
+  function doPut(resourceId, waitTime) {
     console.log("doPut", resourceId, memoryCache[resourceId]);
     return db
       .put(memoryCache[resourceId].data)
@@ -83,7 +83,7 @@ export default function setupCache({ name, req, expires }) {
       .catch(err => {
         // retry 409s
         if (err.status === 409) {
-          waitTime = waitTime || 1000;
+          var waitTime = waitTime || 1000;
           return Promise.delay(waitTime).then(() => {
             if (waitTime > 16000) throw err;
             return dbUpsert(req, waitTime * 2);
@@ -94,7 +94,7 @@ export default function setupCache({ name, req, expires }) {
   }
 
   /** Get the resource and merge data if its already in the db. */
-  async function dbUpsert(req, waitTime) {
+  async function dbUpsert(req) {
     //info('dbUpsert', req)
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
@@ -136,7 +136,7 @@ export default function setupCache({ name, req, expires }) {
         if (req._rev) dbPut.doc._rev = req._rev;
 
         //info('dbUpsert-dbPut3', req.url, dbPut)
-        return handleMemoryCache(resourceId, dbPut);
+        return handleMemoryCache(resourceId, dbPut, waitTime);
       }
     }
     //If theres a path leftover, create an empty object, add a key to warn users
@@ -579,7 +579,7 @@ export default function setupCache({ name, req, expires }) {
 
   var queue = cq()
     .limit({ concurrency: 1 })
-    .process(async function(payload) {
+    .proces, waitTimes(async function(payload) {
       let urlObj = url.parse(payload.request.url);
       // Give the change body an _id so the deepest resource can be found
       payload.response.change.body._id = payload.response.resourceId;

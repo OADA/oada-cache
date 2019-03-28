@@ -150,10 +150,15 @@ var connect = async function connect({
             url: DOMAIN + path,
             headers,
             method: response.change.type
-          };
-          if (CACHE) watchPayload = await CACHE.handleWatchChange(watchPayload);
-					if (func) await func(watchPayload);
-					return
+		  };
+
+		  try {
+            if (CACHE) watchPayload = await CACHE.handleWatchChange(watchPayload);
+		  } catch (err) {
+		    console.log(err)
+		  }
+		  if (func) await func(watchPayload);
+		  return
         }
       );
     } else {
