@@ -263,13 +263,11 @@ export default function setupCache({ name, req, expires }) {
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
     var pathLeftover =
       pieces.length > 3 ? "/" + pieces.slice(3, pieces.length).join("/") : "";
-    var data = memoryCache[resourceId];
-    if (!data) {
+    var resource = memoryCache[resourceId];
+	  if (!resource) {
+    	  console.log('getResFromDb - was not in memory');
       try {
-        var resource = await db.get(resourceId);
-	    //If no pathLeftover, it'll just return resource!
-		if (pointer.has(resource.doc, pathLeftover)) {
-		  data = pointer.get(resource.doc, pathLeftover);
+        resource = await db.get(resourceId);
 		}
 	  } catch (err) {
         if (!offline) return getResFromServer(req);
@@ -283,6 +281,10 @@ export default function setupCache({ name, req, expires }) {
     ) {
       return getResFromServer(req);
     }
+	//If no pathLeftover, it'll just return resource!
+	if (pointer.has(resource.doc, pathLeftover)) {
+		data = pointer.get(resource.doc, pathLeftover);
+		console.log('getResFromDb', data);
       return {
         data,
         headers: {
