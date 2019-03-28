@@ -32,7 +32,11 @@ export default function setupCache({ name, req, expires }) {
 
   function cleanMemoryCache() {
     console.log("cleanMemoryCache");
-	console.log('CleanMemoryCache - ', Object.keys(memoryCache).length, 'items found');
+    console.log(
+      "CleanMemoryCache - ",
+      Object.keys(memoryCache).length,
+      "items found",
+    );
     const now = Date.now();
     var oldest = { key: undefined, time: now };
     var deleteCount = 0;
@@ -52,8 +56,8 @@ export default function setupCache({ name, req, expires }) {
 
     if (deleteCount === 0 && oldest.key) {
       delete memoryCache[oldest.key];
-	}
-	console.log('CleanMemoryCache - ', deleteCount, 'items deleted');
+    }
+    console.log("CleanMemoryCache - ", deleteCount, "items deleted");
   }
 
   /** Save resource to in-memory cache and schedule PUT */
@@ -182,9 +186,13 @@ export default function setupCache({ name, req, expires }) {
       headers: req.headers,
     });
     res.cached = false;
-	  req.data = res.data;
-	  try
-    await dbUpsert(req);
+    req.data = res.data;
+    try {
+      await dbUpsert(req);
+    } catch (err) {
+      console.log(err);
+    }
+    console.log(res);
     return res;
   }
 
@@ -583,7 +591,7 @@ export default function setupCache({ name, req, expires }) {
 
   var queue = cq()
     .limit({ concurrency: 1 })
-    .process( waitTimes(async function(payload) {
+    .process(async function(payload) {
       let urlObj = url.parse(payload.request.url);
       // Give the change body an _id so the deepest resource can be found
       payload.response.change.body._id = payload.response.resourceId;
