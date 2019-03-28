@@ -32,6 +32,7 @@ export default function setupCache({ name, req, expires }) {
 
   function cleanMemoryCache() {
     console.log("cleanMemoryCache");
+	console.log('CleanMemoryCache - ', Object.keys(memoryCache).length, 'items found');
     const now = Date.now();
     var oldest = { key: undefined, time: now };
     var deleteCount = 0;
@@ -51,7 +52,8 @@ export default function setupCache({ name, req, expires }) {
 
     if (deleteCount === 0 && oldest.key) {
       delete memoryCache[oldest.key];
-    }
+	}
+	console.log('CleanMemoryCache - ', deleteCount, 'items deleted');
   }
 
   /** Save resource to in-memory cache and schedule PUT */
