@@ -32,7 +32,11 @@ export default function setupCache({ name, req, expires }) {
 
   function cleanMemoryCache() {
     console.log("cleanMemoryCache");
-	console.log('CleanMemoryCache - ', Object.keys(memoryCache).length, 'items found');
+    console.log(
+      "CleanMemoryCache - ",
+      Object.keys(memoryCache).length,
+      "items found",
+    );
     const now = Date.now();
     var oldest = { key: undefined, time: now };
     var deleteCount = 0;
@@ -52,8 +56,8 @@ export default function setupCache({ name, req, expires }) {
 
     if (deleteCount === 0 && oldest.key) {
       delete memoryCache[oldest.key];
-	}
-	console.log('CleanMemoryCache - ', deleteCount, 'items deleted');
+    }
+    console.log("CleanMemoryCache - ", deleteCount, "items deleted");
   }
 
   /** Save resource to in-memory cache and schedule PUT */
@@ -85,7 +89,7 @@ export default function setupCache({ name, req, expires }) {
       .catch(err => {
         // retry 409s
         if (err.status === 409) {
-          var waitTime = waitTime || 1000;
+          waitTime = waitTime || 1000;
           return Promise.delay(waitTime).then(() => {
             if (waitTime > 16000) throw err;
             return dbUpsert(req, waitTime * 2);
@@ -96,7 +100,7 @@ export default function setupCache({ name, req, expires }) {
   }
 
   /** Get the resource and merge data if its already in the db. */
-  async function dbUpsert(req) {
+  async function dbUpsert(req, waitTime) {
     //info('dbUpsert', req)
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
@@ -183,7 +187,12 @@ export default function setupCache({ name, req, expires }) {
     });
     res.cached = false;
     req.data = res.data;
-    await dbUpsert(req);
+    try {
+      await dbUpsert(req);
+    } catch (err) {
+      console.log(err);
+    }
+    console.log(res);
     return res;
   }
 
@@ -255,10 +264,12 @@ export default function setupCache({ name, req, expires }) {
     var pathLeftover =
       pieces.length > 3 ? "/" + pieces.slice(3, pieces.length).join("/") : "";
     var resource = memoryCache[resourceId];
+    console.log(resource);
     if (!resource) {
       try {
         resource = await db.get(resourceId);
       } catch (err) {
+        console.log("Error db.get");
         if (!offline) return getResFromServer(req);
         return;
       }
@@ -273,6 +284,7 @@ export default function setupCache({ name, req, expires }) {
     //If no pathLeftover, it'll just return resource!
     if (pointer.has(resource.doc, pathLeftover)) {
       var data = pointer.get(resource.doc, pathLeftover);
+      console.log(data);
       return {
         data,
         headers: {
@@ -581,7 +593,7 @@ export default function setupCache({ name, req, expires }) {
 
   var queue = cq()
     .limit({ concurrency: 1 })
-    .proces, waitTimes(async function(payload) {
+    .process(async function(payload) {
       let urlObj = url.parse(payload.request.url);
       // Give the change body an _id so the deepest resource can be found
       payload.response.change.body._id = payload.response.resourceId;
