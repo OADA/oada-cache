@@ -61,7 +61,7 @@ export default function setupCache({ name, req, expires }) {
   }
 
   /** Save resource to in-memory cache and schedule PUT */
-  function handleMemoryCache(resourceId, data, waitTime) {
+  function handleMemoryCache(resourceId, data, waitTime, req) {
     const now = Date.now();
     memoryCache[resourceId] = {
       data,
@@ -72,14 +72,14 @@ export default function setupCache({ name, req, expires }) {
       // Schedule put
       memoryCache[resourceId].promise = Promise.delay(
         dbPutDelay,
-        doPut(resourceId, waitTime),
+        doPut(resourceId, waitTime, req),
       );
     }
     return;
   }
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
-  function doPut(resourceId, waitTime) {
+  function doPut(resourceId, waitTime, req) {
     console.log("doPut", resourceId, memoryCache[resourceId]);
     return db
       .put(memoryCache[resourceId].data)
@@ -87,6 +87,7 @@ export default function setupCache({ name, req, expires }) {
         delete memoryCache[resourceId].promise;
       })
       .catch(err => {
+        console.log("doPut", err);
         // retry 409s
         if (err.status === 409) {
           waitTime = waitTime || 1000;
@@ -102,6 +103,7 @@ export default function setupCache({ name, req, expires }) {
   /** Get the resource and merge data if its already in the db. */
   async function dbUpsert(req, waitTime) {
     //info('dbUpsert', req)
+    console.log("dbUpsert", req);
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
@@ -142,7 +144,8 @@ export default function setupCache({ name, req, expires }) {
         if (req._rev) dbPut.doc._rev = req._rev;
 
         //info('dbUpsert-dbPut3', req.url, dbPut)
-        return handleMemoryCache(resourceId, dbPut, waitTime);
+        console.log("dbUpsert", dbPut, resourceId);
+        return handleMemoryCache(resourceId, dbPut, waitTime, req);
       }
     }
     //If theres a path leftover, create an empty object, add a key to warn users
@@ -175,7 +178,7 @@ export default function setupCache({ name, req, expires }) {
 
     if (req._rev) dbPut.doc._rev = req._rev;
     //info('dbUpsert-dbPut2', req.url, dbPut)
-    return handleMemoryCache(resourceId, dbPut);
+    return handleMemoryCache(resourceId, dbPut, waitTime, req);
   }
 
   async function getResFromServer(req) {
@@ -203,46 +206,41 @@ export default function setupCache({ name, req, expires }) {
   // This is primarily for when links are created before the resource itself has been.
   function getLookup(req) {
     var urlObj = url.parse(req.url);
-    var memoryResource = memoryCache[urlObj.path] || {};
-    return (
-      memoryResource.data ||
-      db.get(urlObj.path).catch(async function() {
-        //Not found. Go to the oada server, get the associated resource and path
-        //leftover, and save the lookup.
-        var resourceId;
-        var pathLeftover;
-        if (req._id) {
-          resourceId = req._id;
-          pathLeftover = "";
-        } else {
-          //info('getLookup - HEAD request:', req.url, req)
-          var response = await request({
-            method: "HEAD",
-            url: req.url,
-            headers: req.headers,
-          });
-          //info('getLookup - HEAD response:', response)
-          //Save the url lookup for future use
-          var pieces = response.headers["content-location"].split("/");
-          resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
-          pathLeftover =
-            pieces.length > 3
-              ? "/" + pieces.slice(3, pieces.length).join("/")
-              : "";
-        }
-        // Put the new lookup
-        handleMemoryCache(urlObj.path, {
-          _id: urlObj.path,
-          resourceId,
-          pathLeftover,
+    return db.get(urlObj.path).catch(async function() {
+      //Not found. Go to the oada server, get the associated resource and path
+      //leftover, and save the lookup.
+      var resourceId;
+      var pathLeftover;
+      if (req._id) {
+        resourceId = req._id;
+        pathLeftover = "";
+      } else {
+        //info('getLookup - HEAD request:', req.url, req)
+        var response = await request({
+          method: "HEAD",
+          url: req.url,
+          headers: req.headers,
         });
-        return {
+        //info('getLookup - HEAD response:', response)
+        //Save the url lookup for future use
+        var pieces = response.headers["content-location"].split("/");
+        resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
+        pathLeftover =
+          pieces.length > 3
+            ? "/" + pieces.slice(3, pieces.length).join("/")
+            : "";
+      }
+      // Put the new lookup
+      return db
+        .put({
           _id: urlObj.path,
           resourceId,
           pathLeftover,
-        };
-      })
-    );
+        })
+        .then(() => {
+          return getLookup(req);
+        });
+    });
   }
 
   // Create a queue of actual PUTs to make when online.
@@ -264,15 +262,18 @@ export default function setupCache({ name, req, expires }) {
     var pathLeftover =
       pieces.length > 3 ? "/" + pieces.slice(3, pieces.length).join("/") : "";
     var resource = memoryCache[resourceId];
-	  if (!resource) {
-    	  console.log('getResFromDb - was not in memory');
+    if (!resource) {
+      console.log("getResFromDb - was not in memory", resourceId);
       try {
         resource = await db.get(resourceId);
-		}
-	  } catch (err) {
+        console.log("getResFromDb - came from pouchdb", resourceId);
+      } catch (err) {
+        console.log("getResFromDb - came from server", resourceId);
         if (!offline) return getResFromServer(req);
         return;
       }
+    } else {
+      resource = resource.data;
     }
     if (
       !offline &&
@@ -281,10 +282,17 @@ export default function setupCache({ name, req, expires }) {
     ) {
       return getResFromServer(req);
     }
-	//If no pathLeftover, it'll just return resource!
-	if (pointer.has(resource.doc, pathLeftover)) {
-		data = pointer.get(resource.doc, pathLeftover);
-		console.log('getResFromDb', data);
+    //If no pathLeftover, it'll just return resource!
+    if (pointer.has(resource.doc, pathLeftover)) {
+      var data = pointer.get(resource.doc, pathLeftover);
+      console.log(
+        "getResFromDb",
+        data,
+        req,
+        resource,
+        resourceId,
+        pathLeftover,
+      );
       return {
         data,
         headers: {
@@ -464,6 +472,8 @@ export default function setupCache({ name, req, expires }) {
         url: req.url,
         headers: req.headers,
       });
+
+      console.log("recursiveUpsert", body._id, lookup.resourceId);
       await dbUpsert({
         url: "/" + (body._id || lookup.resourceId),
         data: newBody,
