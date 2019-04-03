@@ -614,44 +614,38 @@ export default function setupCache({ name, req, expires }) {
         data: payload.response.change.body,
       })
         .then(async deepestResource => {
-          switch (payload.response.change.type.toLowerCase()) {
-            case "delete":
-              // DELETE: remove the deepest resource from the change body, execute
-              // the delete, and recursively update all other revs in the cache
-              let nullPath = await findNullValue(deepestResource.data, "", "");
-              let deletedPath = deepestResource.path + nullPath;
-              payload.nullPath = deletedPath;
-              return dbUpsert({
-                url: payload.request.url + deletedPath,
-                headers: payload.request.headers,
-                method: "delete",
-                valid: true,
-              }).then(async function() {
-                // Update revs on all parents all the way down to (BUT OMITTING) the
-                // resource on which the delete was called.
-                //pointer.remove(payload.response.change.body, deepestResource.path || '/')
-                //            await _recursiveUpsert(payload.request, payload.response.change.body)
-                return payload;
-              });
-              break;
+          if (payload.response.change.wasDelete) {
+            // DELETE: remove the deepest resource from the change body, execute
+            // the delete, and recursively update all other revs in the cache
+            let nullPath = await findNullValue(deepestResource.data, "", "");
+            let deletedPath = deepestResource.path + nullPath;
+            payload.nullPath = deletedPath;
+            return dbUpsert({
+              url: payload.request.url + deletedPath,
+              headers: payload.request.headers,
+              method: "delete",
+              valid: true,
+            }).then(async function() {
+              // Update revs on all parents all the way down to (BUT OMITTING) the
+              // resource on which the delete was called.
+              //pointer.remove(payload.response.change.body, deepestResource.path || '/')
+              //            await _recursiveUpsert(payload.request, payload.response.change.body)
+              return payload;
+            });
+          } else {
             // Recursively update all of the resources down the returned change body
-            case "merge":
-              /*
-        var oldBody = await _recursiveUpsert(payload.request, payload.response.change.body, {})
-          payload.oldBody = oldBody;
-          return payload;
-          */
+            /*
+            var oldBody = await _recursiveUpsert(payload.request, payload.response.change.body, {})
+            payload.oldBody = oldBody;
+            return payload;
+            */
 
-              await _recursiveUpsert(
-                payload.request,
-                payload.response.change.body,
-                {},
-              );
-              return payload;
-              break;
-
-            default:
-              return payload;
+            await _recursiveUpsert(
+              payload.request,
+              payload.response.change.body,
+              {},
+            );
+            return payload;
           }
         })
         .catch(err => {

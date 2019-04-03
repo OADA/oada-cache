@@ -138,29 +138,32 @@ var connect = async function connect({
 
   function _watch({ headers, path, func, payload }) {
     if (SOCKET) {
-      return SOCKET.watch(
-        {
-          path,
-          headers
-        },
-        async function watchResponse(response) {
-          var watchPayload = _.cloneDeep(payload) || {};
-          watchPayload.response = response;
-          watchPayload.request = {
-            url: DOMAIN + path,
-            headers,
-            method: response.change.type
-		  };
+      console.log('in socket');
+      return SOCKET.watch({
+        path,
+        headers
+      }, async function watchResponse(response) {
+        var watchPayload = _.cloneDeep(payload) || {};
+        watchPayload.response = response;
+        watchPayload.request = {
+          url: DOMAIN + path,
+          headers,
+          method: response.change.type
+		    };
 
-		  try {
-            if (CACHE) watchPayload = await CACHE.handleWatchChange(watchPayload);
-		  } catch (err) {
-		    console.log(err)
-		  }
-		  if (func) await func(watchPayload);
-		  return
-        }
-      );
+		    try {
+          if (CACHE) watchPayload = await CACHE.handleWatchChange(watchPayload);
+		    } catch (err) {
+		      console.log(err)
+		    }
+		    if (func) await func(watchPayload);
+		    return
+      }).then((socketRes) => {
+        console.log('_watch socket made', socketRes);
+        return
+      }).catch((error) => {
+        console.log(error);
+      })
     } else {
       // Ping a normal GET every 5 seconds in the absense of a websocket
       return setInterval(() => {
@@ -251,7 +254,6 @@ var connect = async function connect({
     // Handle watch
     if (watch) {
       path = path || urlLib.parse(url).path;
-      console.log('watch response', response.data, response)
       req.headers["x-oada-rev"] = response.data._rev;
       await _watch({
         headers: req.headers,
