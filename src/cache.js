@@ -101,6 +101,12 @@ export default function setupCache({ name, req, expires }) {
   }
 
   /** Get the resource and merge data if its already in the db. */
+
+  /**
+   * Store (upsert) resource to local DB
+   * @param req request
+   * @param waitTime wait time
+   */
   async function dbUpsert(req, waitTime) {
     //info('dbUpsert', req)
     console.log("dbUpsert", req);
@@ -181,6 +187,10 @@ export default function setupCache({ name, req, expires }) {
     return handleMemoryCache(resourceId, dbPut, waitTime, req);
   }
 
+  /**
+   * Get resource from the server
+   * @param req request
+   */
   async function getResFromServer(req) {
     //info('getResFromServer', req)
     var res = await request({
@@ -255,26 +265,45 @@ export default function setupCache({ name, req, expires }) {
   // The cache should go "stale" after some period of time; However, if it cannot
   // establish a connection, it should remain valid, usable data.
 
-  async function getResFromDb(req, offline) {
+  /**
+   * Get resource from local DB. If the specified resource does not exist, try to get it from the server.
+   * @param {any} req request
+   * @param {any} offline default is false (online)
+   */
+  async function getResFromDb(req, offline = false) {
+    console.log("ahaha");
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
     var pathLeftover =
       pieces.length > 3 ? "/" + pieces.slice(3, pieces.length).join("/") : "";
-    var resource = memoryCache[resourceId];
+    var resource = undefined;
+
+    // 1) Get resource from in-memory cache
+    var res_inmemory = memoryCache[resourceId];
+    if (res_inmemory) {
+      resource = res_inmemory.data;
+    }
+
+    // 2) Get resource from local DB
     if (!resource) {
       console.log("getResFromDb - was not in memory", resourceId);
       try {
-        resource = await db.get(resourceId);
+        const res_localdb = await db.get(resourceId);
+        resource = res_localdb.data;
         console.log("getResFromDb - came from pouchdb", resourceId);
       } catch (err) {
-        console.log("getResFromDb - came from server", resourceId);
-        if (!offline) return getResFromServer(req);
-        return;
+        console.log("getResFromDb - resource not found in pouchdb", resourceId);
       }
-    } else {
-      resource = resource.data;
     }
+
+    // 3) get resource from the server
+    if (!resource && !offline) {
+      return getResFromServer(req);
+    } else if (!resource && offline) {
+      throw "Offline and resource not found in local db.";
+    }
+
     if (
       !offline &&
       (resource.accessed + expiration <= Date.now() ||
