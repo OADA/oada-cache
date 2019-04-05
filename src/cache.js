@@ -31,12 +31,6 @@ export default function setupCache({ name, req, expires }) {
   setInterval(cleanMemoryCache, cleanMemoryTimer);
 
   function cleanMemoryCache() {
-    console.log("cleanMemoryCache");
-    console.log(
-      "CleanMemoryCache - ",
-      Object.keys(memoryCache).length,
-      "items found",
-    );
     const now = Date.now();
     var oldest = { key: undefined, time: now };
     var deleteCount = 0;
@@ -48,7 +42,6 @@ export default function setupCache({ name, req, expires }) {
         if (memoryCache[key].access < oldest) {
           oldest = { key, time: memoryCache[key].access };
         }
-        console.log("getting cleaned");
         delete memoryCache[key];
         deleteCount++;
       }
@@ -63,40 +56,54 @@ export default function setupCache({ name, req, expires }) {
   /** Save resource to in-memory cache and schedule PUT */
   function handleMemoryCache(resourceId, data, waitTime, req) {
     const now = Date.now();
-    memoryCache[resourceId] = {
-      data,
-      access: now,
-      dbPutSchedule: now + dbPutDelay,
-    };
+    if (resourceId in memoryCache) {
+      // resource exists in in-cache memory
+      // update data and access time
+      memoryCache[resourceId].data = data;
+      memoryCache[resourceId].access = now;
+    } else {
+      // resource does not exist
+      // add new resource
+      memoryCache[resourceId] = {
+        data,
+        access: now,
+        promise: undefined,
+      };
+    }
+
+    // Schedule db.put
     if (!memoryCache[resourceId].promise) {
-      // Schedule put
-      memoryCache[resourceId].promise = Promise.delay(
-        dbPutDelay,
-        doPut(resourceId, waitTime, req),
-      );
+      memoryCache[resourceId].promise = Promise.delay(dbPutDelay)
+        .then(function() {
+          doPut(resourceId, waitTime, req);
+        })
+        .catch(function(error) {
+          console.log(error);
+        });
     }
     return;
   }
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
   function doPut(resourceId, waitTime, req) {
-    console.log("doPut", resourceId, memoryCache[resourceId]);
     return db
       .put(memoryCache[resourceId].data)
-      .then(() => {
+      .then(response => {
+        memoryCache[resourceId].data._rev = response.rev;
         delete memoryCache[resourceId].promise;
       })
       .catch(err => {
-        console.log("doPut", err);
+        console.log("Error doPut", memoryCache[resourceId].data._rev, err);
+        // TODO: Handle this error
         // retry 409s
-        if (err.status === 409) {
-          waitTime = waitTime || 1000;
-          return Promise.delay(waitTime).then(() => {
-            if (waitTime > 16000) throw err;
-            return dbUpsert(req, waitTime * 2);
-          });
-        }
-        throw err;
+        // if (err.status === 409) {
+        //   waitTime = waitTime || 1000;
+        //   return Promise.delay(waitTime).then(() => {
+        //     if (waitTime > 16000) throw err;
+        //     return dbUpsert(req, waitTime * 2);
+        //   });
+        // }
+        //throw err;
       });
   }
 
@@ -108,8 +115,6 @@ export default function setupCache({ name, req, expires }) {
    * @param waitTime wait time
    */
   async function dbUpsert(req, waitTime) {
-    //info('dbUpsert', req)
-    console.log("dbUpsert", req);
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
@@ -128,6 +133,9 @@ export default function setupCache({ name, req, expires }) {
 
     // ALL updates to existing docs (upserts) need to supply the current _rev.
     var result = memoryCache[resourceId]; // Try to get resource from in-memory cache
+    if (result) {
+      result = result.data;
+    }
 
     if (!result) {
       // resource does not exist in memory; get from DB
@@ -149,8 +157,6 @@ export default function setupCache({ name, req, expires }) {
 
         if (req._rev) dbPut.doc._rev = req._rev;
 
-        //info('dbUpsert-dbPut3', req.url, dbPut)
-        console.log("dbUpsert", dbPut, resourceId);
         return handleMemoryCache(resourceId, dbPut, waitTime, req);
       }
     }
@@ -183,7 +189,7 @@ export default function setupCache({ name, req, expires }) {
     }
 
     if (req._rev) dbPut.doc._rev = req._rev;
-    //info('dbUpsert-dbPut2', req.url, dbPut)
+
     return handleMemoryCache(resourceId, dbPut, waitTime, req);
   }
 
@@ -192,7 +198,6 @@ export default function setupCache({ name, req, expires }) {
    * @param req request
    */
   async function getResFromServer(req) {
-    //info('getResFromServer', req)
     var res = await request({
       method: "GET",
       url: req.url,
@@ -205,7 +210,6 @@ export default function setupCache({ name, req, expires }) {
     } catch (err) {
       console.log(err);
     }
-    console.log(res);
     return res;
   }
 
@@ -271,7 +275,6 @@ export default function setupCache({ name, req, expires }) {
    * @param {any} offline default is false (online)
    */
   async function getResFromDb(req, offline = false) {
-    console.log("ahaha");
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
@@ -287,13 +290,11 @@ export default function setupCache({ name, req, expires }) {
 
     // 2) Get resource from local DB
     if (!resource) {
-      console.log("getResFromDb - was not in memory", resourceId);
       try {
         const res_localdb = await db.get(resourceId);
         resource = res_localdb.data;
-        console.log("getResFromDb - came from pouchdb", resourceId);
       } catch (err) {
-        console.log("getResFromDb - resource not found in pouchdb", resourceId);
+        // Oops
       }
     }
 
@@ -314,14 +315,6 @@ export default function setupCache({ name, req, expires }) {
     //If no pathLeftover, it'll just return resource!
     if (pointer.has(resource.doc, pathLeftover)) {
       var data = pointer.get(resource.doc, pathLeftover);
-      console.log(
-        "getResFromDb",
-        data,
-        req,
-        resource,
-        resourceId,
-        pathLeftover,
-      );
       return {
         data,
         headers: {
@@ -365,7 +358,7 @@ export default function setupCache({ name, req, expires }) {
 
   // TODO: Need to update the cache for both the parent resource and child new
   // resource if one is created
-  async function put(req, offline) {
+  async function put(req, offline = false) {
     let urlObj = url.parse(req.url);
     if (offline) {
       //TODO:
@@ -502,7 +495,7 @@ export default function setupCache({ name, req, expires }) {
         headers: req.headers,
       });
 
-      console.log("recursiveUpsert", body._id, lookup.resourceId);
+      // console.log("recursiveUpsert", body._id, lookup.resourceId);
       await dbUpsert({
         url: "/" + (body._id || lookup.resourceId),
         data: newBody,
