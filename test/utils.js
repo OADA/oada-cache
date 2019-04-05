@@ -43,7 +43,7 @@ async function putResource(data, path) {
 	var newPath = '/bookmarks'+pieces.splice(0,pieces.length-1).join('/')
 	var _id = 'resources/'+uuid();
 	var newData = {};
-	newData[pieces[0]] = {_id, _rev: '0-0'};
+	newData[pieces[0]] = {_id, _rev: 0};
 	var resource = await axios({
 		method: 'put',
 		url: domain+'/'+_id,
@@ -69,27 +69,27 @@ async function putResource(data, path) {
 var tree = {
   bookmarks: {
     _type: "application/vnd.oada.bookmarks.1+json",
-    _rev: "0-0",
+    _rev: 0,
     test: {
       _type: "application/vnd.oada.harvest.1+json",
-      _rev: "0-0",
+      _rev: 0,
       aaa: {
         _type: "application/vnd.oada.as-harvested.1+json",
-        _rev: "0-0",
+        _rev: 0,
         bbb: {
           _type:
             "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-          _rev: "0-0",
+          _rev: 0,
           "index-one": {
             "*": {
               _type:
                 "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-              _rev: "0-0",
+              _rev: 0,
               "index-two": {
                 "*": {
                   _type:
                     "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-                  _rev: "0-0",
+                  _rev: 0,
                   "index-three": {
                     "*": {
                       _type:

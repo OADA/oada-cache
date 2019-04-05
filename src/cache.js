@@ -31,12 +31,6 @@ export default function setupCache({ name, req, expires }) {
   setInterval(cleanMemoryCache, cleanMemoryTimer);
 
   function cleanMemoryCache() {
-    console.log("cleanMemoryCache");
-    console.log(
-      "CleanMemoryCache - ",
-      Object.keys(memoryCache).length,
-      "items found",
-    );
     const now = Date.now();
     var oldest = { key: undefined, time: now };
     var deleteCount = 0;
@@ -48,7 +42,6 @@ export default function setupCache({ name, req, expires }) {
         if (memoryCache[key].access < oldest) {
           oldest = { key, time: memoryCache[key].access };
         }
-        console.log("getting cleaned");
         delete memoryCache[key];
         deleteCount++;
       }
@@ -57,7 +50,6 @@ export default function setupCache({ name, req, expires }) {
     if (deleteCount === 0 && oldest.key) {
       delete memoryCache[oldest.key];
     }
-    console.log("CleanMemoryCache - ", deleteCount, "items deleted");
   }
 
   /** Save resource to in-memory cache and schedule PUT */
@@ -70,12 +62,13 @@ export default function setupCache({ name, req, expires }) {
     };
     if (!memoryCache[resourceId].promise) {
       // Schedule put
-      memoryCache[resourceId].promise = Promise.delay(
-        dbPutDelay,
-        doPut(resourceId, waitTime, req),
-      );
+      console.log('wait 5 seconds on', resourceId);
+      memoryCache[resourceId].promise = Promise.delay(dbPutDelay).then(() => {
+        doPut(resourceId, waitTime, req)
+      });
     }
-    return;
+    console.log('handleMemoryCache returning now...');
+    return Promise.resolve()
   }
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
@@ -87,7 +80,6 @@ export default function setupCache({ name, req, expires }) {
         delete memoryCache[resourceId].promise;
       })
       .catch(err => {
-        console.log("doPut", err);
         // retry 409s
         if (err.status === 409) {
           waitTime = waitTime || 1000;
@@ -103,7 +95,6 @@ export default function setupCache({ name, req, expires }) {
   /** Get the resource and merge data if its already in the db. */
   async function dbUpsert(req, waitTime) {
     //info('dbUpsert', req)
-    console.log("dbUpsert", req);
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
@@ -133,6 +124,7 @@ export default function setupCache({ name, req, expires }) {
           // Deleting a resource that doesn't exist: do nothing.
         } else {
           if (pathLeftover) {
+            console.log('PATH LEFTOVER WAS', pathLeftover)
             //Execute the PUT and Warn users that the data is incomplete
             dbPut.doc = {};
             dbPut.INCOMPLETE_RESOURCE = true;
@@ -144,14 +136,19 @@ export default function setupCache({ name, req, expires }) {
         if (req._rev) dbPut.doc._rev = req._rev;
 
         //info('dbUpsert-dbPut3', req.url, dbPut)
-        console.log("dbUpsert", dbPut, resourceId);
-        return handleMemoryCache(resourceId, dbPut, waitTime, req);
+        return handleMemoryCache(resourceId, dbPut, waitTime, req).then((ok) => {
+          console.log('handleMemoryCache DONE')
+          return ok
+        })
       }
+    } else {
+      result = result.data;
     }
     //If theres a path leftover, create an empty object, add a key to warn users
     //that the data is incomplete, and put the data at that path Leftover
     if (result.INCOMPLETE_RESOURCE) dbPut.INCOMPLETE_RESOURCE = true;
-    dbPut._rev = result._rev;
+    // If in memory, result._rev is undefined
+    if (result._rev) dbPut._rev = result._rev;
     if (req.method && req.method.toLowerCase() === "delete") {
       if (!pathLeftover) {
         return db.remove(result).then(response => {
@@ -169,6 +166,9 @@ export default function setupCache({ name, req, expires }) {
         if (pointer.has(result.doc, pathLeftover))
           curData = pointer.get(result.doc, pathLeftover);
         var newData = _.merge(curData, req.data || {});
+        console.log('SET COMMAND, upserting', resourceId);
+        console.log(result)
+        console.log('SETTING', result.doc, pathLeftover, newData);
         pointer.set(result.doc, pathLeftover, newData);
         dbPut.doc = result.doc;
       } else {
@@ -178,7 +178,10 @@ export default function setupCache({ name, req, expires }) {
 
     if (req._rev) dbPut.doc._rev = req._rev;
     //info('dbUpsert-dbPut2', req.url, dbPut)
-    return handleMemoryCache(resourceId, dbPut, waitTime, req);
+    return handleMemoryCache(resourceId, dbPut, waitTime, req).then((ok) => {
+      console.log('handleMemoryCache DONE')
+      return ok
+    })
   }
 
   async function getResFromServer(req) {
@@ -189,6 +192,7 @@ export default function setupCache({ name, req, expires }) {
       headers: req.headers,
     });
     res.cached = false;
+    console.log('CACHED', res.cached);
     req.data = res.data;
     try {
       await dbUpsert(req);
@@ -275,13 +279,22 @@ export default function setupCache({ name, req, expires }) {
     } else {
       resource = resource.data;
     }
-    if (
-      !offline &&
-      (resource.accessed + expiration <= Date.now() ||
-        !resource.valid === "false")
-    ) {
+    //TODO: whats up with the false in quotes? Is this a pouch thing?
+    if (resource.accessed + expiration <= Date.now() || !resource.valid === "false") {
+      if (offline) { // offline. skip for now. TODO: add code later
+      } else {
+        return getResFromServer(req);
+      }
+    }
+
+    //Handle _rev passed in. If current object is too far out of date, get from server
+    console.log('getResFromDb', req.headers, resource._rev);
+    if (req.headers && req.headers['x-oada-rev'] && 
+      ((parseInt(req.headers['x-oada-rev']) - parseInt(resource._rev)) >= revLimit)) {
+      console.log('GetResFromDb', parseInt(req.headers['x-oada-rev']), parseInt(resource.data._rev), revLimit)
       return getResFromServer(req);
     }
+
     //If no pathLeftover, it'll just return resource!
     if (pointer.has(resource.doc, pathLeftover)) {
       var data = pointer.get(resource.doc, pathLeftover);

@@ -90,7 +90,7 @@ var connect = async function connect({
       data: {_id: data._id}
     };
     // Create a versioned link if the tree specifies one.
-    if (data._rev) linkReq.data._rev = '0-0';
+    if (data._rev) linkReq.data._rev = 0;
     // We don't want to attempt to set the rev when we put the resource
 
     let resReq = {
@@ -125,6 +125,7 @@ var connect = async function connect({
 					waitTime = waitTime || 1000;
 					await Promise.delay(waitTime)
 					var newHeaders = _.cloneDeep(headers);
+          console.log('1', resReq.path, response.headers)
 					newHeaders['if-match'] = response.headers['x-oada-rev'];
 				  return _makeResourceAndLink({path, data, headers: newHeaders}, waitTime*2)
 				}
@@ -142,9 +143,10 @@ var connect = async function connect({
       return SOCKET.watch({
         path,
         headers
-      }, async function watchResponse(response) {
+      }, async function handleWatchResponse(response) {
         var watchPayload = _.cloneDeep(payload) || {};
         watchPayload.response = response;
+        console.log('RESPONSE', response)
         watchPayload.request = {
           url: DOMAIN + path,
           headers,
@@ -230,7 +232,21 @@ var connect = async function connect({
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
 
+    let watchResponse;
     var response = await _sendRequest(req);
+    // Handle watch
+    if (watch) {
+      path = path || urlLib.parse(url).path;
+      req.headers["x-oada-rev"] = response.data._rev;
+      console.log('Watching ', urlLib.parse(url).path)
+      console.log('Sending along this rev:', req.headers['x-oada-rev'])
+      watchResponse = await _watch({
+        headers: req.headers,
+        path,
+        func: watch.function,
+        payload: watch.payload
+      });
+    }
 
     if (tree) {
       var pieces = urlLib
@@ -243,24 +259,17 @@ var connect = async function connect({
       //return get({url: req.url})
       var subTree = pointer.get(tree, treePath);
       try {
-        var stuff = await _recursiveGet(req.url, subTree, {}, true);
+        console.log('Watch Response', watchResponse)
+        if (watch && watchResponse.data) {
+          var stuff = await _recursiveGet(req.url, subTree, watchResponse.data, true);
+        } else {
+          var stuff = await _recursiveGet(req.url, subTree, {}, true);
+        }
         response.data = stuff.data;
         response.cached = stuff.cached;
       } catch (err) {
         if (err.status !== 404) throw err;
       }
-    }
-
-    // Handle watch
-    if (watch) {
-      path = path || urlLib.parse(url).path;
-      req.headers["x-oada-rev"] = response.data._rev;
-      await _watch({
-        headers: req.headers,
-        path,
-        func: watch.function,
-        payload: watch.payload
-      });
     }
     return response;
   } //get
@@ -272,7 +281,8 @@ var connect = async function connect({
     if (tree._type) {
       // its a resource
       var got = await get({
-        url
+        url,
+        headers: data._rev ? {'x-oada-rev': data._rev} : {},
       });
       //info('_recursiveGet GET data:', got.data)
       data = got.data;
@@ -285,18 +295,20 @@ var connect = async function connect({
             url + "/" + key,
             tree[key],
             data[key],
-            cached
+            cached,
           );
-					cached = res.cached
+					cached = res.cached;
+          console.log('b!!!!!!!1', res.data);
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveGet(
             url + "/" + key,
             tree["*"],
             data[key],
-            cached
+            cached,
           );
-					cached = res.cached
+					cached = res.cached;
+          console.log('c!!!!!!!1', res.data);
           return (data[key] = res.data);
         } else return; //data[key] is already stored in the data object
       } else return;
@@ -330,6 +342,7 @@ var connect = async function connect({
           pointer.set(storedTree, urlPath, {});
           stored = _.clone(z);
 					_rev = response.headers['x-oada-rev']
+          console.log('findDeepest', _rev, urlPath)
           throw new Error("stored");
         }).catch(err => {
           if (/^stored/.test(err.message)) throw err;
@@ -378,6 +391,7 @@ var connect = async function connect({
     var ret = await _findDeepestResources(pieces, tree, storedTree)
 		// Create all the resources on the way down. ret.stored is an index. Slice
 		// takes the length to slice, so no need to subtract 1.
+    console.log('parent', ret);
 		var parentRev = ret._rev;
     await Promise.mapSeries(pieces.slice(0, pieces.length - ret.stored), async function (piece, j) {
 			let i = ret.stored + 1 + j;
@@ -386,6 +400,7 @@ var connect = async function connect({
 			if (pointer.has(tree, treePath + "/_type") && i <= ret.setup) {
         // its a resource
         var content = await _replaceLinks(pointer.get(tree, treePath))
+        console.log('2', parentRev)
 				var resp = await _makeResourceAndLink({
 					path: urlPath,
 					data: _.cloneDeep(content),
@@ -451,6 +466,7 @@ var connect = async function connect({
             tree[key],
             data[key],
           );
+          console.log('a!!!!!!!1', url, res.data);
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveDelete(

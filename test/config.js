@@ -1,4 +1,4 @@
 module.exports = {
   "token": "def",
-  domain: 'https://oada.openatk.com'
+  domain: 'https://vip3.ecn.purdue.edu'
 }

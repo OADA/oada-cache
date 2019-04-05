@@ -27,6 +27,7 @@ describe(`------------PUT-----------------`, async function() {
 	for (let i = 0; i < 4; i++) {
     describe(`Testing connection ${i+1}`, async function() {
 
+      /*
 			it(`1. Should error when neither 'url' nor 'path' are supplied`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				return expect(connections[i].put({
@@ -61,7 +62,7 @@ describe(`------------PUT-----------------`, async function() {
 				})
 				expect(response.status).to.equal(204)
 			})
-
+*/
       it(`5. Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async function() {
         this.timeout(5000);
 				await connections[i].delete({path:'/bookmarks/test', tree})
@@ -70,9 +71,13 @@ describe(`------------PUT-----------------`, async function() {
 					path: '/bookmarks/test/aaa/bbb/index-one/sometest',
 					tree,
 					data: `"abc123"`,
-				})
+				}).catch((err) => {
+          console.log('ERRRRRRRRRRRRRRR', err);
+        })
 				expect(response.status).to.equal(204)
 			})
+      /*
+
 
 			it(`6. Should error when _type cannot be derived from the above tested sources`, async function() {
 				return expect(connections[i].put({
@@ -105,7 +110,7 @@ describe(`------------PUT-----------------`, async function() {
 				})).to.be.rejectedWith(Error, 'Request failed with status code 403')
       })
 
-			it(`9. Should properly create a single new resource. The link _rev should not remain as "0-0"`, async function() {
+			it(`9. Should properly create a single new resource. The link _rev should not remain as 0`, async function() {
 				await connections[i].resetCache();
         await connections[i].delete({path:'/bookmarks/test', tree})
         console.log('READY NOW')
@@ -126,7 +131,7 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.status).to.equal(200)
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'test'])
-        expect(response.data.test._rev).not.to.equal('0-0')
+        expect(response.data.test._rev).not.to.equal(0)
 			})
 
 			it(`10. Should create the proper resource breaks on the server when a 'tree' parameter is supplied to a deep endpoint`, async function() {
@@ -283,7 +288,7 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.data.aaa).to.include.keys(['bbb'])
 			})
 
-      it('12. Should create the proper resource if we PUT to a different path on an existing subtree', async function() {
+      it(`12. Should create the proper resource if we PUT to a different path on an existing subtree`, async function() {
         this.timeout(6000);
 				await connections[i].resetCache();
 				await connections[i].delete({path:'/bookmarks/test', tree})
@@ -384,7 +389,7 @@ describe(`------------PUT-----------------`, async function() {
 				newTree.bookmarks.test.aaa.sss = {
 					_id: 'resources/sssssssss',
 					_type: 'application/vnd.oada.yield.1+json',
-					_rev: '0-0'
+					_rev: 0
 				}
 				var putResponse = await connections[i].put({
 					path: '/bookmarks/test/aaa/sss',
@@ -417,7 +422,7 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.data.sometest).to.equal(123)
 			})
 
-			it('15. Should make unversioned links where _rev is not specified on resources', async function() {
+			it(`15. Should make unversioned links where _rev is not specified on resources`, async function() {
 				this.timeout(4000)
 				await connections[i].resetCache();
 				await connections[i].delete({path:'/bookmarks/test', tree})
@@ -596,6 +601,7 @@ describe(`------------PUT-----------------`, async function() {
 				await connections[i].resetCache();
 				await connections[i].delete({path:'/bookmarks/test', tree})
       })
+      */
 		})
 	}
 })

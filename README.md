@@ -61,14 +61,14 @@ A `tree` option can be used in many of the `oada-cache` API calls as a means to 
 var todoTree = {
   "bookmarks": { //Represents a user's "home" directory
     "_type": "application/vnd.oada.bookmarks.1+json",
-    "_rev": "0-0",
+    "_rev": 0,
     "todoList": {
       "_type": "application/vnd.oada.todoList.1+json",
-      "_rev": "0-0",
+      "_rev": 0,
       "todo-index": {
         "*": {
           "_type": "application/vnd.oada.todoItem.1+json",
-      	  "_rev": "0-0",
+      	  "_rev": 0,
         }
       }
     }
