@@ -7,7 +7,7 @@ var url = require("url");
 var _ = require("lodash");
 var pointer = require("json-pointer");
 var OFFLINE = false;
-var memoryCache = {};
+var memoryCache = {}; // in-memory cache
 var timeThreshold = 30000;
 var cleanMemoryTimer = 10000;
 const dbPutDelay = 5000; // 5 sec
@@ -211,6 +211,10 @@ export default function setupCache({ name, req, expires }) {
       console.log(err);
     }
     return res;
+  }
+
+  function _getMemoryCache() {
+    return memoryCache;
   }
 
   // Perform lookup from bookmarks to resource id (and path leftover) mapping.
@@ -709,6 +713,7 @@ export default function setupCache({ name, req, expires }) {
     removeLookup,
     findDeepestResource,
     findNullValue,
+    _getMemoryCache,
     //handleWatchChange: _upsertChangeArray,
   };
 }
