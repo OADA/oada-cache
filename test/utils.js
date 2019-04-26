@@ -9,7 +9,7 @@ async function getConnections({domain, options, token}) {
     domain,
     options,
     token,
-		name: 'cYesWYes'
+		cache: {name: 'cYesWYes'}
   });
 
   var cYesWNo = await oada.connect({
@@ -17,7 +17,7 @@ async function getConnections({domain, options, token}) {
     options,
     token,
     websocket: false,
-		name: 'cYesWNo'
+		cache: {name: 'cYesWNo'}
   })
   var cNoWYes = await oada.connect({
     domain,
@@ -35,7 +35,7 @@ async function getConnections({domain, options, token}) {
     cache: false,
 		name: 'cNoWNo'
   })
-  return {cNoWNo, cYesWNo, cNoWYes, cYesWYes}
+  return [cNoWNo, cYesWNo, cNoWYes, cYesWYes]
 }
 
 async function putResource(data, path) {

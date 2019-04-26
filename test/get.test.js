@@ -1,4 +1,5 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
+const pretty = require('prettyjson');
 const oada = require('../build/index').default
 const _ = require('lodash');
 const uuid = require('uuid');
@@ -20,13 +21,12 @@ describe(`------------GET-----------------`, async function() {
 			domain,
 			token: 'def',
 		})
-		connections = Object.values(connections)
 	})
 
 	for (let i = 0; i < 4; i++) {
 		describe(`Testing connection ${i+1}`, async function() {
 
-			it(`Should allow for a basic GET request without tree parameter`, async function() {
+			it(`1. Should allow for a basic GET request without tree parameter`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				this.timeout(4000);
 				await putResource({
@@ -48,21 +48,21 @@ describe(`------------GET-----------------`, async function() {
 				expect(test.data).to.include.keys(['_id', '_meta', '_type', '_rev'])
 			})
 
-			it(`Should allow you to get a resource directly`, async function() {
+			it(`2. Should allow you to get a resource directly`, async function() {
 				var response = await connections[i].get({
 					path: '/resources/default:resources_bookmarks_321',
 				})
 				expect(response.data).to.include.keys(['_id', '_rev', '_meta'])
 			})
 
-			it(`Should error when the root path of a 'tree' GET doesn't exist`, async function() {
+			it(`3. Should error when the root path of a 'tree' GET doesn't exist`, async function() {
 				return expect(connections[i].get({
 					path: '/bookmarks/test/testTwo',
 					tree
 				})).to.be.rejectedWith(Error, 'Request failed with status code 404');
 			})
 
-			it(`Should handle when the cache only contains part of the tree which is on the server`, async function() {
+			it(`4. Should handle when the cache only contains part of the tree which is on the server`, async function() {
 				if (connections[i].cache) {
 					await connections[i].resetCache()
 					var subTree = _.cloneDeep(tree);
@@ -99,7 +99,7 @@ describe(`------------GET-----------------`, async function() {
 				} 
 			})
 
-			it(`Should handle fully cached tree`, async function() {
+			it(`5. Should handle fully cached tree`, async function() {
 				if (connections[i].cache) {
 					var test = await connections[i].get({
 						path: '/bookmarks/test',
@@ -117,21 +117,29 @@ describe(`------------GET-----------------`, async function() {
 				}
 			})
 
-			it(`Should only return the part of the tree prescribed by the given 'tree' when the server has more data`, async function() {
+			it(`6. Should only return the part of the tree prescribed by the given 'tree' when the server has more data`, async function() {
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!', connections[i].cache ? true: false)
+				await connections[i].resetCache();
+				try {
+				await connections[i].delete({path:'/bookmarks/test', tree});
+				} catch (error) {
+					console.log(error)
+        }
 				this.timeout(4000)
+
 				await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/hhh',
 					data: {foo: "bar"},
-					tree
+					tree,
 				})
 
 				await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/bob/index-three/2014',
 					type: 'application/vnd.oada.yield.1+json',
 					data: {bar: "foo"},
-					tree
+					tree,
 				})
-
+        
 				await axios({
 					method: 'put',
 					url: domain+'/bookmarks/test/aaa/bbb/extraKey',
@@ -150,22 +158,25 @@ describe(`------------GET-----------------`, async function() {
 					path: '/bookmarks/test/aaa/bbb/index-one/hhh/index-two/joe/somethingElse',
 					type: 'application/vnd.oada.yield.1+json',
 					data: {_id: "resources/7656401651"},
-					tree
+					tree,
 				})
 
 				var first = await connections[i].get({
 					path: '/bookmarks/test',
-					tree
+					tree,
 				})
 
+        console.log('~~~~~~~~~~~~~~~~~~~~~~')
+        console.log(pretty.render(first.data))
+        console.log('~~~~~~~~~~~~~~~~~~~~~~')
 				expect(first.data).to.include.key('aaa')
 				expect(first.data['aaa']).to.include.key('bbb')
-				expect(first.data['aaa']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+				expect(first.data['aaa']).to.include.keys(['_id', '_type', '_rev'])
 				expect(first.data['aaa']['bbb']).to.include.key('index-one')
-				expect(first.data['aaa']['bbb']).to.include.keys(['_id', '_meta', '_type', '_rev'])
-				expect(first.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_meta', '_type', '_rev'])
-				expect(first.data['aaa']['bbb']['index-one']).to.include.key('ccc')
-				expect(first.data['aaa']['bbb']['index-one']['hhh']).to.include.keys(['_id', '_meta', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']).to.include.keys(['_id', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']['index-one']).to.not.include.keys(['_id', '_type', '_rev'])
+				expect(first.data['aaa']['bbb']['index-one']).to.include.key('hhh')
+				expect(first.data['aaa']['bbb']['index-one']['hhh']).to.include.keys(['_id', '_type', '_rev'])
 				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']).to.include.keys(['bob', 'joe'])
 				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']['joe']).to.include.keys(['somethingElse'])
 				expect(first.data['aaa']['bbb']['index-one']['hhh']['index-two']['joe']['somethingElse']).to.not.include.keys(['foobar'])

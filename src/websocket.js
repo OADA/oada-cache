@@ -44,7 +44,6 @@ function websocket(url) {
 						httpCallbacks[response.requestId].resolve(response);
 					} else {
             //Create error like axios
-            //error(httpCallbacks[response.requestId].request, response);
 						let err = new Error('Request failed with status code '+response.status);
             err.request = httpCallbacks[response.requestId].request;
 						err.response = {

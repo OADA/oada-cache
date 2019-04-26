@@ -1,16 +1,18 @@
 "use strict";
-var cq = require("concurrent-queue");
-var pretty = require("prettyjson");
-var Promise = require("bluebird");
+const cq = require("concurrent-queue");
+const pretty = require("prettyjson");
+const Promise = require("bluebird");
 import PouchDB from "pouchdb";
-var url = require("url");
-var _ = require("lodash");
-var pointer = require("json-pointer");
-var OFFLINE = false;
+const url = require("url");
+const _ = require("lodash");
+const pointer = require("json-pointer");
+const OFFLINE = false;
+const REVLIMIT = 10;
 var memoryCache = {};
-var timeThreshold = 30000;
-var cleanMemoryTimer = 10000;
+const timeThreshold = 30000;
+const cleanMemoryTimer = 10000;
 const dbPutDelay = 5000; // 5 sec
+Promise.config({cancellation: true});
 
 //const error = require('debug')('oada-cache:cache:error');
 //const info = require('debug')('oada-cache:cache:info');
@@ -19,7 +21,7 @@ export default function setupCache({ name, req, expires }) {
   // name should be made unique across domains and users
   var db = db || new PouchDB(name);
   // This fixes concurrent accesses
-  PouchDB.on("destroyed", function(dbName) {
+  PouchDB.on("destroyed", async function(dbName) {
     if (dbName === name) {
       db = new PouchDB(name);
     }
@@ -55,46 +57,66 @@ export default function setupCache({ name, req, expires }) {
   /** Save resource to in-memory cache and schedule PUT */
   function handleMemoryCache(resourceId, data, waitTime, req) {
     const now = Date.now();
-    memoryCache[resourceId] = {
-      data,
-      access: now,
-      dbPutSchedule: now + dbPutDelay,
-    };
+    if (resourceId in memoryCache) {
+      // resource exists in in-cache memory
+      // update data and access time
+      memoryCache[resourceId].data = data;
+      memoryCache[resourceId].access = now;
+    } else {
+      // resource does not exist
+      // add new resource
+      memoryCache[resourceId] = {
+        data,
+        access: now,
+        promise: undefined,
+      };
+    }
+
+    // Schedule db.put
     if (!memoryCache[resourceId].promise) {
       // Schedule put
-      console.log('wait 5 seconds on', resourceId);
-      memoryCache[resourceId].promise = Promise.delay(dbPutDelay).then(() => {
-        doPut(resourceId, waitTime, req)
-      });
+      memoryCache[resourceId].promise = Promise.delay(dbPutDelay)
+        .then(function() {
+          doPut(resourceId, waitTime, req);
+        })
+        .catch(function(error) {
+          console.log('handleMemoryCacheError', error);
+        });
     }
-    console.log('handleMemoryCache returning now...');
     return Promise.resolve()
   }
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
   function doPut(resourceId, waitTime, req) {
-    console.log("doPut", resourceId, memoryCache[resourceId]);
     return db
       .put(memoryCache[resourceId].data)
-      .then(() => {
+      .then(response => {
+        memoryCache[resourceId].data._rev = response.rev;
         delete memoryCache[resourceId].promise;
       })
       .catch(err => {
+        console.log("Error doPut", memoryCache[resourceId].data._rev, err);
+        // TODO: Handle this error
         // retry 409s
-        if (err.status === 409) {
-          waitTime = waitTime || 1000;
-          return Promise.delay(waitTime).then(() => {
-            if (waitTime > 16000) throw err;
-            return dbUpsert(req, waitTime * 2);
-          });
-        }
-        throw err;
+        // if (err.status === 409) {
+        //   waitTime = waitTime || 1000;
+        //   return Promise.delay(waitTime).then(() => {
+        //     if (waitTime > 16000) throw err;
+        //     return dbUpsert(req, waitTime * 2);
+        //   });
+        // }
+        //throw err;
       });
   }
 
   /** Get the resource and merge data if its already in the db. */
+
+  /**
+   * Store (upsert) resource to local DB
+   * @param req request
+   * @param waitTime wait time
+   */
   async function dbUpsert(req, waitTime) {
-    //info('dbUpsert', req)
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
@@ -109,12 +131,16 @@ export default function setupCache({ name, req, expires }) {
       // while offline. This doesn't seem right. I think this should only
       // get updated when we know we're upserting a new value from the server
       accessed: Date.now(),
+      doc: {}
     };
 
-    // ALL updates to existing docs (upserts) need to supply the current _rev.
-    var result = memoryCache[resourceId]; // Try to get resource from in-memory cache
 
-    if (!result) {
+
+    // ALL updates to existing docs (upserts) need to supply the current _rev.
+    let memoryResult = memoryCache[resourceId]; // Try to get resource from in-memory cache
+    let result = {doc: {}};
+
+    if (!memoryResult) {
       // resource does not exist in memory; get from DB
       try {
         result = await db.get(resourceId);
@@ -122,53 +148,45 @@ export default function setupCache({ name, req, expires }) {
         // Else, the resource was not in the cache. This was the first put.
         if (req.method && req.method.toLowerCase() === "delete") {
           // Deleting a resource that doesn't exist: do nothing.
-        } else {
-          if (pathLeftover) {
-            console.log('PATH LEFTOVER WAS', pathLeftover)
-            //Execute the PUT and Warn users that the data is incomplete
-            dbPut.doc = {};
-            dbPut.INCOMPLETE_RESOURCE = true;
-            dbPut.valid = false;
-            pointer.set(dbPut.doc, pathLeftover, _.clone(req.data));
-          } else dbPut.doc = req.data;
+          return
+        } else if (pathLeftover) {
+          dbPut.INCOMPLETE_RESOURCE = true;
         }
-
-        if (req._rev) dbPut.doc._rev = req._rev;
-
-        //info('dbUpsert-dbPut3', req.url, dbPut)
-        return handleMemoryCache(resourceId, dbPut, waitTime, req).then((ok) => {
-          console.log('handleMemoryCache DONE')
-          return ok
-        })
       }
     } else {
-      result = result.data;
+      result = memoryResult.data;
+      // If in memory, result._rev might be undefined (409 errors)
+      if (result._rev !== undefined) dbPut._rev = result._rev;
     }
-    //If theres a path leftover, create an empty object, add a key to warn users
-    //that the data is incomplete, and put the data at that path Leftover
-    if (result.INCOMPLETE_RESOURCE) dbPut.INCOMPLETE_RESOURCE = true;
-    // If in memory, result._rev is undefined
-    if (result._rev) dbPut._rev = result._rev;
+
+
+
+    // Now handle the upsert
     if (req.method && req.method.toLowerCase() === "delete") {
+
       if (!pathLeftover) {
+
+        if (memoryCache[resourceId] && memoryCache[resourceId].promise) memoryCache[resourceId].promise.cancel();
+        delete  memoryCache[resourceId]
         return db.remove(result).then(response => {
           return { response };
-        });
-      } else if (pointer.has(dbPut.doc, pathLeftover)) {
-        dbPut.doc = result.doc;
-        pointer.remove(dbPut.doc, pathLeftover);
+        }).catch((error) => {
+          //its okay if it already doesn't exist
+          if (error.status === 404) return;
+          throw error;
+        })
+      } else {
+        if (pointer.has(result.doc, pathLeftover)) {
+          dbPut.doc = result.doc;
+          pointer.remove(dbPut.doc, pathLeftover);
+        }
       }
-    } else {
-      // change type 'merge'
+    } else { //handle "merge" type operations
       if (pathLeftover) {
-        // merge the new data into the old at the path leftover, then return old
-        var curData = {};
-        if (pointer.has(result.doc, pathLeftover))
-          curData = pointer.get(result.doc, pathLeftover);
+        var curData = pointer.has(result.doc, pathLeftover) ? 
+          pointer.get(result.doc, pathLeftover)
+          : {};
         var newData = _.merge(curData, req.data || {});
-        console.log('SET COMMAND, upserting', resourceId);
-        console.log(result)
-        console.log('SETTING', result.doc, pathLeftover, newData);
         pointer.set(result.doc, pathLeftover, newData);
         dbPut.doc = result.doc;
       } else {
@@ -176,30 +194,27 @@ export default function setupCache({ name, req, expires }) {
       }
     }
 
-    if (req._rev) dbPut.doc._rev = req._rev;
-    //info('dbUpsert-dbPut2', req.url, dbPut)
-    return handleMemoryCache(resourceId, dbPut, waitTime, req).then((ok) => {
-      console.log('handleMemoryCache DONE')
-      return ok
-    })
+    if (req._rev != undefined ) dbPut.doc._rev = req._rev;
+    return handleMemoryCache(resourceId, dbPut, waitTime, req)
   }
 
+  /**
+   * Get resource from the server
+   * @param req request
+   */
   async function getResFromServer(req) {
-    //info('getResFromServer', req)
     var res = await request({
       method: "GET",
       url: req.url,
       headers: req.headers,
     });
     res.cached = false;
-    console.log('CACHED', res.cached);
     req.data = res.data;
     try {
       await dbUpsert(req);
     } catch (err) {
-      console.log(err);
+      console.log('getResFromServerError', err);
     }
-    console.log(res);
     return res;
   }
 
@@ -210,41 +225,47 @@ export default function setupCache({ name, req, expires }) {
   // This is primarily for when links are created before the resource itself has been.
   function getLookup(req) {
     var urlObj = url.parse(req.url);
-    return db.get(urlObj.path).catch(async function() {
-      //Not found. Go to the oada server, get the associated resource and path
-      //leftover, and save the lookup.
-      var resourceId;
-      var pathLeftover;
-      if (req._id) {
-        resourceId = req._id;
-        pathLeftover = "";
-      } else {
-        //info('getLookup - HEAD request:', req.url, req)
-        var response = await request({
-          method: "HEAD",
-          url: req.url,
-          headers: req.headers,
-        });
-        //info('getLookup - HEAD response:', response)
-        //Save the url lookup for future use
-        var pieces = response.headers["content-location"].split("/");
-        resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
-        pathLeftover =
-          pieces.length > 3
-            ? "/" + pieces.slice(3, pieces.length).join("/")
-            : "";
-      }
-      // Put the new lookup
-      return db
-        .put({
+    var res_inmemory = memoryCache[urlObj.path];
+    if (res_inmemory) {
+      return res_inmemory.data;
+    } else {// not in memory  
+      return db.get(urlObj.path).catch(async function() {
+        //Not found. Go to the oada server, get the associated resource and path
+        //leftover, and save the lookup.
+        var resourceId;
+        var pathLeftover;
+        // _id passed in with request object; special case of recursiveUpsert
+        if (req.resourceId) {
+          resourceId = req.resourceId;
+          pathLeftover = "";
+        } else {
+          //info('getLookup - HEAD request:', req.url, req)
+          var response = await request({
+            method: "HEAD",
+            url: req.url,
+            headers: req.headers,
+          });
+          //info('getLookup - HEAD response:', response)
+          //Save the url lookup for future use
+          var pieces = response.headers["content-location"].split("/");
+          resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
+          pathLeftover =
+            pieces.length > 3
+              ? "/" + pieces.slice(3, pieces.length).join("/")
+              : "";
+        }
+        // Put the new lookup
+        var data = {
           _id: urlObj.path,
           resourceId,
           pathLeftover,
-        })
-        .then(() => {
-          return getLookup(req);
-        });
-    });
+        }
+        return handleMemoryCache(urlObj.path, data, undefined, req)
+          .then(() => {
+            return getLookup(req);
+          });
+      });
+    }
   }
 
   // Create a queue of actual PUTs to make when online.
@@ -259,26 +280,43 @@ export default function setupCache({ name, req, expires }) {
   // The cache should go "stale" after some period of time; However, if it cannot
   // establish a connection, it should remain valid, usable data.
 
-  async function getResFromDb(req, offline) {
+  /**
+   * Get resource from local DB. If the specified resource does not exist, try to get it from the server.
+   * @param {any} req request
+   * @param {any} offline default is false (online)
+   */
+  async function getResFromDb(req, offline = false, revLimit) {
     var urlObj = url.parse(req.url);
     var pieces = urlObj.path.split("/");
     var resourceId = pieces.slice(1, 3).join("/"); //returns resources/abc
     var pathLeftover =
       pieces.length > 3 ? "/" + pieces.slice(3, pieces.length).join("/") : "";
-    var resource = memoryCache[resourceId];
-    if (!resource) {
-      console.log("getResFromDb - was not in memory", resourceId);
-      try {
-        resource = await db.get(resourceId);
-        console.log("getResFromDb - came from pouchdb", resourceId);
-      } catch (err) {
-        console.log("getResFromDb - came from server", resourceId);
-        if (!offline) return getResFromServer(req);
-        return;
-      }
-    } else {
-      resource = resource.data;
+    var resource = undefined;
+    var rev = undefined;
+
+    // 1) Get resource from in-memory cache
+    var res_inmemory = memoryCache[resourceId];
+    if (res_inmemory) {
+      resource = res_inmemory.data.doc;
     }
+
+    // 2) Get resource from local DB
+    if (!resource) {
+      try {
+        const res_localdb = await db.get(resourceId);
+        resource = res_localdb.doc;
+      } catch (err) {
+        // Oops
+        console.log('getResFromDbErr', err)
+      }
+    }
+    // 3) get resource from the server
+    if (!resource && !offline) {
+      return getResFromServer(req);
+    } else if (!resource && offline) {
+      throw "Offline and resource not found in local db.";
+    }
+
     //TODO: whats up with the false in quotes? Is this a pouch thing?
     if (resource.accessed + expiration <= Date.now() || !resource.valid === "false") {
       if (offline) { // offline. skip for now. TODO: add code later
@@ -288,28 +326,18 @@ export default function setupCache({ name, req, expires }) {
     }
 
     //Handle _rev passed in. If current object is too far out of date, get from server
-    console.log('getResFromDb', req.headers, resource._rev);
     if (req.headers && req.headers['x-oada-rev'] && 
       ((parseInt(req.headers['x-oada-rev']) - parseInt(resource._rev)) >= revLimit)) {
-      console.log('GetResFromDb', parseInt(req.headers['x-oada-rev']), parseInt(resource.data._rev), revLimit)
       return getResFromServer(req);
     }
 
     //If no pathLeftover, it'll just return resource!
-    if (pointer.has(resource.doc, pathLeftover)) {
-      var data = pointer.get(resource.doc, pathLeftover);
-      console.log(
-        "getResFromDb",
-        data,
-        req,
-        resource,
-        resourceId,
-        pathLeftover,
-      );
+    if (pointer.has(resource, pathLeftover)) {
+      var data = pointer.get(resource, pathLeftover);
       return {
         data,
         headers: {
-          "x-oada-rev": data._rev,
+          "x-oada-rev": resource._rev,
           "content-location": resourceId + pathLeftover,
         },
         status: 200,
@@ -330,7 +358,7 @@ export default function setupCache({ name, req, expires }) {
   //   location: e.g.: /resources/abc123/some/path/leftover
   //
   // }
-  async function get(req) {
+  async function get(req, revLimit) {
     var urlObj = url.parse(req.url);
     var newReq = _.cloneDeep(req);
     if (!/^\/resources/.test(urlObj.path) || !/^\/users/.test(urlObj.path)) {
@@ -344,12 +372,14 @@ export default function setupCache({ name, req, expires }) {
         lookup.resourceId +
         lookup.pathLeftover;
     }
-    return getResFromDb(newReq);
+    return getResFromDb(newReq, OFFLINE, revLimit || REVLIMIT).then((response) => {
+      return response
+    })
   }
 
   // TODO: Need to update the cache for both the parent resource and child new
   // resource if one is created
-  async function put(req, offline) {
+  async function put(req, offline = false) {
     let urlObj = url.parse(req.url);
     if (offline) {
       //TODO:
@@ -372,7 +402,7 @@ export default function setupCache({ name, req, expires }) {
       await dbUpsert({
         url: response.headers["content-location"],
         data: req.data,
-        _rev: response.headers["x-oada-rev"],
+        _rev: parseInt(response.headers["x-oada-rev"]),
         // TODO: should it be invalidated until pulled from server?
         valid: false,
       });
@@ -407,17 +437,19 @@ export default function setupCache({ name, req, expires }) {
     return;
   }
 
-  async function removeLookup(req) {
+  async function removeLookup(lookup) {
+    // Clear the in-memory cache
+    if (memoryCache[lookup._id]) {
+      if (memoryCache[lookup._id].promise) memoryCache[lookup._id].promise.cancel();
+      delete memoryCache[lookup._id];
+    }
+
     try {
-      var lookup = await getLookup({
-        url: req.url,
-        headers: req.headers,
-      });
       await db.remove(lookup);
-      // If no path leftover, we just deleted a resource; invalidate parent link
-      //if (!lookup.pathLeftover) await updateParent(req);
-      await updateParent(req);
-    } catch (err) {}
+    } catch (err) { // removing a lookup that is already gone
+      if (err.status === 404) return
+      throw err
+    }
   }
 
   // Issue DELETE to server then update the db
@@ -433,9 +465,25 @@ export default function setupCache({ name, req, expires }) {
         method: req.method,
         valid: false,
       });
-      // Handle bookmarks link deletion
-    } else {
-      await removeLookup(req);
+    } else {// Handle bookmarks deletion
+      try {
+        var lookup = await getLookup(req);
+        await dbUpsert({
+          url: '/' + lookup.resourceId + lookup.pathLeftover,
+          method: req.method,
+          valid: false,
+        });
+        await removeLookup(lookup);
+        try {
+          await updateParent(req);
+        } catch (error) {
+          console.log('was a problem updating parent doc');
+          throw error;
+        }
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+        } else throw err;
+      }
     }
 
     // Execute the request if we're online, else queue it up
@@ -463,7 +511,7 @@ export default function setupCache({ name, req, expires }) {
           headers: req.headers,
         });
         ret[key] = { _id: lookup.resourceId };
-        if (obj[key]._rev) ret[key]._rev = obj[key]._rev;
+        if (obj[key]._rev !== undefined) ret[key]._rev = obj[key]._rev;
         return;
       }
       ret[key] = replaceLinks(obj[key], {
@@ -475,18 +523,17 @@ export default function setupCache({ name, req, expires }) {
   }
 
   async function _recursiveUpsert(req, body) {
-    if (body._rev) {
+    if (body._rev !== undefined) {
       let lookup = await getLookup({
         url: req.url,
         headers: req.headers,
-        _id: body._id,
+        resourceId: body._id,
       });
       let newBody = replaceLinks(body, {
         url: req.url,
         headers: req.headers,
       });
 
-      console.log("recursiveUpsert", body._id, lookup.resourceId);
       await dbUpsert({
         url: "/" + (body._id || lookup.resourceId),
         data: newBody,
@@ -674,6 +721,12 @@ export default function setupCache({ name, req, expires }) {
     try {
       if (db) {
         await db.destroy();
+        Object.keys(memoryCache).forEach(async function(key) {
+          if (memoryCache[key].promise) {
+            await memoryCache[key].promise.cancel();
+          }
+        })
+        memoryCache = {};
       }
     } catch (err) {
       //error('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', err)
@@ -700,6 +753,18 @@ export default function setupCache({ name, req, expires }) {
     removeLookup,
     findDeepestResource,
     findNullValue,
+    getLookup,
+    dbUpsert,
+    handleMemoryCache,
+    doPut,
+    findDeepestResource,
+    _recursiveUpsert,
+    findNullValue,
+    replaceLinks,
+    removeLookup,
+    updateParent,
+    getResFromDb,
+    getResFromServer,
     //handleWatchChange: _upsertChangeArray,
   };
 }

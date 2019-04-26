@@ -6,6 +6,7 @@ const _ = require('lodash');
 const {expect} = require('chai');
 const {token, domain} = require('./config.js');
 const {tree, putResource, getConnections} = require('./utils.js');
+var expecting = false;
 
 var connections;
 var expects = {};
@@ -17,13 +18,9 @@ async function setupWatch(conn, tre, payload) {
 		tree: tre || tree,
 		watch: {
 			payload: payload || {someExtra: 'payload'},
-			/*
 			func: (pay) => {
-				console.log(pay.response.headers['x-request-id'])
-				expects[pay.response.headers['x-request-id']].forEach((exp) => {
-					exp()
-				})
-			}*/
+        console.log('received a thing');
+			}
 		}
 	})
   expect(getOne.status).to.equal(200);
@@ -35,9 +32,8 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 	var connTwo;
 	before(`Create connection types`, async function() {
 		connections = await getConnections({domain, token})
-//		connections = Object.values(connections)
-		connOne = connections['cYesWYes'];
-		connTwo = connections['cNoWYes'];
+		connOne = connections[3];
+		connTwo = connections[2];
 	})
  
   /*
@@ -372,7 +368,6 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		expect(getOne.cached).to.equal(true)
 		for (var i = 0; i < 10; i++) {
       for (var k = 0; k < 25; k++) {
-        console.log(pretty.render(getOne.data))
 				expect(getOne.data['conn'+i]).to.include.key('put'+k)
 			}
 		}
@@ -385,10 +380,9 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 
 */
   it(`6. Should not send a change feed when the rev difference due to "offline" changes is greater than 10. Instead, the whole resource should simply be sent.`, async function() {
-    this.timeout(40000);
+    this.timeout(25000);
     await connOne.delete({path:'/bookmarks/test', tree})
     await connOne.resetCache();
-    console.log('AAAAAAAAAAAAAAAAAAAAAAa')
     var newTree = _.cloneDeep(tree)
     // First, get the resource into the cache
     var putOne = await connOne.put({
@@ -398,12 +392,10 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     })
     expect(putOne.status).to.equal(204)
     // Validate the cache by doing gets
-    console.log('BBBBBBBBBBBBBBBBBBBBBBB')
     var getOne = await connOne.get({
-      path: '/bookmarks/test/aaa',
+      path: '/bookmarks/test',
       tree: newTree
     })
-    console.log('CCCCCCCCCCCCCCCCCCCCCCC')
     //Next, create several changes over a second connection
     for (var j = 0; j < 11; j++) {
       await connTwo.put({
@@ -413,18 +405,19 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       })
     }
 
-    console.log('waiting')
-    await Promise.delay(35000);
-    console.log('DDDDDDDDDDDDDDDDDDDDDDD')
+    await Promise.delay(10000);
+
+
+
+
+		var getT = await connTwo.get({
+			path: '/bookmarks/test',
+		})
 
 		var getTwo = await connTwo.get({
 			path: '/bookmarks/test/aaa',
 		})
-    console.log('EEEEEEEEEEEEEEEEEEEEEEE')
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~');
-    console.log('GET TWO', getTwo);
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~');
-		expect(getTwo.cached).to.equal(true)
+    // Make sure the puts made it to the server
 		for (var j = 0; j < 11; j++) {
 		  expect(getTwo.data).to.include.key('put'+j)
 		}
@@ -434,7 +427,6 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await Promise.delay(5000)
     // Wait out the watch notifications
     // Now retrieve the data tree to verify results
-    console.log('?????????????????????, watching')
     var response = await connOne.get({
       path: '/bookmarks/test',
       tree: newTree
@@ -445,7 +437,9 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     expect(response.cached).to.equal(true)
     expect(response).to.include.keys(['data'])
     expect(response.data)
-
+		for (var j = 0; j < 11; j++) {
+		  expect(response.data['aaa']).to.include.key('put'+j)
+		}
     await connOne.delete({path:'/bookmarks/test', tree})
     await connOne.resetCache();
   })
@@ -488,7 +482,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		var response = await connOne.get({
       path: '/bookmarks/test',
       tree,
-			watch: {
+			responding watchwatch: {
 				payload: {someExtra: 'payload'},
 			}
 		})
@@ -498,11 +492,11 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     expect(response.data.aaa.bbb).to.include.keys(['_id', '_rev', 'index-one', '_type'])
     expect(response.data.aaa.bbb['index-one']).to.include.keys(['ccc'])
     expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'sometest'])
-  })*/
+  })
  
   it('Now clean up', async function() {
     this.timeout(6000);
 		await connOne.resetCache();
 		await connOne.delete({path:'/bookmarks/test', tree})
-  })
+  })*/
 })
