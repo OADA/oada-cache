@@ -218,6 +218,10 @@ export default function setupCache({ name, req, expires }) {
     return res;
   }
 
+  function _getMemoryCache() {
+    return memoryCache;
+  }
+
   // Perform lookup from bookmarks to resource id (and path leftover) mapping.
   // If the lookup fails, use a HEAD request to get it from the server and put
   // it in the cache. An optional _id can be passed into req to force creation
@@ -765,6 +769,7 @@ export default function setupCache({ name, req, expires }) {
     updateParent,
     getResFromDb,
     getResFromServer,
+    _getMemoryCache,
     //handleWatchChange: _upsertChangeArray,
   };
 }

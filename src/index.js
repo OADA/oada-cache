@@ -1,5 +1,5 @@
 const Promise = require("bluebird");
-const pretty = require('prettyjson');
+const pretty = require("prettyjson");
 import setupCache from "./cache";
 import uuid from "uuid";
 import _ from "lodash";
@@ -16,33 +16,42 @@ var connect = async function connect({
   options,
   cache,
   token,
-  websocket
+  websocket,
 }) {
   if (!domain) throw new Error("domain undefined");
   if (typeof domain !== "string") throw new Error("domain must be a string");
   if (!options && !token) throw new Error("options and token undefined");
-  if (token && typeof token !== "string") throw new Error("token must be a string");
-	if (cache !== undefined && typeof cache !== "boolean" && typeof cache !== "object") throw new Error(`cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
-	if (cache && cache.name && typeof cache.name !== "string") throw new Error("cache name must be a string");
+  if (token && typeof token !== "string")
+    throw new Error("token must be a string");
+  if (
+    cache !== undefined &&
+    typeof cache !== "boolean" &&
+    typeof cache !== "object"
+  )
+    throw new Error(
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
+    );
+  if (cache && cache.name && typeof cache.name !== "string")
+    throw new Error("cache name must be a string");
   //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
   //throw "cache must be boolean";
   if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
     throw new Error("websocket must be boolean");
 
-	var OFFLINE;
+  var OFFLINE;
   var CACHE;
   var REQUEST = axios;
-	var NOCACHEREQUEST = axios;
+  var NOCACHEREQUEST = axios;
   var SOCKET;
   var TOKEN;
   let _token = new _TOKEN({ domain, token, options });
-  if (!domain) throw new Error('domain undefined');
+  if (!domain) throw new Error("domain undefined");
   var DOMAIN = domain;
-	var NAME =
+  var NAME =
     cache && cache.name
       ? cache.name
       : urlLib.parse(domain).hostname.replace(/\./g, "_");
-  var EXPIRES = (cache && cache.expires) ? cache.expires : undefined;
+  var EXPIRES = cache && cache.expires ? cache.expires : undefined;
 
   function _replaceLinks(obj) {
     let ret = Array.isArray(obj) ? [] : {};
@@ -82,11 +91,11 @@ var connect = async function connect({
     //info('_makeResourceAndLink', path, data)
     data._id = _.clone(data._id) || "resources/" + uuid();
 
-		let linkReq = {
-			path,
+    let linkReq = {
+      path,
       type: data._type,
-			headers,
-      data: {_id: data._id}
+      headers,
+      data: { _id: data._id },
     };
     // Create a versioned link if the tree specifies one.
     if ('_rev' in data) {
@@ -95,27 +104,31 @@ var connect = async function connect({
     // We don't want to attempt to set the rev when we put the resource
 
     let resReq = {
-      path: "/"+data._id,
+      path: "/" + data._id,
       type: data._type,
-      data
+      data,
     };
-		var link;
+    var link;
     try {
-		  link = await put(linkReq);
+      link = await put(linkReq);
     } catch (err) {
       if (err.response && err.response.status === 412) {
-        var pathPieces = path.split('/');
-        var parentPath = pathPieces.splice(0, pathPieces.length-1).join('/');
-				// Wait time increases: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
-				if (waitTime > 16000) throw err;
-				//The parent has been modified; attempt to get the new _rev
-				var response;
-				try {
-          response = await NOCACHEREQUEST({method: 'get', url: DOMAIN+parentPath, headers:{"Authorization": "Bearer "+TOKEN}})
-				} catch (erro) {
+        var pathPieces = path.split("/");
+        var parentPath = pathPieces.splice(0, pathPieces.length - 1).join("/");
+        // Wait time increases: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
+        if (waitTime > 16000) throw err;
+        //The parent has been modified; attempt to get the new _rev
+        var response;
+        try {
+          response = await NOCACHEREQUEST({
+            method: "get",
+            url: DOMAIN + parentPath,
+            headers: { Authorization: "Bearer " + TOKEN },
+          });
+        } catch (erro) {
           waitTime = waitTime || 1000;
-          await Promise.delay(waitTime)
-				  return _makeResourceAndLink({path, data, headers}, waitTime*2)
+          await Promise.delay(waitTime);
+          return _makeResourceAndLink({ path, data, headers }, waitTime * 2);
         }
         // If the key has already been created, set the resource path to the bookmarks path and let it map automatically, not a resource id 
         if (response.data[pathPieces[pathPieces.length-1]]) {
@@ -181,55 +194,52 @@ var connect = async function connect({
     }
   }
 
-	// Construct the request object and catch any 401s (expired token)
+  // Construct the request object and catch any 401s (expired token)
   async function _buildRequest({ method, url, path, headers, data, type }) {
     if (!path && !url) throw new Error("Either path or url must be specified.");
-		if (url) {
-			if ((/^\//).test(url)) {
-				url = domain + url;
-			} else if (url.indexOf(domain) !== 0) {
-				throw new Error(`'url' key must begin with the domain used to connect`);
-			}
-		}
-		method = method.toLowerCase()
+    if (url) {
+      if (/^\//.test(url)) {
+        url = domain + url;
+      } else if (url.indexOf(domain) !== 0) {
+        throw new Error(`'url' key must begin with the domain used to connect`);
+      }
+    }
+    method = method.toLowerCase();
     let req = {
       method,
       url: url || DOMAIN + path,
-      headers: { authorization: "Bearer " + TOKEN }
+      headers: { authorization: "Bearer " + TOKEN },
     };
-		if (/\/$/.test(req.url)) req.url = req.url.slice(0, req.url.length-1)
+    if (/\/$/.test(req.url)) req.url = req.url.slice(0, req.url.length - 1);
 
     //handle headers
-		Object.keys(headers || {}).forEach(header => {
+    Object.keys(headers || {}).forEach(header => {
       req.headers[header.toLowerCase()] = headers[header];
-		});
+    });
 
-    if (method === "put" || method === 'post') {
+    if (method === "put" || method === "post") {
       req.headers["content-type"] =
         req.headers["content-type"] || type || data._type;
-			req.data = data;
-	  }
+      req.data = data;
+    }
 
+    if (method === "delete") {
+      req.headers["content-type"] = req.headers["content-type"] || type;
+    }
+    return req;
+  }
 
-		if (method === "delete") {
-			req.headers["content-type"] =
-				req.headers["content-type"] || type;
-		}
-		return req;
-	}
-
-
-	async function _sendRequest(req) {
+  async function _sendRequest(req) {
     try {
-      return REQUEST(req)
+      return REQUEST(req);
     } catch (err) {
-		  if (err && err.response.status === 401) {
+      if (err && err.response.status === 401) {
         //token has expired
         await reconnect();
         return REQUEST(req);
       }
-			throw err;
-    } 
+      throw err;
+    }
   }
 
   async function get({ url, path, headers, watch, tree }) {
@@ -285,7 +295,6 @@ var connect = async function connect({
   } //get
 
   async function _recursiveGet(url, tree, data, cached) {
-
     //info('_recursiveGet', url, tree._type, data)
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {
@@ -329,7 +338,7 @@ var connect = async function connect({
   function _findDeepestResources(pieces, tree, storedTree) {
     let stored = 0;
     let setup;
-		var _rev;
+    var _rev;
     // Walk down the url in reverse order
     return Promise.mapSeries(pieces, (piece, i) => {
       let z = pieces.length - 1 - i; //use z to create paths in reverse order
@@ -344,28 +353,32 @@ var connect = async function connect({
           throw new Error("stored");
         }
         return get({
-          path: urlPath
-        }).then(response => {
-          //TODO: Detect whether the returned data matches the given tree
-          pointer.set(storedTree, urlPath, {});
-          stored = _.clone(z);
-					_rev = parseInt(response.headers['x-oada-rev'])
-          throw new Error("stored");
-        }).catch(err => {
-          if (/^stored/.test(err.message)) throw err;
-          return;
-        });
+          path: urlPath,
+        })
+          .then(response => {
+            //TODO: Detect whether the returned data matches the given tree
+            pointer.set(storedTree, urlPath, {});
+            stored = _.clone(z);
+            _rev = response.headers["x-oada-rev"];
+            throw new Error("stored");
+          })
+          .catch(err => {
+            if (/^stored/.test(err.message)) throw err;
+            return;
+          });
       } else return;
-    }).catch(err => {
-      // Throwing with a number error only should occur on success.
-      if (/^stored/.test(err.message)) return { stored, setup };
-    }).then(() => {
-      return {
-        stored: stored,
-        setup: setup || 0,
-				_rev
-      };
-    });
+    })
+      .catch(err => {
+        // Throwing with a number error only should occur on success.
+        if (/^stored/.test(err.message)) return { stored, setup };
+      })
+      .then(() => {
+        return {
+          stored: stored,
+          setup: setup || 0,
+          _rev,
+        };
+      });
   }
 
   // Loop over the keys of the path and determine whether the object at that level
@@ -397,29 +410,32 @@ var connect = async function connect({
     let storedTree = {};
     var responses = [];
     // Find the deepest part of the path that exists. Once found, work back down.
-    var ret = await _findDeepestResources(pieces, tree, storedTree)
-		// Create all the resources on the way down. ret.stored is an index. Slice
-		// takes the length to slice, so no need to subtract 1.
-		var parentRev = ret._rev;
-    await Promise.mapSeries(pieces.slice(0, pieces.length - ret.stored), async function (piece, j) {
-			let i = ret.stored + 1 + j;
-			let urlPath = "/" + pieces.slice(0, i + 1).join("/");
-			let treePath = _convertSetupTreePath(pieces.slice(0, i + 1), tree);
-			if (pointer.has(tree, treePath + "/_type") && i <= ret.setup) {
-        // its a resource
-        var content = await _replaceLinks(pointer.get(tree, treePath))
-				var resp = await _makeResourceAndLink({
-					path: urlPath,
-					data: _.cloneDeep(content),
-					headers: {'if-match': parentRev},
-				})
-				parentRev = parseInt(resp.resource.headers['x-oada-rev']);
-				pointer.set(storedTree, urlPath, content);
-				resp.path = urlPath;
-				responses.push(resp);
-			};
-		})
-		return responses;
+    var ret = await _findDeepestResources(pieces, tree, storedTree);
+    // Create all the resources on the way down. ret.stored is an index. Slice
+    // takes the length to slice, so no need to subtract 1.
+    var parentRev = ret._rev;
+    await Promise.mapSeries(
+      pieces.slice(0, pieces.length - ret.stored),
+      async function(piece, j) {
+        let i = ret.stored + 1 + j;
+        let urlPath = "/" + pieces.slice(0, i + 1).join("/");
+        let treePath = _convertSetupTreePath(pieces.slice(0, i + 1), tree);
+        if (pointer.has(tree, treePath + "/_type") && i <= ret.setup) {
+          // its a resource
+          var content = await _replaceLinks(pointer.get(tree, treePath));
+          var resp = await _makeResourceAndLink({
+            path: urlPath,
+            data: _.cloneDeep(content),
+            headers: { "if-match": parentRev },
+          });
+          parentRev = resp.resource.headers["x-oada-rev"];
+          pointer.set(storedTree, urlPath, content);
+          resp.path = urlPath;
+          responses.push(resp);
+        }
+      },
+    );
+    return responses;
   }
 
   function _configureCache({ name, req, expires }) {
@@ -437,7 +453,7 @@ var connect = async function connect({
       data,
       type,
       headers,
-      tree
+      tree,
     });
   }
 
@@ -447,17 +463,16 @@ var connect = async function connect({
       // its a resource
       try {
         var got = await get({
-          url
+          url,
         });
         data = got.data;
-      } catch (error) {
-        // catch 404s. DELETES should return 204 in the event that the endpoint
-        // does not exist.
-        if (error.response && error.response.status === 404) {
+      } catch (err) {
+        if (err.status === 404) {
           data = {};
+          return;
         }
       }
-		}
+    }
     return Promise.map(Object.keys(data || {}), async function(key) {
       if (typeof data[key] === "object") {
         if (tree[key]) {
@@ -477,10 +492,10 @@ var connect = async function connect({
         } else return; //data[key] is already stored in the data object
       } else return;
     }).then(async function() {
-			var link;
-			if (tree._type) {
-				try {
-					// Delete the resource
+      var link;
+      if (tree._type) {
+        try {
+          // Delete the resource
           if (data._id) {
             try {
               await del({
@@ -510,7 +525,7 @@ var connect = async function connect({
 				}
       } else {
         // Delete the lookup for non resources
-        if (CACHE) await CACHE.removeLookup({url})
+        if (CACHE) await CACHE.removeLookup({ url });
       }
       // link and data can be undefined if the current object is
       // not a resource (deletes won't need to happen)
@@ -521,15 +536,19 @@ var connect = async function connect({
     })
   }
 
-
-
-  async function del({ url, path, type, headers, tree, unwatch}) {
-    let req = await _buildRequest({ method: "delete", url, path, type, headers });
+  async function del({ url, path, type, headers, tree, unwatch }) {
+    let req = await _buildRequest({
+      method: "delete",
+      url,
+      path,
+      type,
+      headers,
+    });
     if (unwatch) {
       path = path || urlLib.parse(url).path;
       return SOCKET.unwatch({
         path,
-        headers: req.headers
+        headers: req.headers,
       });
     }
     if (tree) {
@@ -545,13 +564,14 @@ var connect = async function connect({
         var result = await _recursiveDelete(req.url, subTree, {}, true);
         return result.link
 
-			//var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
+      //var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
       //if (!req.headers["content-type"] && pointer.has(tree, treePath))
       //  req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
-    
-		if (!req.headers["content-type"])
+
+    if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
+
     return _sendRequest(req)
   }
 
@@ -564,7 +584,7 @@ var connect = async function connect({
       path,
       data,
       type,
-      headers
+      headers,
     });
 
     // Ensure parent resources are created
@@ -572,27 +592,26 @@ var connect = async function connect({
       var responses = await _ensureTree({
         url: req.url,
         tree: _.cloneDeep(tree),
-        data
+        data,
       });
-			var pieces = responses.length > 0 ? 
-				responses[responses.length - 1].path
-					.replace(/^\//, "")
-					.split("/")
-				: urlLib.parse(req.url)
-					.path
-					.replace(/^\//, "")
-					.split('/')
+      var pieces =
+        responses.length > 0
+          ? responses[responses.length - 1].path.replace(/^\//, "").split("/")
+          : urlLib
+              .parse(req.url)
+              .path.replace(/^\//, "")
+              .split("/");
 
-			var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
+      var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
       if (!req.headers["content-type"] && pointer.has(tree, treePath))
         req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
 
     if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
-    return _sendRequest(req).then((result) => {
+    return _sendRequest(req).then(result => {
       return result;
-    })
+    });
   }
 
   async function resetCache(name, expires) {
@@ -605,7 +624,7 @@ var connect = async function connect({
     //if (CACHE) await CACHE.db.destroy();
     if (SOCKET) SOCKET.close();
     //if (_token.isSet()) {
-      _token.cleanUp();
+    _token.cleanUp();
     //}
   }
 
@@ -626,11 +645,20 @@ var connect = async function connect({
   }
 
   //Setup the cache
-  if (cache !== false) await _configureCache({
-    name: NAME || uuid(),
-    req: REQUEST,
-    expires: EXPIRES,
-  })
+  if (cache !== false)
+    await _configureCache({
+      name: NAME || uuid(),
+      req: REQUEST,
+      expires: EXPIRES,
+    });
+
+  function _getMemoryCache() {
+    if (CACHE) {
+      return CACHE._getMemoryCache();
+    } else {
+      return {};
+    }
+  }
 
   return {
     token: TOKEN,
@@ -642,10 +670,11 @@ var connect = async function connect({
     delete: del,
     resetCache,
     disconnect,
-    reconnect
+    reconnect,
+    _getMemoryCache,
   };
 };
 
 export default {
-  connect
+  connect,
 };
