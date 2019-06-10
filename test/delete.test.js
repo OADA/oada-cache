@@ -22,7 +22,6 @@ describe(`------------DELETE-----------------`, async function() {
 
 	for (let i = 0; i < 4; i++) {
     describe(`Testing connection ${i+1}`, async function() {
-
 			it(`1. Should error when neither 'url' nor 'path' are supplied`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				await connections[i].resetCache()
@@ -82,22 +81,18 @@ describe(`------------DELETE-----------------`, async function() {
 				).to.be.rejectedWith(Error, `Request failed with status code 403`)
 			})
   
-			it(`6. Should allow us to delete only a resource and leave the link alone`, async function() {
-				this.timeout(4000);
+			it(`6. Should allow us to delete only a resource and leave the link alone (GETs should 404)`, async function() {
+				this.timeout(5000);
 				await connections[i].resetCache()
         await connections[i].delete({path:'/bookmarks/test', tree})
 				var result = await putResource({'something': 'b'}, '/bookmarks/test')
-				var deleteResponse = await connections[i].delete({
+        var deleteResponse = await connections[i].delete({
 					path: result.resource.headers['content-location'],
 					headers: {'content-type': 'application/json'}
-				})
-				expect(deleteResponse.status).to.equal(204);
-				var response = await connections[i].get({
-					path: '/bookmarks/test'
-				})
-				expect(response.status).to.equal(200);
-				expect(response.data).to.include.keys(['_id', '_rev'])
-				expect(response.data).to.not.include.keys(['_meta', '_type', 'something'])
+        })
+        return expect(connections[i].get({
+          path: '/bookmarks/test',
+        })).to.be.rejectedWith(Error, `Request failed with status code 403`)
       })
 
 			it(`7. Should allow us to delete only a link and leave the resource alone`, async function() {

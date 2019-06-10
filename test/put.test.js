@@ -22,9 +22,8 @@ describe(`------------PUT-----------------`, async function() {
 		})
 	})
 
-	for (let i = 0; i < 2; i++) {
+	for (let i = 0; i < 4; i++) {
     describe(`Testing connection ${i+1}`, async function() {
-      /*
 			it(`1. Should error when neither 'url' nor 'path' are supplied`, async function() {
 				console.log(`Cache: ${connections[i].cache ? true : false}; Websocket: ${connections[i].websocket ? true : false}`)
 				return expect(connections[i].put({
@@ -536,7 +535,6 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'anothertest'])
 				expect(response.data.aaa.bbb['index-one'].ccc).to.not.include.keys(['sometest'])
 			})
-      */
 
 			it(`20. Should work under a sequence of PUTs to similar (same parent tree) endpoints`, async function() {
 				this.timeout(35000);
@@ -594,11 +592,88 @@ describe(`------------PUT-----------------`, async function() {
         }
 			})
 
-			it('21. Now clean up', async function() {
+      it(`21. Should allow links to be created first, then puts to that path should create the resource`, async function() {
+        this.timeout(7000);
+        await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].resetCache();
+
+        let putOne = await connections[i].put({
+          path: '/bookmarks/test',
+          type: 'application/json',
+          data: {
+            _id: 'resources/11111',
+            _rev: 0
+          }
+        })
+        expect(putOne.status).to.equal(204)
+        let putTwo = await connections[i].put({
+          path: '/bookmarks/test',
+          type: 'application/json',
+          data: {
+            'test-One': 'bar'
+          }
+        })
+        expect(putTwo.status).to.equal(204)
+
+        var getOne = await connections[i].get({
+          path: '/bookmarks/test'
+        })
+        expect(getOne.status).to.equal(200)
+        expect(getOne.data).to.include.keys(['_id', '_rev', 'test-One'])
+
+        var getTwo = await connections[i].get({
+          path: '/resources/11111'
+        })
+        expect(getTwo.status).to.equal(200)
+        expect(getTwo.data).to.include.keys(['_id', '_rev', 'test-One'])
+      })
+
+      it(`22. Should allow links to be created first. A future PUT to that resource id should be handled`, async function() {
+        this.timeout(7000);
+        await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].resetCache();
+
+        let putOne = await connections[i].put({
+          path: '/bookmarks/test',
+          type: 'application/json',
+          data: {
+            _id: 'resources/11111',
+            _rev: 0
+          }
+        })
+        expect(putOne.status).to.equal(204)
+
+        let putTwo = await connections[i].put({
+          path: '/resources/11111',
+          type: 'application/json',
+          data: {
+            'test-One': 'bar'
+          }
+        })
+        expect(putTwo.status).to.equal(204)
+        
+        var getOne = await connections[i].get({
+          path: '/bookmarks/test'
+        })
+        expect(getOne.status).to.equal(200)
+        expect(getOne.data).to.include.keys(['_id', '_rev', 'test-One'])
+
+        var getTwo = await connections[i].get({
+          path: '/resources/11111'
+        })
+        expect(getTwo.status).to.equal(200)
+        expect(getTwo.data).to.include.keys(['_id', '_rev', 'test-One'])
+        console.log(pretty.render(getOne.data))
+        console.log(pretty.render(getTwo.data));
+      })
+      
+/*
+			it(`23. Now clean up`, async function() {
 				this.timeout(3000);
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
       })
+      */
 		})
 	}
 })

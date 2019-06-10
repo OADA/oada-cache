@@ -378,7 +378,6 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
   })
 
 
-*/
   it(`6. Should not send a change feed when the rev difference due to "offline" changes is greater than 10. Instead, the whole resource should simply be sent.`, async function() {
     this.timeout(25000);
     await connOne.delete({path:'/bookmarks/test', tree})
@@ -443,57 +442,95 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await connOne.delete({path:'/bookmarks/test', tree})
     await connOne.resetCache();
   })
+*/
 
-
-
-    /* This one needs work
-  it(`7. Should "autofix" a broken cache state and shouldn't 404 on recursiveGet`, async function() {
+  it(`7. The tree is needed to decide what documents to sync given a change document where a link connected to a large, preexisting tree`, async function() {
 		this.timeout(15000);
+		var newTree = {
+      bookmarks: {
+        aaa: _.cloneDeep(tree.bookmarks.test.aaa),
+        _type: "application/vnd.oada.bookmarks.1+json",
+        _rev: 0,
+      }
+    }
+    // Add some extra subtree so we can create it quickly
+    newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb)
+
+    console.log(newTree);
+		await connOne.delete({path:'/bookmarks/aaa', tree:newTree})
 		await connOne.delete({path:'/bookmarks/test', tree})
     await connOne.resetCache();
-		var newTree = _.cloneDeep(tree)
-    newTree.bookmarks.test.aaa.bbb['index-one']['*']['index-two']['*']['index-three']['*']._rev = 0;
 
-    // 1. Put some deep stuff
-    console.log('putting')
-		var putOne = await connOne.put({
-      path: '/bookmarks/test/aaa/bbb/index-one/ccc',
-			data: {sometest: 'foo'},
-			tree,
+    // Create a tree of data 
+    console.log('1111111111111');
+		var putOne = await connTwo.put({
+      path: '/bookmarks/aaa/bbb/index-one/ccc',
+			data: {putOne: 'bar'},
+      tree: newTree
     })
+    expect(putOne.status).to.equal(204);
+
+    console.log('2222222222222');
+    // Put to some other path that isn't in the original tree. This path should
+    // be omitted when this tree is linked to the other tree
+    var putTwo = await connTwo.put({
+      path: '/bookmarks/aaa/ddd/index-one/ccc/index-two/ddd',
+			data: {putTwo: 'foo'},
+      type: 'application/json'
+    })
+    expect(putTwo.status).to.equal(204);
+    console.log('3333333333333');
+
+    // Create the bookmarks/test endpoint we're going to watch
+    var putThree = await connOne.put({
+      path: '/bookmarks/test',
+			data: {putThree: 'foo'},
+      tree
+    })
+    expect(putThree.status).to.equal(204);
+    console.log('4444444444444');
+
+    // Setup the watch on bookmarks/test
+    var result = await setupWatch(connOne, tree);
+    await Promise.delay(5000)
+
     var getOne = await connOne.get({
+      path: '/bookmarks/aaa',
+    })
+    expect(getOne.status).to.equal(200);
+
+    // Now link to the pre-existing tree and watch the changes come in.
+    console.log('making this link:', {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}})
+    var putFour = await connTwo.put({
+      path: '/bookmarks/test',
+			data: {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}},
+      tree
+    })
+    expect(putFour.status).to.equal(204);
+
+    console.log('okay here goes')
+    console.log('okay here goes')
+    console.log('okay here goes')
+    console.log('okay here goes')
+    console.log('okay here goes')
+    console.log('okay here goes')
+    console.log('okay here goes')
+    // Verify that the pre-existing tree (only the parts specified) are now
+    // cached.
+    var getTwo = await connOne.get({
       path: '/bookmarks/test',
       tree
     })
-    getOne = await connOne.get({
-      path: '/bookmarks/test',
-      tree
-    })
-    expect(getOne.cached).to.equal(true);
-    console.log('!!!!!!!!!!!deleting!!!!!!!!!!!!!!!!!')
-    // 2. Delete that deep stuff without affecting connOne's cache
-    var deleteOne = await connTwo.delete({
-      path: '/bookmarks/test/aaa/bbb/index-one/ccc',
-      type: 'application/json',
-    })
-    console.log('watching')
-    // 3. Set a watch on bookmarks/test; we don't want the recursive get to 404
-    // We want the offline changes to fix the cache
-		var response = await connOne.get({
-      path: '/bookmarks/test',
-      tree,
-			responding watchwatch: {
-				payload: {someExtra: 'payload'},
-			}
-		})
-    expect(response.status).to.equal(200)
-    expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
-    expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
-    expect(response.data.aaa.bbb).to.include.keys(['_id', '_rev', 'index-one', '_type'])
-    expect(response.data.aaa.bbb['index-one']).to.include.keys(['ccc'])
-    expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'sometest'])
+    console.log(pretty.render(getTwo.data));
+    expect(getTwo.status).to.equal(200);
+
+    expect(getTwo.data.aaa.bbb['index-one'].ccc['index-two'].ddd).to.include.keys(['_id', '_rev', '_type', 'putTwo'])
+    expect(getTwo.cached).to.equal(true)
+    expect(getTwo.data.aaa.ddd['index-one']).to.have.keys(['_id', '_rev'])
+
   })
  
+  /*
   it('Now clean up', async function() {
     this.timeout(6000);
 		await connOne.resetCache();

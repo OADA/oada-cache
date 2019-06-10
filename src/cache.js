@@ -159,15 +159,13 @@ export default function setupCache({ name, req, expires }) {
       if (result._rev !== undefined) dbPut._rev = result._rev;
     }
 
-
-
     // Now handle the upsert
     if (req.method && req.method.toLowerCase() === "delete") {
 
       if (!pathLeftover) {
 
         if (memoryCache[resourceId] && memoryCache[resourceId].promise) memoryCache[resourceId].promise.cancel();
-        delete  memoryCache[resourceId]
+        delete memoryCache[resourceId]
         return db.remove(result).then(response => {
           return { response };
         }).catch((error) => {
@@ -297,18 +295,17 @@ export default function setupCache({ name, req, expires }) {
       pieces.length > 3 ? "/" + pieces.slice(3, pieces.length).join("/") : "";
     var resource = undefined;
     var rev = undefined;
-
     // 1) Get resource from in-memory cache
     var res_inmemory = memoryCache[resourceId];
     if (res_inmemory) {
-      resource = res_inmemory.data.doc;
+      resource = res_inmemory.data;
     }
 
     // 2) Get resource from local DB
     if (!resource) {
       try {
         const res_localdb = await db.get(resourceId);
-        resource = res_localdb.doc;
+        resource = res_localdb;
       } catch (err) {
         // Oops
         console.log('getResFromDbErr', err)
@@ -322,7 +319,7 @@ export default function setupCache({ name, req, expires }) {
     }
 
     //TODO: whats up with the false in quotes? Is this a pouch thing?
-    if (resource.accessed + expiration <= Date.now() || !resource.valid === "false") {
+    if (resource.accessed + expiration <= Date.now() || resource.valid === false) {
       if (offline) { // offline. skip for now. TODO: add code later
       } else {
         return getResFromServer(req);
@@ -331,17 +328,17 @@ export default function setupCache({ name, req, expires }) {
 
     //Handle _rev passed in. If current object is too far out of date, get from server
     if (req.headers && req.headers['x-oada-rev'] && 
-      ((parseInt(req.headers['x-oada-rev']) - parseInt(resource._rev)) >= revLimit)) {
+      ((parseInt(req.headers['x-oada-rev']) - parseInt(resource.doc._rev)) >= revLimit)) {
       return getResFromServer(req);
     }
 
     //If no pathLeftover, it'll just return resource!
-    if (pointer.has(resource, pathLeftover)) {
-      var data = pointer.get(resource, pathLeftover);
+    if (pointer.has(resource.doc, pathLeftover)) {
+      var data = pointer.get(resource.doc, pathLeftover);
       return {
         data,
         headers: {
-          "x-oada-rev": resource._rev,
+          "x-oada-rev": resource.doc._rev,
           "content-location": resourceId + pathLeftover,
         },
         status: 200,
@@ -481,7 +478,6 @@ export default function setupCache({ name, req, expires }) {
         try {
           await updateParent(req);
         } catch (error) {
-          console.log('was a problem updating parent doc');
           throw error;
         }
       } catch (err) {
@@ -724,13 +720,13 @@ export default function setupCache({ name, req, expires }) {
   async function resetCache() {
     try {
       if (db) {
-        await db.destroy();
         Object.keys(memoryCache).forEach(async function(key) {
           if (memoryCache[key].promise) {
             await memoryCache[key].promise.cancel();
           }
         })
         memoryCache = {};
+        await db.destroy();
       }
     } catch (err) {
       //error('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', err)
