@@ -2,8 +2,6 @@ const Promise = require("bluebird");
 const urlLib = require("url");
 const uuid = require("uuid/v4");
 const WebSocket = require("isomorphic-ws");
-//const error = require('debug')('oada-cache:websocket:error');
-//const info = require('debug')('oada-cache:websocket:info');
 Promise.config({ warnings: false });
 
 function websocket(url) {
@@ -33,7 +31,7 @@ function websocket(url) {
       resolve(socket);
     };
 
-    socket.onclose = function(event) {};
+    socket.oncloconsose = function(event) {};
     socket.onmessage = function(event) {
       var response = JSON.parse(event.data);
       //Look for id in httpCallbacks
@@ -45,14 +43,14 @@ function websocket(url) {
           } else {
             //Create error like axios
             let err = new Error(
-              "Request failed with status code " + response.status
+              "Request failed with status code " + response.status,
             );
             err.request = httpCallbacks[response.requestId].request;
             err.response = {
               status: response.status,
               statusText: response.statusText,
               headers: response.headers,
-              data: response.data
+              data: response.data,
             };
             httpCallbacks[response.requestId].reject(err);
           }
@@ -65,7 +63,7 @@ function websocket(url) {
             } else {
               //error(watchCallbacks[response.requestId].request, response);
               let err = new Error(
-                "Request failed with status code " + response.status
+                "Request failed with status code " + response.status,
               );
               err.response = response;
               err.request = watchCallbacks[response.requestId].request;
@@ -78,7 +76,7 @@ function websocket(url) {
             if (watchCallbacks[response.requestId].callback == null) {
               throw new Error(
                 "The given watch function has an undefined callback:",
-                watchCallbacks[response.requestId]
+                watchCallbacks[response.requestId],
               );
             }
             watchCallbacks[response.requestId].callback(response);
@@ -102,13 +100,13 @@ function websocket(url) {
             })
             .reduce((a, b) => {
               return { ...a, ...b };
-            })
+            }),
         };
         messages.push(message);
         httpCallbacks[message.requestId] = {
           request: request,
           resolve: resolve,
-          reject: reject
+          reject: reject,
         };
         sendMessages();
       });
@@ -127,14 +125,14 @@ function websocket(url) {
             })
             .reduce((a, b) => {
               return { ...a, ...b };
-            })
+            }),
         };
         messages.push(message);
         watchCallbacks[message.requestId] = {
           request,
           resolve,
           reject,
-          callback
+          callback,
         };
         sendMessages();
       });
@@ -153,14 +151,14 @@ function websocket(url) {
             })
             .reduce((a, b) => {
               return { ...a, ...b };
-            })
+            }),
         };
         messages.push(message);
         watchCallbacks[message.requestId] = {
           request,
           resolve,
           reject,
-          callback
+          callback,
         };
         sendMessages();
       });
@@ -181,7 +179,7 @@ function websocket(url) {
       http: _http,
       close: _close,
       watch: _watch,
-      unwatch: _unwatch
+      unwatch: _unwatch,
     };
   });
 }

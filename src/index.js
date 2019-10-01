@@ -7,8 +7,10 @@ const pointer = require("json-pointer");
 const ws = require("./websocket");
 const axios = require("axios");
 const _TOKEN = require("./token");
-//const error = require('debug')('oada-cache:index:error');
-//const info = require('debug')('oada-cache:index:info');
+
+// debug
+const error = require("debug")("oada-cache:index:error");
+const info = require("debug")("oada-cache:index:info");
 
 var connect = async function connect({
   domain,
@@ -102,7 +104,6 @@ var connect = async function connect({
   }
 
   async function _makeResourceAndLink({ path, data, headers }, waitTime) {
-    //info('_makeResourceAndLink', path, data)
     data._id = _.clone(data._id) || "resources/" + uuid();
 
     let linkReq = {
@@ -196,15 +197,15 @@ var connect = async function connect({
         async function handleWatchResponse(response) {
           if (payload.tree) {
             // Filter the change body based on the given tree
-            console.log("BODY BEFORE", path, payload.tree);
-            console.log(_.cloneDeep(response.change.body));
+            info("BODY BEFORE", path, payload.tree);
+            info(_.cloneDeep(response.change.body));
             response.change.body = await _recursiveFilterChange(
               DOMAIN + path,
               payload.tree,
               response.change.body,
             );
-            console.log("BODY AFTER");
-            console.log(response.change.body);
+            info("BODY AFTER");
+            info(response.change.body);
           }
           var watchPayload = _.cloneDeep(payload) || {};
           watchPayload.response = response;
@@ -219,7 +220,7 @@ var connect = async function connect({
               watchPayload = await CACHE.handleWatchChange(watchPayload);
             }
           } catch (err) {
-            console.log(err);
+            error(err);
           }
           if (func) {
             await func(watchPayload);
@@ -297,10 +298,10 @@ var connect = async function connect({
     data = bef.data;
     obj = bef.obj;
 
-    console.log("mapping over data", url);
+    info("mapping over data", url);
     return Promise.map(Object.keys(data || {}), async function(key) {
-      console.log("key is", key);
-      console.log(typeof data[key], tree);
+      info("key is", key);
+      info(typeof data[key], tree);
       if (typeof data[key] === "object") {
         var nextTree;
         if (tree[key]) {
@@ -313,7 +314,7 @@ var connect = async function connect({
         } else {
           return;
         }
-        console.log("next data", data[key]);
+        info("next data", data[key]);
         var res = await _treeWalk(
           url + "/" + key,
           nextTree,
@@ -322,7 +323,7 @@ var connect = async function connect({
           beforeCb,
           afterCb,
         );
-        console.log(key, res);
+        info(key, res);
         data[key] = res.data;
         obj = res.obj;
       }
@@ -340,12 +341,9 @@ var connect = async function connect({
       changeBody,
       undefined,
       async function retrieveLinkedData(url, subTree, data) {
-        console.log("DETECTING A LINK", url, data);
-        console.log("a1", Object.keys(data).length === 1 && data._id);
-        console.log(
-          "b2",
-          Object.keys(data).length === 2 && data._rev && data._id,
-        );
+        info("DETECTING A LINK", url, data);
+        info("a1", Object.keys(data).length === 1 && data._id);
+        info("b2", Object.keys(data).length === 2 && data._rev && data._id);
         if (
           (Object.keys(data).length === 1 && data._id) ||
           (Object.keys(data).length === 2 &&
@@ -361,7 +359,7 @@ var connect = async function connect({
           });
           data = got.data;
         }
-        console.log("returning");
+        info("returning");
         return { data };
       },
     );
@@ -427,7 +425,7 @@ var connect = async function connect({
                   headers: { "content-type": tree._type },
                 });
               } catch (erro) {
-                console.log("recursiveDelete error on delete resource", erro);
+                error("recursiveDelete error on delete resource", erro);
               }
             }
 
@@ -480,7 +478,7 @@ var connect = async function connect({
         .path.replace(/^\//, "")
         .split("/");
       let treePath = _convertSetupTreePath(pieces, tree);
-      console.log(tree, treePath);
+      info(tree, treePath);
       if (!pointer.has(tree, treePath)) {
         throw new Error("The path does not exist on the given tree.");
       }
@@ -492,7 +490,7 @@ var connect = async function connect({
     if (watch) {
       path = path || urlLib.parse(url).path;
       req.headers["x-oada-rev"] = response.data._rev;
-      console.log("SENDING THIS REEVVVVVVVVVVVVVVV", response.data._rev);
+      info("SENDING THIS REEVVVVVVVVVVVVVVV", response.data._rev);
       if (tree) {
         watch.payload.tree = subTree;
       }
@@ -502,14 +500,14 @@ var connect = async function connect({
         func: watch.function,
         payload: watch.payload,
       });
-      console.log("WATCH RESPONSE", watchResponse);
+      info("WATCH RESPONSE", watchResponse);
     }
 
     // Perform recursive GET in response to the tree
     if (tree) {
       try {
         if (watch && watchResponse.resource) {
-          console.log("tree getting", watch, watchResponse.resource);
+          info("tree getting", watch, watchResponse.resource);
           var stuff = await _recursiveGet(
             req.url,
             subTree,
@@ -523,7 +521,7 @@ var connect = async function connect({
         response.cached = stuff.cached;
       } catch (err) {
         // catch 404s because ... ?
-        console.log("ERA", err);
+        error("ERA", err);
         if (err.response && err.response.status === 404) {
         } else {
           throw err;
@@ -756,7 +754,7 @@ var connect = async function connect({
                 headers: { "content-type": tree._type },
               });
             } catch (erro) {
-              console.log("aaaaaaaa", "/" + data._id, url, erro);
+              error("aaaaaaaa", "/" + data._id, url, erro);
             }
           }
 
