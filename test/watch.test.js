@@ -1,41 +1,41 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
-import Promise from 'bluebird'
-import oada from '../src/index'
-const pretty = require('prettyjson');
-const _ = require('lodash');
-const {expect} = require('chai');
-const {token, domain} = require('./config.js');
-const {tree, putResource, getConnections} = require('./utils.js');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+import Promise from "bluebird";
+import oada from "../src/index";
+const pretty = require("prettyjson");
+const _ = require("lodash");
+const { expect } = require("chai");
+const { token, domain } = require("./config.js");
+const { tree, putResource, getConnections } = require("./utils.js");
 var expecting = false;
 
 var connections;
 var expects = {};
 
 async function setupWatch(conn, tre, payload) {
-	//watch the endpoint
+  //watch the endpoint
   var getOne = await conn.get({
-		path: '/bookmarks/test',
-		tree: tre || tree,
-		watch: {
-			payload: payload || {someExtra: 'payload'},
-			func: (pay) => {
-        console.log('received a thing');
-			}
-		}
-	})
+    path: "/bookmarks/test",
+    tree: tre || tree,
+    watch: {
+      payload: payload || { someExtra: "payload" },
+      func: pay => {
+        console.log("received a thing");
+      }
+    }
+  });
   expect(getOne.status).to.equal(200);
-	return {getOne}
+  return { getOne };
 }
 
 describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
-	var connOne;
-	var connTwo;
-	before(`Create connection types`, async function() {
-		connections = await getConnections({domain, token})
-		connOne = connections[3];
-		connTwo = connections[2];
-	})
- 
+  var connOne;
+  var connTwo;
+  before(`Create connection types`, async function() {
+    connections = await getConnections({ domain, token });
+    connOne = connections[3];
+    connTwo = connections[2];
+  });
+
   /*
 	it(`1. Watches should automatically update the cache when a single resource is created (single connection)`, async function() {
 		this.timeout(20000);
@@ -445,95 +445,98 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 */
 
   it(`7. The tree is needed to decide what documents to sync given a change document where a link connected to a large, preexisting tree`, async function() {
-		this.timeout(15000);
-		var newTree = {
+    this.timeout(15000);
+    var newTree = {
       bookmarks: {
         aaa: _.cloneDeep(tree.bookmarks.test.aaa),
         _type: "application/vnd.oada.bookmarks.1+json",
-        _rev: 0,
+        _rev: 0
       }
-    }
+    };
     // Add some extra subtree so we can create it quickly
-    newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb)
+    newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb);
 
     console.log(newTree);
-		await connOne.delete({path:'/bookmarks/aaa', tree:newTree})
-		await connOne.delete({path:'/bookmarks/test', tree})
+    await connOne.delete({ path: "/bookmarks/aaa", tree: newTree });
+    await connOne.delete({ path: "/bookmarks/test", tree });
     await connOne.resetCache();
 
-    // Create a tree of data 
-    console.log('1111111111111');
-		var putOne = await connTwo.put({
-      path: '/bookmarks/aaa/bbb/index-one/ccc',
-			data: {putOne: 'bar'},
+    // Create a tree of data
+    console.log("1111111111111");
+    var putOne = await connTwo.put({
+      path: "/bookmarks/aaa/bbb/index-one/ccc",
+      data: { putOne: "bar" },
       tree: newTree
-    })
+    });
     expect(putOne.status).to.equal(204);
 
-    console.log('2222222222222');
+    console.log("2222222222222");
     // Put to some other path that isn't in the original tree. This path should
     // be omitted when this tree is linked to the other tree
     var putTwo = await connTwo.put({
-      path: '/bookmarks/aaa/ddd/index-one/ccc/index-two/ddd',
-			data: {putTwo: 'foo'},
-      type: 'application/json'
-    })
+      path: "/bookmarks/aaa/ddd/index-one/ccc/index-two/ddd",
+      data: { putTwo: "foo" },
+      type: "application/json"
+    });
     expect(putTwo.status).to.equal(204);
-    console.log('3333333333333');
+    console.log("3333333333333");
 
     // Create the bookmarks/test endpoint we're going to watch
     var putThree = await connOne.put({
-      path: '/bookmarks/test',
-			data: {putThree: 'foo'},
+      path: "/bookmarks/test",
+      data: { putThree: "foo" },
       tree
-    })
+    });
     expect(putThree.status).to.equal(204);
-    console.log('4444444444444');
+    console.log("4444444444444");
 
     // Setup the watch on bookmarks/test
     var result = await setupWatch(connOne, tree);
-    await Promise.delay(5000)
+    await Promise.delay(5000);
 
     var getOne = await connOne.get({
-      path: '/bookmarks/aaa',
-    })
+      path: "/bookmarks/aaa"
+    });
     expect(getOne.status).to.equal(200);
 
     // Now link to the pre-existing tree and watch the changes come in.
-    console.log('making this link:', {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}})
+    console.log("making this link:", {
+      aaa: { _id: getOne.data._id, _rev: getOne.data._rev }
+    });
     var putFour = await connTwo.put({
-      path: '/bookmarks/test',
-			data: {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}},
+      path: "/bookmarks/test",
+      data: { aaa: { _id: getOne.data._id, _rev: getOne.data._rev } },
       tree
-    })
+    });
     expect(putFour.status).to.equal(204);
 
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
+    console.log("okay here goes");
+    console.log("okay here goes");
+    console.log("okay here goes");
+    console.log("okay here goes");
+    console.log("okay here goes");
+    console.log("okay here goes");
+    console.log("okay here goes");
     // Verify that the pre-existing tree (only the parts specified) are now
     // cached.
     var getTwo = await connOne.get({
-      path: '/bookmarks/test',
+      path: "/bookmarks/test",
       tree
-    })
+    });
     console.log(pretty.render(getTwo.data));
     expect(getTwo.status).to.equal(200);
 
-    expect(getTwo.data.aaa.bbb['index-one'].ccc['index-two'].ddd).to.include.keys(['_id', '_rev', '_type', 'putTwo'])
-    expect(getTwo.cached).to.equal(true)
-    expect(getTwo.data.aaa.ddd['index-one']).to.have.keys(['_id', '_rev'])
+    expect(
+      getTwo.data.aaa.bbb["index-one"].ccc["index-two"].ddd
+    ).to.include.keys(["_id", "_rev", "_type", "putTwo"]);
+    expect(getTwo.cached).to.equal(true);
+    expect(getTwo.data.aaa.ddd["index-one"]).to.have.keys(["_id", "_rev"]);
+  });
 
-  })
- 
   /*
   it('Now clean up', async function() {
     this.timeout(6000);
 		await connOne.resetCache();
 		await connOne.delete({path:'/bookmarks/test', tree})
   })*/
-})
+});

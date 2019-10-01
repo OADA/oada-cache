@@ -22,20 +22,20 @@ describe(`In-memory Cache`, async function() {
     before(`Create connection`, async function() {
       connection = await oada.connect({
         domain,
-        token: "def",
+        token: "def"
       });
     });
 
     it(`Should get a resource from server`, async function() {
       var response = await connection.get({
-        path: "/resources/default:resources_bookmarks_321",
+        path: "/resources/default:resources_bookmarks_321"
       });
       expect(response.data).to.include.keys(["_id", "_rev", "_type", "_meta"]);
     });
 
     it(`In-memory cache should contain one entry`, async function() {
       expect(connection._getMemoryCache()).to.have.property(
-        "resources/default:resources_bookmarks_321",
+        "resources/default:resources_bookmarks_321"
       );
     });
 
@@ -49,20 +49,20 @@ describe(`In-memory Cache`, async function() {
 
     it(`Should get a resource from PouchDB`, async function() {
       var response = await connection.get({
-        path: "/resources/default:resources_bookmarks_321",
+        path: "/resources/default:resources_bookmarks_321"
       });
       expect(response.data).to.include.keys(["_id", "_rev", "_type", "_meta"]);
     });
 
     it(`In-memory cache should contain one entry`, async function() {
       expect(connection._getMemoryCache()).to.have.property(
-        "resources/default:resources_bookmarks_321",
+        "resources/default:resources_bookmarks_321"
       );
     });
 
     it(`Should get a resource from im-memory cache`, async function() {
       var response = await connection.get({
-        path: "/resources/default:resources_bookmarks_321",
+        path: "/resources/default:resources_bookmarks_321"
       });
       expect(response.data).to.include.keys(["_id", "_rev", "_type", "_meta"]);
     });
@@ -78,7 +78,7 @@ describe(`In-memory Cache`, async function() {
     before(`Create connection`, async function() {
       connection = await oada.connect({
         domain,
-        token: "def",
+        token: "def"
       });
     });
 
@@ -88,13 +88,13 @@ describe(`In-memory Cache`, async function() {
       var response = await connection.put({
         path: "/bookmarks/test",
         data: { sometest: 123 },
-        tree,
+        tree
       });
       expect(response.status).to.equal(204);
       expect(response.headers).to.include.keys([
         "content-location",
         "x-oada-rev",
-        "location",
+        "location"
       ]);
     });
 

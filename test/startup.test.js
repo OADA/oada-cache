@@ -373,7 +373,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
 
   it("Now clean up", async function() {
     await conn.resetCache();
-		await conn.delete({path: '/bookmarks/test', tree})
+    await conn.delete({ path: "/bookmarks/test", tree });
   });
 });
 

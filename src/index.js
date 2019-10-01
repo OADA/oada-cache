@@ -16,7 +16,7 @@ var connect = async function connect({
   options,
   cache,
   token,
-  websocket,
+  websocket
 }) {
   if (!domain) throw new Error("domain undefined");
   if (typeof domain !== "string") throw new Error("domain must be a string");
@@ -29,7 +29,7 @@ var connect = async function connect({
     typeof cache !== "object"
   )
     throw new Error(
-      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
     );
   if (cache && cache.name && typeof cache.name !== "string")
     throw new Error("cache name must be a string");
@@ -74,7 +74,7 @@ var connect = async function connect({
       if (val._id) {
         // If it's an object, and has an '_id', make it a link from descriptor
         ret[key] = { _id: val._id };
-        if ('_rev' in val) ret[key]._rev = val._rev;
+        if ("_rev" in val) ret[key]._rev = val._rev;
         return;
       }
       // otherwise, recurse into the object looking for more links
@@ -95,10 +95,10 @@ var connect = async function connect({
       path,
       type: data._type,
       headers,
-      data: { _id: data._id },
+      data: { _id: data._id }
     };
     // Create a versioned link if the tree specifies one.
-    if ('_rev' in data) {
+    if ("_rev" in data) {
       linkReq.data._rev = 0;
     }
     // We don't want to attempt to set the rev when we put the resource
@@ -106,7 +106,7 @@ var connect = async function connect({
     let resReq = {
       path: "/" + data._id,
       type: data._type,
-      data,
+      data
     };
     var link;
     try {
@@ -123,78 +123,89 @@ var connect = async function connect({
           response = await NOCACHEREQUEST({
             method: "get",
             url: DOMAIN + parentPath,
-            headers: { Authorization: "Bearer " + TOKEN },
+            headers: { Authorization: "Bearer " + TOKEN }
           });
         } catch (erro) {
           waitTime = waitTime || 1000;
           await Promise.delay(waitTime);
           return _makeResourceAndLink({ path, data, headers }, waitTime * 2);
         }
-        // If the key has already been created, set the resource path to the bookmarks path and let it map automatically, not a resource id 
-        if (response.data[pathPieces[pathPieces.length-1]]) {
-          resReq.data._id = response.data[pathPieces[pathPieces.length-1]]._id;
-          resReq.path = '/'+resReq.data._id;
+        // If the key has already been created, set the resource path to the bookmarks path and let it map automatically, not a resource id
+        if (response.data[pathPieces[pathPieces.length - 1]]) {
+          resReq.data._id =
+            response.data[pathPieces[pathPieces.length - 1]]._id;
+          resReq.path = "/" + resReq.data._id;
           // Concurrent put, delete, put (delete.test.js #15) can produce situations where _id is undefined
           if (!resReq.data._id) {
             waitTime = waitTime || 1000;
-            await Promise.delay(waitTime)
+            await Promise.delay(waitTime);
             var newHeaders = _.cloneDeep(headers);
             //TODO: use if-match headers???
-            newHeaders['if-match'] = parseInt(response.headers['x-oada-rev']);
-            return _makeResourceAndLink({path, data, headers: newHeaders}, waitTime*2)
+            newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
+            return _makeResourceAndLink(
+              { path, data, headers: newHeaders },
+              waitTime * 2
+            );
           }
         } else {
           // The key does not yet exist, adjust the if-match and try again.
-					waitTime = waitTime || 1000;
-					await Promise.delay(waitTime)
-					var newHeaders = _.cloneDeep(headers);
-					newHeaders['if-match'] = parseInt(response.headers['x-oada-rev']);
-				  return _makeResourceAndLink({path, data, headers: newHeaders}, waitTime*2)
-				}
-			} else throw err;
-		}
-		// Delete the _rev  and _id keys. No need for them in the resource object. They will break things.
-    if ('_rev' in data) delete resReq.data._rev
-		var resource = await put(resReq);
+          waitTime = waitTime || 1000;
+          await Promise.delay(waitTime);
+          var newHeaders = _.cloneDeep(headers);
+          newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
+          return _makeResourceAndLink(
+            { path, data, headers: newHeaders },
+            waitTime * 2
+          );
+        }
+      } else throw err;
+    }
+    // Delete the _rev  and _id keys. No need for them in the resource object. They will break things.
+    if ("_rev" in data) delete resReq.data._rev;
+    var resource = await put(resReq);
     return { link, resource };
   }
 
   function _watch({ headers, path, func, payload }) {
     if (SOCKET) {
-      return SOCKET.watch({
-        path,
-        headers
-      }, async function handleWatchResponse(response) {
-        if (payload.tree) {
-          // Filter the change body based on the given tree
-          console.log('BODY BEFORE', path, payload.tree)
-          console.log(_.cloneDeep(response.change.body));
-          response.change.body = await _recursiveFilterChange(
-            DOMAIN + path,
-            payload.tree,
-            response.change.body
-          )
-          console.log('BODY AFTER')
-          console.log(response.change.body);
-        }
-        var watchPayload = _.cloneDeep(payload) || {};
-        watchPayload.response = response;
-        watchPayload.request = {
-          url: DOMAIN + path,
-          headers,
-          method: response.change.type
-		    };
+      return SOCKET.watch(
+        {
+          path,
+          headers
+        },
+        async function handleWatchResponse(response) {
+          if (payload.tree) {
+            // Filter the change body based on the given tree
+            console.log("BODY BEFORE", path, payload.tree);
+            console.log(_.cloneDeep(response.change.body));
+            response.change.body = await _recursiveFilterChange(
+              DOMAIN + path,
+              payload.tree,
+              response.change.body
+            );
+            console.log("BODY AFTER");
+            console.log(response.change.body);
+          }
+          var watchPayload = _.cloneDeep(payload) || {};
+          watchPayload.response = response;
+          watchPayload.request = {
+            url: DOMAIN + path,
+            headers,
+            method: response.change.type
+          };
 
-		    try {
-          if (CACHE) watchPayload = await CACHE.handleWatchChange(watchPayload);
-		    } catch (err) {
-		      console.log(err)
-		    }
-		    if (func) await func(watchPayload);
-		    return
-      })
+          try {
+            if (CACHE)
+              watchPayload = await CACHE.handleWatchChange(watchPayload);
+          } catch (err) {
+            console.log(err);
+          }
+          if (func) await func(watchPayload);
+          return;
+        }
+      );
     } else {
-      return
+      return;
       /*
       // Ping a normal GET every 5 seconds in the absense of a websocket
       return setInterval(() => {
@@ -220,7 +231,7 @@ var connect = async function connect({
     let req = {
       method,
       url: url || DOMAIN + path,
-      headers: { authorization: "Bearer " + TOKEN },
+      headers: { authorization: "Bearer " + TOKEN }
     };
     if (/\/$/.test(req.url)) req.url = req.url.slice(0, req.url.length - 1);
 
@@ -255,41 +266,41 @@ var connect = async function connect({
   }
 
   async function _treeWalk(url, tree, data, obj, beforeCb, afterCb) {
-    var bef = beforeCb ? await beforeCb(url, tree, data, obj) : {data, obj};
+    var bef = beforeCb ? await beforeCb(url, tree, data, obj) : { data, obj };
     data = bef.data;
     obj = bef.obj;
 
-    console.log('mapping over data', url);
+    console.log("mapping over data", url);
     return Promise.map(Object.keys(data || {}), async function(key) {
-      console.log('key is', key);
+      console.log("key is", key);
       console.log(typeof data[key], tree);
       if (typeof data[key] === "object") {
         var nextTree;
         if (tree[key]) {
           nextTree = tree[key];
-        } else if (tree['*']) {
-          nextTree = tree['*'];
+        } else if (tree["*"]) {
+          nextTree = tree["*"];
 
-        //Leave alone data for any keys that are not present in tree. Do not
-        //pursue these keys any further.
-        } else return 
-        console.log('next data', data[key])
+          //Leave alone data for any keys that are not present in tree. Do not
+          //pursue these keys any further.
+        } else return;
+        console.log("next data", data[key]);
         var res = await _treeWalk(
-          url + '/' + key, 
-          nextTree, 
+          url + "/" + key,
+          nextTree,
           data[key],
           obj,
-          beforeCb, 
+          beforeCb,
           afterCb
-        )
+        );
         console.log(key, res);
-        data[key] = res.data
+        data[key] = res.data;
         obj = res.obj;
       }
-      return
+      return;
     }).then(async function() {
-      return afterCb ? await afterCb(url, tree, data, obj) : {data, obj}
-    })
+      return afterCb ? await afterCb(url, tree, data, obj) : { data, obj };
+    });
   }
 
   // Filter changes to match the given tree. Handle changes that include link creation.
@@ -300,53 +311,59 @@ var connect = async function connect({
       changeBody,
       undefined,
       async function retrieveLinkedData(url, subTree, data) {
-        console.log('DETECTING A LINK', url, data)
-        console.log('a1', (Object.keys(data).length === 1 && data._id))
-        console.log('b2', Object.keys(data).length === 2 && data._rev && data._id)
-        if ((Object.keys(data).length === 1 && data._id) ||
-          (Object.keys(data).length === 2 && Object.hasOwnProperty(data, '_rev') && data._id)) {
+        console.log("DETECTING A LINK", url, data);
+        console.log("a1", Object.keys(data).length === 1 && data._id);
+        console.log(
+          "b2",
+          Object.keys(data).length === 2 && data._rev && data._id
+        );
+        if (
+          (Object.keys(data).length === 1 && data._id) ||
+          (Object.keys(data).length === 2 &&
+            Object.hasOwnProperty(data, "_rev") &&
+            data._id)
+        ) {
           let getTree = {};
-          let path = urlLib.parse(url).path
-          pointer.set(getTree, path, subTree)
+          let path = urlLib.parse(url).path;
+          pointer.set(getTree, path, subTree);
           var got = await get({
             tree: getTree,
-            url,
-          })
+            url
+          });
           data = got.data;
         }
-        console.log('returning');
-        return {data}
-      },
-    )
+        console.log("returning");
+        return { data };
+      }
+    );
   }
-
 
   function recursiveGet(startingUrl, tree, data, cached) {
     return _treeWalk(
       startingUrl,
       tree,
-      {data, cached}, 
+      { data, cached },
       async function recGetBefore(url, subTree, data, obj) {
         if (subTree._type) {
           // its a resource
           var got = await get({
             url,
-            headers: '_rev' in data ? {'x-oada-rev': data._rev} : {},
+            headers: "_rev" in data ? { "x-oada-rev": data._rev } : {}
           });
           data = got.data;
           obj.cached = got.cached ? got.cached : false;
-        } 
-        return {data, obj}
-      }, 
+        }
+        return { data, obj };
+      },
       undefined
-    )
+    );
   }
 
   function recursiveDelete(startingUrl, tree, data) {
     return _treeWalk(
       startingUrl,
       tree,
-      data, 
+      data,
       undefined,
       async function recDeleteBefore(url, subTree, data) {
         // Perform a GET if we have reached the next resource break.
@@ -354,7 +371,7 @@ var connect = async function connect({
           // its a resource
           try {
             var got = await get({
-              url,
+              url
             });
             data = got.data;
           } catch (err) {
@@ -363,8 +380,8 @@ var connect = async function connect({
               // WASN'T THROWING HERE PREVIOUSLY
             } else throw err;
           }
-        } else return {data}
-      }, 
+        } else return { data };
+      },
       async function recDeleteAfter(url, data) {
         var link;
         if (tree._type) {
@@ -373,11 +390,11 @@ var connect = async function connect({
             if (data._id) {
               try {
                 await del({
-                  path: '/'+data._id,
-                  headers: {'content-type': tree._type}
+                  path: "/" + data._id,
+                  headers: { "content-type": tree._type }
                 });
-              } catch(erro) {
-                console.log('recursiveDelete error on delete resource', erro)
+              } catch (erro) {
+                console.log("recursiveDelete error on delete resource", erro);
               }
             }
 
@@ -385,7 +402,7 @@ var connect = async function connect({
             link = await del({
               url,
               headers: {
-                'content-type': tree._type
+                "content-type": tree._type
               }
             });
           } catch (err) {
@@ -401,11 +418,11 @@ var connect = async function connect({
         // link and data can be undefined if the current object is
         // not a resource (deletes won't need to happen)
         return {
-          link: link || {}, 
-          data: data || {},
+          link: link || {},
+          data: data || {}
         };
       }
-    )
+    );
   }
 
   async function get({ url, path, headers, watch, tree }) {
@@ -416,7 +433,7 @@ var connect = async function connect({
     let watchResponse;
     // TODO: shouldn't request twice for normal tree get...
     var response = await _sendRequest(req);
-    
+
     let subTree;
     // Use the tree to construct the subTree to be potentially used in both the
     // watch as well as the recursiveGet
@@ -437,7 +454,7 @@ var connect = async function connect({
     if (watch) {
       path = path || urlLib.parse(url).path;
       req.headers["x-oada-rev"] = response.data._rev;
-      console.log('SENDING THIS REEVVVVVVVVVVVVVVV', response.data._rev);
+      console.log("SENDING THIS REEVVVVVVVVVVVVVVV", response.data._rev);
       if (tree) watch.payload.tree = subTree;
       watchResponse = await _watch({
         headers: req.headers,
@@ -445,22 +462,28 @@ var connect = async function connect({
         func: watch.function,
         payload: watch.payload
       });
-      console.log('WATCH RESPONSE', watchResponse);
+      console.log("WATCH RESPONSE", watchResponse);
     }
 
     // Perform recursive GET in response to the tree
     if (tree) {
       try {
         if (watch && watchResponse.resource) {
-          console.log('tree getting', watch, watchResponse.resource);
-          var stuff = await _recursiveGet(req.url, subTree, watchResponse.resource, true);
+          console.log("tree getting", watch, watchResponse.resource);
+          var stuff = await _recursiveGet(
+            req.url,
+            subTree,
+            watchResponse.resource,
+            true
+          );
         } else {
           var stuff = await _recursiveGet(req.url, subTree, {}, true);
         }
         response.data = stuff.data;
         response.cached = stuff.cached;
-      } catch (err) { // catch 404s because ... ?
-        console.log('ERA', err)
+      } catch (err) {
+        // catch 404s because ... ?
+        console.log("ERA", err);
         if (err.response && err.response.status === 404) {
         } else throw err;
       }
@@ -475,7 +498,7 @@ var connect = async function connect({
       // its a resource
       var got = await get({
         url,
-        headers: '_rev' in data ? {'x-oada-rev': data._rev} : {},
+        headers: "_rev" in data ? { "x-oada-rev": data._rev } : {}
       });
       //info('_recursiveGet GET data:', got.data)
       data = got.data;
@@ -488,18 +511,18 @@ var connect = async function connect({
             url + "/" + key,
             tree[key],
             data[key],
-            cached,
+            cached
           );
-					cached = res.cached;
+          cached = res.cached;
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveGet(
             url + "/" + key,
             tree["*"],
             data[key],
-            cached,
+            cached
           );
-					cached = res.cached;
+          cached = res.cached;
           return (data[key] = res.data);
         } else return; //data[key] is already stored in the data object
       } else return;
@@ -527,7 +550,7 @@ var connect = async function connect({
           throw new Error("stored");
         }
         return get({
-          path: urlPath,
+          path: urlPath
         })
           .then(response => {
             //TODO: Detect whether the returned data matches the given tree
@@ -550,7 +573,7 @@ var connect = async function connect({
         return {
           stored: stored,
           setup: setup || 0,
-          _rev,
+          _rev
         };
       });
   }
@@ -600,14 +623,14 @@ var connect = async function connect({
           var resp = await _makeResourceAndLink({
             path: urlPath,
             data: _.cloneDeep(content),
-            headers: { "if-match": parentRev },
+            headers: { "if-match": parentRev }
           });
           parentRev = resp.resource.headers["x-oada-rev"];
           pointer.set(storedTree, urlPath, content);
           resp.path = urlPath;
           responses.push(resp);
         }
-      },
+      }
     );
     return responses;
   }
@@ -627,7 +650,7 @@ var connect = async function connect({
       data,
       type,
       headers,
-      tree,
+      tree
     });
   }
 
@@ -637,7 +660,7 @@ var connect = async function connect({
       // its a resource
       try {
         var got = await get({
-          url,
+          url
         });
         data = got.data;
       } catch (err) {
@@ -653,14 +676,14 @@ var connect = async function connect({
           var res = await _recursiveDelete(
             url + "/" + key,
             tree[key],
-            data[key],
+            data[key]
           );
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveDelete(
             url + "/" + key,
             tree["*"],
-            data[key],
+            data[key]
           );
           return (data[key] = res.data);
         } else return; //data[key] is already stored in the data object
@@ -673,41 +696,41 @@ var connect = async function connect({
           if (data._id) {
             try {
               await del({
-                path: '/'+data._id,
-                headers: {'content-type': tree._type}
+                path: "/" + data._id,
+                headers: { "content-type": tree._type }
               });
-            } catch(erro) {
-              console.log('aaaaaaaa','/'+data._id, url, erro)
+            } catch (erro) {
+              console.log("aaaaaaaa", "/" + data._id, url, erro);
             }
-					}
+          }
 
-					// Delete the link
-					link = await del({
-						url,
-						headers: {
-							'content-type': tree._type
-						}
-					});
+          // Delete the link
+          link = await del({
+            url,
+            headers: {
+              "content-type": tree._type
+            }
+          });
         } catch (err) {
-					if (err.response && err.response.status === 404) {
-						data = {};
-						return {
-              link: link || {}, 
-              data: data || {},
+          if (err.response && err.response.status === 404) {
+            data = {};
+            return {
+              link: link || {},
+              data: data || {}
             };
-					}
-				}
+          }
+        }
       } else {
         // Delete the lookup for non resources
         if (CACHE) await CACHE.removeLookup({ url });
       }
       // link and data can be undefined if the current object is
       // not a resource (deletes won't need to happen)
-			return {
-        link: link || {}, 
-        data: data || {},
+      return {
+        link: link || {},
+        data: data || {}
       };
-    })
+    });
   }
 
   async function del({ url, path, type, headers, tree, unwatch }) {
@@ -716,13 +739,13 @@ var connect = async function connect({
       url,
       path,
       type,
-      headers,
+      headers
     });
     if (unwatch) {
       path = path || urlLib.parse(url).path;
       return SOCKET.unwatch({
         path,
-        headers: req.headers,
+        headers: req.headers
       });
     }
     if (tree) {
@@ -735,8 +758,8 @@ var connect = async function connect({
         throw new Error("The path does not exist on the given tree.");
       //return get({url: req.url})
       var subTree = pointer.get(tree, treePath);
-        var result = await _recursiveDelete(req.url, subTree, {}, true);
-        return result.link
+      var result = await _recursiveDelete(req.url, subTree, {}, true);
+      return result.link;
 
       //var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
       //if (!req.headers["content-type"] && pointer.has(tree, treePath))
@@ -745,7 +768,7 @@ var connect = async function connect({
     if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
 
-    return _sendRequest(req)
+    return _sendRequest(req);
   }
 
   // Ensure all resources down to the deepest resource are created before
@@ -757,7 +780,7 @@ var connect = async function connect({
       path,
       data,
       type,
-      headers,
+      headers
     });
 
     // Ensure parent resources are created
@@ -765,7 +788,7 @@ var connect = async function connect({
       var responses = await _ensureTree({
         url: req.url,
         tree: _.cloneDeep(tree),
-        data,
+        data
       });
       var pieces =
         responses.length > 0
@@ -812,7 +835,7 @@ var connect = async function connect({
   // Setup websockets
   if (websocket !== false) {
     var socketApi = await ws(domain);
-		NOCACHEREQUEST = socketApi.http;
+    NOCACHEREQUEST = socketApi.http;
     REQUEST = socketApi.http;
     SOCKET = await socketApi;
   }
@@ -822,7 +845,7 @@ var connect = async function connect({
     await _configureCache({
       name: NAME || uuid(),
       req: REQUEST,
-      expires: EXPIRES,
+      expires: EXPIRES
     });
 
   function _getMemoryCache() {
@@ -844,10 +867,10 @@ var connect = async function connect({
     resetCache,
     disconnect,
     reconnect,
-    _getMemoryCache,
+    _getMemoryCache
   };
 };
 
 export default {
-  connect,
+  connect
 };
