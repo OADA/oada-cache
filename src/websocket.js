@@ -17,7 +17,9 @@ function websocket(url) {
   var watchCallbacks = {};
 
   function sendMessages() {
-    if (!connected) return;
+    if (!connected) {
+      return;
+    }
     messages.forEach(message => {
       socket.send(JSON.stringify(message));
     });
@@ -73,11 +75,12 @@ function websocket(url) {
             delete watchCallbacks[response.requestId]["resolve"];
             delete watchCallbacks[response.requestId]["reject"];
           } else {
-            if (watchCallbacks[response.requestId].callback == null)
+            if (watchCallbacks[response.requestId].callback == null) {
               throw new Error(
                 "The given watch function has an undefined callback:",
                 watchCallbacks[response.requestId]
               );
+            }
             watchCallbacks[response.requestId].callback(response);
           }
         }

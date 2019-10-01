@@ -1,5 +1,4 @@
 const Promise = require("bluebird");
-const pretty = require("prettyjson");
 import setupCache from "./cache";
 import uuid from "uuid";
 import _ from "lodash";
@@ -16,36 +15,47 @@ var connect = async function connect({
   options,
   cache,
   token,
-  websocket
+  websocket,
 }) {
-  if (!domain) throw new Error("domain undefined");
-  if (typeof domain !== "string") throw new Error("domain must be a string");
-  if (!options && !token) throw new Error("options and token undefined");
-  if (token && typeof token !== "string")
+  if (!domain) {
+    throw new Error("domain undefined");
+  }
+  if (typeof domain !== "string") {
+    throw new Error("domain must be a string");
+  }
+  if (!options && !token) {
+    throw new Error("options and token undefined");
+  }
+  if (token && typeof token !== "string") {
     throw new Error("token must be a string");
+  }
   if (
     cache !== undefined &&
     typeof cache !== "boolean" &&
     typeof cache !== "object"
-  )
+  ) {
     throw new Error(
-      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
     );
-  if (cache && cache.name && typeof cache.name !== "string")
+  }
+  if (cache && cache.name && typeof cache.name !== "string") {
     throw new Error("cache name must be a string");
+  }
   //  if (typeof cache !== "undefined" && typeof cache !== "boolean")
   //throw "cache must be boolean";
-  if (typeof websocket !== "undefined" && typeof websocket !== "boolean")
+  if (typeof websocket !== "undefined" && typeof websocket !== "boolean") {
     throw new Error("websocket must be boolean");
+  }
 
-  var OFFLINE;
   var CACHE;
   var REQUEST = axios;
   var NOCACHEREQUEST = axios;
   var SOCKET;
   var TOKEN;
   let _token = new _TOKEN({ domain, token, options });
-  if (!domain) throw new Error("domain undefined");
+  if (!domain) {
+    throw new Error("domain undefined");
+  }
   var DOMAIN = domain;
   var NAME =
     cache && cache.name
@@ -55,7 +65,9 @@ var connect = async function connect({
 
   function _replaceLinks(obj) {
     let ret = Array.isArray(obj) ? [] : {};
-    if (!obj) return obj; // no defined objriptors for this level
+    if (!obj) {
+      return obj;
+    } // no defined objriptors for this level
     return Promise.map(Object.keys(obj || {}), key => {
       if (key === "*") {
         // Don't put *s into oada. Ignore them
@@ -74,7 +86,9 @@ var connect = async function connect({
       if (val._id) {
         // If it's an object, and has an '_id', make it a link from descriptor
         ret[key] = { _id: val._id };
-        if ("_rev" in val) ret[key]._rev = val._rev;
+        if ("_rev" in val) {
+          ret[key]._rev = val._rev;
+        }
         return;
       }
       // otherwise, recurse into the object looking for more links
@@ -95,7 +109,7 @@ var connect = async function connect({
       path,
       type: data._type,
       headers,
-      data: { _id: data._id }
+      data: { _id: data._id },
     };
     // Create a versioned link if the tree specifies one.
     if ("_rev" in data) {
@@ -106,7 +120,7 @@ var connect = async function connect({
     let resReq = {
       path: "/" + data._id,
       type: data._type,
-      data
+      data,
     };
     var link;
     try {
@@ -116,14 +130,16 @@ var connect = async function connect({
         var pathPieces = path.split("/");
         var parentPath = pathPieces.splice(0, pathPieces.length - 1).join("/");
         // Wait time increases: 1s, 2s, 4s, 8s, 16s. Throw after 16s.
-        if (waitTime > 16000) throw err;
+        if (waitTime > 16000) {
+          throw err;
+        }
         //The parent has been modified; attempt to get the new _rev
         var response;
         try {
           response = await NOCACHEREQUEST({
             method: "get",
             url: DOMAIN + parentPath,
-            headers: { Authorization: "Bearer " + TOKEN }
+            headers: { Authorization: "Bearer " + TOKEN },
           });
         } catch (erro) {
           waitTime = waitTime || 1000;
@@ -144,7 +160,7 @@ var connect = async function connect({
             newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
             return _makeResourceAndLink(
               { path, data, headers: newHeaders },
-              waitTime * 2
+              waitTime * 2,
             );
           }
         } else {
@@ -155,13 +171,17 @@ var connect = async function connect({
           newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
           return _makeResourceAndLink(
             { path, data, headers: newHeaders },
-            waitTime * 2
+            waitTime * 2,
           );
         }
-      } else throw err;
+      } else {
+        throw err;
+      }
     }
     // Delete the _rev  and _id keys. No need for them in the resource object. They will break things.
-    if ("_rev" in data) delete resReq.data._rev;
+    if ("_rev" in data) {
+      delete resReq.data._rev;
+    }
     var resource = await put(resReq);
     return { link, resource };
   }
@@ -171,7 +191,7 @@ var connect = async function connect({
       return SOCKET.watch(
         {
           path,
-          headers
+          headers,
         },
         async function handleWatchResponse(response) {
           if (payload.tree) {
@@ -181,7 +201,7 @@ var connect = async function connect({
             response.change.body = await _recursiveFilterChange(
               DOMAIN + path,
               payload.tree,
-              response.change.body
+              response.change.body,
             );
             console.log("BODY AFTER");
             console.log(response.change.body);
@@ -191,18 +211,21 @@ var connect = async function connect({
           watchPayload.request = {
             url: DOMAIN + path,
             headers,
-            method: response.change.type
+            method: response.change.type,
           };
 
           try {
-            if (CACHE)
+            if (CACHE) {
               watchPayload = await CACHE.handleWatchChange(watchPayload);
+            }
           } catch (err) {
             console.log(err);
           }
-          if (func) await func(watchPayload);
+          if (func) {
+            await func(watchPayload);
+          }
           return;
-        }
+        },
       );
     } else {
       return;
@@ -219,7 +242,9 @@ var connect = async function connect({
 
   // Construct the request object and catch any 401s (expired token)
   async function _buildRequest({ method, url, path, headers, data, type }) {
-    if (!path && !url) throw new Error("Either path or url must be specified.");
+    if (!path && !url) {
+      throw new Error("Either path or url must be specified.");
+    }
     if (url) {
       if (/^\//.test(url)) {
         url = domain + url;
@@ -231,9 +256,11 @@ var connect = async function connect({
     let req = {
       method,
       url: url || DOMAIN + path,
-      headers: { authorization: "Bearer " + TOKEN }
+      headers: { authorization: "Bearer " + TOKEN },
     };
-    if (/\/$/.test(req.url)) req.url = req.url.slice(0, req.url.length - 1);
+    if (/\/$/.test(req.url)) {
+      req.url = req.url.slice(0, req.url.length - 1);
+    }
 
     //handle headers
     Object.keys(headers || {}).forEach(header => {
@@ -283,7 +310,9 @@ var connect = async function connect({
 
           //Leave alone data for any keys that are not present in tree. Do not
           //pursue these keys any further.
-        } else return;
+        } else {
+          return;
+        }
         console.log("next data", data[key]);
         var res = await _treeWalk(
           url + "/" + key,
@@ -291,7 +320,7 @@ var connect = async function connect({
           data[key],
           obj,
           beforeCb,
-          afterCb
+          afterCb,
         );
         console.log(key, res);
         data[key] = res.data;
@@ -315,7 +344,7 @@ var connect = async function connect({
         console.log("a1", Object.keys(data).length === 1 && data._id);
         console.log(
           "b2",
-          Object.keys(data).length === 2 && data._rev && data._id
+          Object.keys(data).length === 2 && data._rev && data._id,
         );
         if (
           (Object.keys(data).length === 1 && data._id) ||
@@ -328,13 +357,13 @@ var connect = async function connect({
           pointer.set(getTree, path, subTree);
           var got = await get({
             tree: getTree,
-            url
+            url,
           });
           data = got.data;
         }
         console.log("returning");
         return { data };
-      }
+      },
     );
   }
 
@@ -348,14 +377,14 @@ var connect = async function connect({
           // its a resource
           var got = await get({
             url,
-            headers: "_rev" in data ? { "x-oada-rev": data._rev } : {}
+            headers: "_rev" in data ? { "x-oada-rev": data._rev } : {},
           });
           data = got.data;
           obj.cached = got.cached ? got.cached : false;
         }
         return { data, obj };
       },
-      undefined
+      undefined,
     );
   }
 
@@ -371,16 +400,20 @@ var connect = async function connect({
           // its a resource
           try {
             var got = await get({
-              url
+              url,
             });
             data = got.data;
           } catch (err) {
             if (err.status === 404) {
               data = {};
               // WASN'T THROWING HERE PREVIOUSLY
-            } else throw err;
+            } else {
+              throw err;
+            }
           }
-        } else return { data };
+        } else {
+          return { data };
+        }
       },
       async function recDeleteAfter(url, data) {
         var link;
@@ -391,7 +424,7 @@ var connect = async function connect({
               try {
                 await del({
                   path: "/" + data._id,
-                  headers: { "content-type": tree._type }
+                  headers: { "content-type": tree._type },
                 });
               } catch (erro) {
                 console.log("recursiveDelete error on delete resource", erro);
@@ -402,26 +435,30 @@ var connect = async function connect({
             link = await del({
               url,
               headers: {
-                "content-type": tree._type
-              }
+                "content-type": tree._type,
+              },
             });
           } catch (err) {
             if (err.response && err.response.status === 404) {
               data = {};
               // WASN'T THROWING HERE PREVIOUSLY
-            } else throw err;
+            } else {
+              throw err;
+            }
           }
         } else {
           // Delete the lookup for non resources
-          if (CACHE) await CACHE.removeLookup({ url });
+          if (CACHE) {
+            await CACHE.removeLookup({ url });
+          }
         }
         // link and data can be undefined if the current object is
         // not a resource (deletes won't need to happen)
         return {
           link: link || {},
-          data: data || {}
+          data: data || {},
         };
-      }
+      },
     );
   }
 
@@ -444,8 +481,9 @@ var connect = async function connect({
         .split("/");
       let treePath = _convertSetupTreePath(pieces, tree);
       console.log(tree, treePath);
-      if (!pointer.has(tree, treePath))
+      if (!pointer.has(tree, treePath)) {
         throw new Error("The path does not exist on the given tree.");
+      }
       subTree = pointer.get(tree, treePath);
     }
 
@@ -455,12 +493,14 @@ var connect = async function connect({
       path = path || urlLib.parse(url).path;
       req.headers["x-oada-rev"] = response.data._rev;
       console.log("SENDING THIS REEVVVVVVVVVVVVVVV", response.data._rev);
-      if (tree) watch.payload.tree = subTree;
+      if (tree) {
+        watch.payload.tree = subTree;
+      }
       watchResponse = await _watch({
         headers: req.headers,
         path,
         func: watch.function,
-        payload: watch.payload
+        payload: watch.payload,
       });
       console.log("WATCH RESPONSE", watchResponse);
     }
@@ -474,7 +514,7 @@ var connect = async function connect({
             req.url,
             subTree,
             watchResponse.resource,
-            true
+            true,
           );
         } else {
           var stuff = await _recursiveGet(req.url, subTree, {}, true);
@@ -485,7 +525,9 @@ var connect = async function connect({
         // catch 404s because ... ?
         console.log("ERA", err);
         if (err.response && err.response.status === 404) {
-        } else throw err;
+        } else {
+          throw err;
+        }
       }
     }
     return response;
@@ -498,7 +540,7 @@ var connect = async function connect({
       // its a resource
       var got = await get({
         url,
-        headers: "_rev" in data ? { "x-oada-rev": data._rev } : {}
+        headers: "_rev" in data ? { "x-oada-rev": data._rev } : {},
       });
       //info('_recursiveGet GET data:', got.data)
       data = got.data;
@@ -511,7 +553,7 @@ var connect = async function connect({
             url + "/" + key,
             tree[key],
             data[key],
-            cached
+            cached,
           );
           cached = res.cached;
           return (data[key] = res.data);
@@ -520,12 +562,16 @@ var connect = async function connect({
             url + "/" + key,
             tree["*"],
             data[key],
-            cached
+            cached,
           );
           cached = res.cached;
           return (data[key] = res.data);
-        } else return; //data[key] is already stored in the data object
-      } else return;
+        } else {
+          return;
+        } //data[key] is already stored in the data object
+      } else {
+        return;
+      }
     }).then(() => {
       return { data, cached };
     });
@@ -550,7 +596,7 @@ var connect = async function connect({
           throw new Error("stored");
         }
         return get({
-          path: urlPath
+          path: urlPath,
         })
           .then(response => {
             //TODO: Detect whether the returned data matches the given tree
@@ -560,20 +606,26 @@ var connect = async function connect({
             throw new Error("stored");
           })
           .catch(err => {
-            if (/^stored/.test(err.message)) throw err;
+            if (/^stored/.test(err.message)) {
+              throw err;
+            }
             return;
           });
-      } else return;
+      } else {
+        return;
+      }
     })
       .catch(err => {
         // Throwing with a number error only should occur on success.
-        if (/^stored/.test(err.message)) return { stored, setup };
+        if (/^stored/.test(err.message)) {
+          return { stored, setup };
+        }
       })
       .then(() => {
         return {
           stored: stored,
           setup: setup || 0,
-          _rev
+          _rev,
         };
       });
   }
@@ -623,14 +675,14 @@ var connect = async function connect({
           var resp = await _makeResourceAndLink({
             path: urlPath,
             data: _.cloneDeep(content),
-            headers: { "if-match": parentRev }
+            headers: { "if-match": parentRev },
           });
           parentRev = resp.resource.headers["x-oada-rev"];
           pointer.set(storedTree, urlPath, content);
           resp.path = urlPath;
           responses.push(resp);
         }
-      }
+      },
     );
     return responses;
   }
@@ -650,7 +702,7 @@ var connect = async function connect({
       data,
       type,
       headers,
-      tree
+      tree,
     });
   }
 
@@ -660,7 +712,7 @@ var connect = async function connect({
       // its a resource
       try {
         var got = await get({
-          url
+          url,
         });
         data = got.data;
       } catch (err) {
@@ -676,18 +728,22 @@ var connect = async function connect({
           var res = await _recursiveDelete(
             url + "/" + key,
             tree[key],
-            data[key]
+            data[key],
           );
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveDelete(
             url + "/" + key,
             tree["*"],
-            data[key]
+            data[key],
           );
           return (data[key] = res.data);
-        } else return; //data[key] is already stored in the data object
-      } else return;
+        } else {
+          return;
+        } //data[key] is already stored in the data object
+      } else {
+        return;
+      }
     }).then(async function() {
       var link;
       if (tree._type) {
@@ -697,7 +753,7 @@ var connect = async function connect({
             try {
               await del({
                 path: "/" + data._id,
-                headers: { "content-type": tree._type }
+                headers: { "content-type": tree._type },
               });
             } catch (erro) {
               console.log("aaaaaaaa", "/" + data._id, url, erro);
@@ -708,27 +764,29 @@ var connect = async function connect({
           link = await del({
             url,
             headers: {
-              "content-type": tree._type
-            }
+              "content-type": tree._type,
+            },
           });
         } catch (err) {
           if (err.response && err.response.status === 404) {
             data = {};
             return {
               link: link || {},
-              data: data || {}
+              data: data || {},
             };
           }
         }
       } else {
         // Delete the lookup for non resources
-        if (CACHE) await CACHE.removeLookup({ url });
+        if (CACHE) {
+          await CACHE.removeLookup({ url });
+        }
       }
       // link and data can be undefined if the current object is
       // not a resource (deletes won't need to happen)
       return {
         link: link || {},
-        data: data || {}
+        data: data || {},
       };
     });
   }
@@ -739,13 +797,13 @@ var connect = async function connect({
       url,
       path,
       type,
-      headers
+      headers,
     });
     if (unwatch) {
       path = path || urlLib.parse(url).path;
       return SOCKET.unwatch({
         path,
-        headers: req.headers
+        headers: req.headers,
       });
     }
     if (tree) {
@@ -754,8 +812,9 @@ var connect = async function connect({
         .path.replace(/^\//, "")
         .split("/");
       let treePath = _convertSetupTreePath(pieces, tree);
-      if (!pointer.has(tree, treePath))
+      if (!pointer.has(tree, treePath)) {
         throw new Error("The path does not exist on the given tree.");
+      }
       //return get({url: req.url})
       var subTree = pointer.get(tree, treePath);
       var result = await _recursiveDelete(req.url, subTree, {}, true);
@@ -765,8 +824,9 @@ var connect = async function connect({
       //if (!req.headers["content-type"] && pointer.has(tree, treePath))
       //  req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
     }
-    if (!req.headers["content-type"])
+    if (!req.headers["content-type"]) {
       throw new Error(`content-type header must be specified.`);
+    }
 
     return _sendRequest(req);
   }
@@ -780,7 +840,7 @@ var connect = async function connect({
       path,
       data,
       type,
-      headers
+      headers,
     });
 
     // Ensure parent resources are created
@@ -788,7 +848,7 @@ var connect = async function connect({
       var responses = await _ensureTree({
         url: req.url,
         tree: _.cloneDeep(tree),
-        data
+        data,
       });
       var pieces =
         responses.length > 0
@@ -799,26 +859,34 @@ var connect = async function connect({
               .split("/");
 
       var treePath = _convertSetupTreePath(pieces, tree) + "/_type";
-      if (!req.headers["content-type"] && pointer.has(tree, treePath))
+      if (!req.headers["content-type"] && pointer.has(tree, treePath)) {
         req.headers["content-type"] = _.clone(pointer.get(tree, treePath));
+      }
     }
 
-    if (!req.headers["content-type"])
+    if (!req.headers["content-type"]) {
       throw new Error(`content-type header must be specified.`);
+    }
     return _sendRequest(req).then(result => {
       return result;
     });
   }
 
   async function resetCache(name, expires) {
-    if (!CACHE) return;
+    if (!CACHE) {
+      return;
+    }
     await CACHE.resetCache();
   }
 
   async function disconnect() {
-    if (CACHE) await CACHE.db.close();
+    if (CACHE) {
+      await CACHE.db.close();
+    }
     //if (CACHE) await CACHE.db.destroy();
-    if (SOCKET) SOCKET.close();
+    if (SOCKET) {
+      SOCKET.close();
+    }
     //if (_token.isSet()) {
     _token.cleanUp();
     //}
@@ -841,12 +909,13 @@ var connect = async function connect({
   }
 
   //Setup the cache
-  if (cache !== false)
+  if (cache !== false) {
     await _configureCache({
       name: NAME || uuid(),
       req: REQUEST,
-      expires: EXPIRES
+      expires: EXPIRES,
     });
+  }
 
   function _getMemoryCache() {
     if (CACHE) {
@@ -867,10 +936,10 @@ var connect = async function connect({
     resetCache,
     disconnect,
     reconnect,
-    _getMemoryCache
+    _getMemoryCache,
   };
 };
 
 export default {
-  connect
+  connect,
 };

@@ -2,13 +2,11 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 const { token, domain } = require("./config.js");
 import oada from "../src/index";
 import chai from "chai";
-import { getConnections } from "./utils";
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = chai.expect;
 
 let connections = new Array(4);
-let contentType = "application/vnd.oada.yield.1+json";
 let connectTime = 30 * 1000; // seconds to click through oauth
 
 describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
@@ -22,9 +20,9 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         redirect: "http://localhost:8000/oauth2/redirect.html",
         metadata:
           "eyJqa3UiOiJodHRwczovL2lkZW50aXR5Lm9hZGEtZGV2LmNvbS9jZXJ0cyIsImtpZCI6ImtqY1NjamMzMmR3SlhYTEpEczNyMTI0c2ExIiwidHlwIjoiSldUIiwiYWxnIjoiUlMyNTYifQ.eyJyZWRpcmVjdF91cmlzIjpbImh0dHA6Ly92aXAzLmVjbi5wdXJkdWUuZWR1OjgwMDAvb2F1dGgyL3JlZGlyZWN0Lmh0bWwiLCJodHRwOi8vbG9jYWxob3N0OjgwMDAvb2F1dGgyL3JlZGlyZWN0Lmh0bWwiXSwidG9rZW5fZW5kcG9pbnRfYXV0aF9tZXRob2QiOiJ1cm46aWV0ZjpwYXJhbXM6b2F1dGg6Y2xpZW50LWFzc2VydGlvbi10eXBlOmp3dC1iZWFyZXIiLCJncmFudF90eXBlcyI6WyJpbXBsaWNpdCJdLCJyZXNwb25zZV90eXBlcyI6WyJ0b2tlbiIsImlkX3Rva2VuIiwiaWRfdG9rZW4gdG9rZW4iXSwiY2xpZW50X25hbWUiOiJPcGVuQVRLIiwiY2xpZW50X3VyaSI6Imh0dHBzOi8vdmlwMy5lY24ucHVyZHVlLmVkdSIsImNvbnRhY3RzIjpbIlNhbSBOb2VsIDxzYW5vZWxAcHVyZHVlLmVkdT4iXSwic29mdHdhcmVfaWQiOiIxZjc4NDc3Zi0zNTQxLTQxM2ItOTdiNi04NjQ0YjRhZjViYjgiLCJyZWdpc3RyYXRpb25fcHJvdmlkZXIiOiJodHRwczovL2lkZW50aXR5Lm9hZGEtZGV2LmNvbSIsImlhdCI6MTUxMjAwNjc2MX0.AJSjNlWX8UKfVh-h1ebCe0MEGqKzArNJ6x0nmta0oFMcWMyR6Cn2saR-oHvU8WrtUMEr-w020mAjvhfYav4EdT3GOGtaFgnbVkIs73iIMtr8Z-Y6mDEzqRzNzVRMLghj7CyWRCNJEk0jwWjOuC8FH4UsfHmtw3ouMFomjwsNLY0",
-        scope: "oada.yield:all"
+        scope: "oada.yield:all",
       },
-      cache: false
+      cache: false,
     });
     expect(result).to.have.keys([
       "token",
@@ -36,7 +34,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       "put",
       "post",
       "delete",
-      "resetCache"
+      "resetCache",
     ]);
     expect(result.cache).to.equal(false);
     expect(result.websocket).to.be.a("object");
@@ -51,7 +49,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
     this.timeout(connectTime);
     var result = await oada.connect({
       domain,
-      token
+      token,
     });
     connections[0] = result;
     expect(result).to.have.keys([
@@ -64,7 +62,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       "delete",
       "resetCache",
       "cache",
-      "websocket"
+      "websocket",
     ]);
     expect(result.cache).to.be.a("object");
     expect(result.websocket).to.be.a("object");
@@ -80,7 +78,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
     var result = await oada.connect({
       domain,
       token,
-      websocket: false
+      websocket: false,
     });
     connections[1] = result;
     expect(result).to.have.keys([
@@ -93,7 +91,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       "delete",
       "resetCache",
       "cache",
-      "websocket"
+      "websocket",
     ]);
 
     expect(result.cache).to.be.a("object");
@@ -110,7 +108,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
     var result = await oada.connect({
       domain,
       token: "def",
-      cache: false
+      cache: false,
     });
     connections[2] = result;
     expect(result).to.have.keys([
@@ -123,7 +121,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       "delete",
       "resetCache",
       "cache",
-      "websocket"
+      "websocket",
     ]);
     expect(result.cache).to.equal(false);
     expect(result.websocket).to.be.a("object");
@@ -140,7 +138,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       domain,
       token: "def",
       websocket: false,
-      cache: false
+      cache: false,
     });
     connections[3] = result;
     expect(result).to.have.keys([
@@ -153,7 +151,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       "put",
       "post",
       "delete",
-      "resetCache"
+      "resetCache",
     ]);
     expect(result.cache).to.equal(false);
     expect(result.websocket).to.equal(false);
@@ -170,8 +168,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         token: "def",
         websocket: false,
-        cache: false
-      })
+        cache: false,
+      }),
     ).to.be.rejectedWith(Error, "domain undefined");
   });
 
@@ -181,8 +179,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         domain,
         websocket: false,
-        cache: false
-      })
+        cache: false,
+      }),
     ).to.be.rejectedWith(Error, "options and token undefined");
   });
 
@@ -193,8 +191,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         domain,
         token: { def: "def" },
         websocket: false,
-        cache: false
-      })
+        cache: false,
+      }),
     ).to.be.rejectedWith(Error, "token must be a string");
   });
 
@@ -204,8 +202,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         domain,
         token: "def",
-        websocket: "false"
-      })
+        websocket: "false",
+      }),
     ).to.be.rejectedWith(Error, "websocket must be boolean");
   });
 
@@ -215,11 +213,11 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         domain,
         token: "def",
-        cache: "false"
-      })
+        cache: "false",
+      }),
     ).to.be.rejectedWith(
       Error,
-      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
     );
   });
 

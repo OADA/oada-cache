@@ -154,14 +154,17 @@ export default function setupCache({ name, req, expires }) {
     } else {
       result = memoryResult.data;
       // If in memory, result._rev might be undefined (409 errors)
-      if (result._rev !== undefined) dbPut._rev = result._rev;
+      if (result._rev !== undefined) {
+        dbPut._rev = result._rev;
+      }
     }
 
     // Now handle the upsert
     if (req.method && req.method.toLowerCase() === "delete") {
       if (!pathLeftover) {
-        if (memoryCache[resourceId] && memoryCache[resourceId].promise)
+        if (memoryCache[resourceId] && memoryCache[resourceId].promise) {
           memoryCache[resourceId].promise.cancel();
+        }
         delete memoryCache[resourceId];
         return db
           .remove(result)
@@ -170,7 +173,9 @@ export default function setupCache({ name, req, expires }) {
           })
           .catch(error => {
             //its okay if it already doesn't exist
-            if (error.status === 404) return;
+            if (error.status === 404) {
+              return;
+            }
             throw error;
           });
       } else {
@@ -193,7 +198,9 @@ export default function setupCache({ name, req, expires }) {
       }
     }
 
-    if (req._rev != undefined) dbPut.doc._rev = req._rev;
+    if (req._rev != undefined) {
+      dbPut.doc._rev = req._rev;
+    }
     return handleMemoryCache(resourceId, dbPut, waitTime, req);
   }
 
@@ -452,8 +459,9 @@ export default function setupCache({ name, req, expires }) {
   async function removeLookup(lookup) {
     // Clear the in-memory cache
     if (memoryCache[lookup._id]) {
-      if (memoryCache[lookup._id].promise)
+      if (memoryCache[lookup._id].promise) {
         memoryCache[lookup._id].promise.cancel();
+      }
       delete memoryCache[lookup._id];
     }
 
@@ -461,7 +469,9 @@ export default function setupCache({ name, req, expires }) {
       await db.remove(lookup);
     } catch (err) {
       // removing a lookup that is already gone
-      if (err.status === 404) return;
+      if (err.status === 404) {
+        return;
+      }
       throw err;
     }
   }
@@ -496,7 +506,9 @@ export default function setupCache({ name, req, expires }) {
         }
       } catch (err) {
         if (err.response && err.response.status === 404) {
-        } else throw err;
+        } else {
+          throw err;
+        }
       }
     }
 
@@ -511,7 +523,9 @@ export default function setupCache({ name, req, expires }) {
 
   function replaceLinks(obj, req) {
     let ret = Array.isArray(obj) ? [] : {};
-    if (!obj) return obj;
+    if (!obj) {
+      return obj;
+    }
     Object.keys(obj || {}).forEach(async function(key, i) {
       let val = obj[key];
       if (typeof val !== "object" || !val) {
@@ -525,7 +539,9 @@ export default function setupCache({ name, req, expires }) {
           headers: req.headers
         });
         ret[key] = { _id: lookup.resourceId };
-        if (obj[key]._rev !== undefined) ret[key]._rev = obj[key]._rev;
+        if (obj[key]._rev !== undefined) {
+          ret[key]._rev = obj[key]._rev;
+        }
         return;
       }
       ret[key] = replaceLinks(obj[key], {
@@ -556,8 +572,12 @@ export default function setupCache({ name, req, expires }) {
 
     if (typeof body === "object") {
       return Promise.map(Object.keys(body || {}), async function(key) {
-        if (key.charAt(0) === "_") return;
-        if (!body[key]) return;
+        if (key.charAt(0) === "_") {
+          return;
+        }
+        if (!body[key]) {
+          return;
+        }
         await _recursiveUpsert(
           {
             url: req.url + "/" + key,
@@ -566,7 +586,9 @@ export default function setupCache({ name, req, expires }) {
           body[key]
         );
       });
-    } else return;
+    } else {
+      return;
+    }
   }
 
   /*
@@ -660,7 +682,9 @@ export default function setupCache({ name, req, expires }) {
         if (key === "_rev") {
           deepestResource.path = path;
           deepestResource.data = obj;
-        } else if (key.charAt(0) === "_") return deepestResource;
+        } else if (key.charAt(0) === "_") {
+          return deepestResource;
+        }
         return findDeepestResource(
           obj[key],
           path + "/" + key,
