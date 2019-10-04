@@ -497,7 +497,7 @@ var connect = async function connect({
       watchResponse = await _watch({
         headers: req.headers,
         path,
-        func: watch.function,
+        func: watch.func,
         payload: watch.payload,
       });
       info("WATCH RESPONSE", watchResponse);
