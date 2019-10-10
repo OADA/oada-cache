@@ -494,6 +494,15 @@ var connect = async function connect({
       if (tree) {
         watch.payload.tree = subTree;
       }
+      if (!watch.func) {
+        // Just a warning message. It doesn't throw but print an error message.
+        error("Warning: no watch handler was provided.");
+      }
+      if (watch.function) {
+        throw new Error(
+          "Use watch.func instead of watch.function to pass a watch handler.",
+        );
+      }
       watchResponse = await _watch({
         headers: req.headers,
         path,
