@@ -24,7 +24,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       },
       cache: false,
     });
-    expect(result).to.have.keys([
+    expect(result).to.contain.all.keys([
       "token",
       "cache",
       "websocket",
@@ -52,7 +52,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       token,
     });
     connections[0] = result;
-    expect(result).to.have.keys([
+    expect(result).to.contain.all.keys([
       "token",
       "disconnect",
       "reconnect",
@@ -81,7 +81,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       websocket: false,
     });
     connections[1] = result;
-    expect(result).to.have.keys([
+    expect(result).to.contain.all.keys([
       "token",
       "disconnect",
       "reconnect",
@@ -111,7 +111,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       cache: false,
     });
     connections[2] = result;
-    expect(result).to.have.keys([
+    expect(result).to.contain.all.keys([
       "token",
       "disconnect",
       "get",
@@ -141,7 +141,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       cache: false,
     });
     connections[3] = result;
-    expect(result).to.have.keys([
+    expect(result).to.contain.all.keys([
       "token",
       "cache",
       "websocket",
