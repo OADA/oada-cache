@@ -191,7 +191,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.put({
       path:
         "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee/test/123",
-      type: "application/vnd.oada.as-harvested.yield-moisture.dataset.1+json",
+      type: "application/json",
       data: `"some test"`,
     });
     expect(response.status).to.equal(204);
