@@ -454,6 +454,7 @@ var connect = async function connect({
 
   async function get({ url, path, headers, watch, tree }) {
     let req = await _buildRequest({ method: "get", url, path, headers });
+    info("GET request", req);
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
 
@@ -482,7 +483,7 @@ var connect = async function connect({
     if (watch) {
       path = path || urlLib.parse(url).path;
       req.headers["x-oada-rev"] = response.data._rev;
-      info("SENDING THIS REEVVVVVVVVVVVVVVV", response.data._rev);
+      info("Setting watch. Sending rev:", response.data._rev);
       if (tree) {
         watch.payload.tree = subTree;
       }
@@ -522,8 +523,8 @@ var connect = async function connect({
         response.cached = stuff.cached;
       } catch (err) {
         // catch 404s because ... ?
-        error("ERA", err);
         if (err.response && err.response.status === 404) {
+          error("Received 404");
         } else {
           throw err;
         }
@@ -533,22 +534,21 @@ var connect = async function connect({
   } //get
 
   async function _recursiveGet(url, tree, data, cached) {
-    //info('_recursiveGet', url, tree._type, data)
     // Perform a GET if we have reached the next resource break.
     if (tree._type) {
       // its a resource
-      var got = await get({
+      let response = await get({
         url,
         headers: "_rev" in data ? { "x-oada-rev": data._rev } : {},
       });
-      //info('_recursiveGet GET data:', got.data)
-      data = got.data;
-      cached = got.cached ? got.cached : false;
+      data = response.data;
+      cached = response.cached ? response.cached : false;
     }
+
     return Promise.map(Object.keys(data || {}), async function(key) {
       if (typeof data[key] === "object") {
         if (tree[key]) {
-          var res = await _recursiveGet(
+          let res = await _recursiveGet(
             url + "/" + key,
             tree[key],
             data[key],
@@ -557,7 +557,7 @@ var connect = async function connect({
           cached = res.cached;
           return (data[key] = res.data);
         } else if (tree["*"]) {
-          var res = await _recursiveGet(
+          let res = await _recursiveGet(
             url + "/" + key,
             tree["*"],
             data[key],
@@ -898,6 +898,9 @@ var connect = async function connect({
 
   // get a token
   TOKEN = await _token.get();
+  if (!TOKEN) {
+    throw new Error("Unable to get token");
+  }
 
   // Setup websockets
   if (websocket !== false) {
