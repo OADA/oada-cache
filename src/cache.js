@@ -1,6 +1,5 @@
 "use strict";
 const cq = require("concurrent-queue");
-const pretty = require("prettyjson");
 const Promise = require("bluebird");
 import PouchDB from "pouchdb";
 const url = require("url");
@@ -39,13 +38,14 @@ export default function setupCache({ name, req, expires }) {
     var deleteCount = 0;
     Object.keys(memoryCache).forEach(key => {
       if (
-        !memoryCache[key].promise &&
+        !memoryCache[key].putPending &&
         now - memoryCache[key].access < timeThreshold
       ) {
         if (memoryCache[key].access < oldest) {
           oldest = { key, time: memoryCache[key].access };
         }
         delete memoryCache[key];
+        info("Deleted expired resource from the in-memory cache", key);
         deleteCount++;
       }
     });
@@ -70,18 +70,26 @@ export default function setupCache({ name, req, expires }) {
         data,
         access: now,
         promise: undefined,
+        putPending: false,
       };
     }
 
     // Schedule db.put
-    if (!memoryCache[resourceId].promise) {
+    if (!memoryCache[resourceId].putPending) {
+      // set flag
+      memoryCache[resourceId].putPending = true;
       // Schedule put
       memoryCache[resourceId].promise = Promise.delay(dbPutDelay)
         .then(function() {
+          if (!(resourceId in memoryCache)) {
+            throw new Error("Resource does not exist in the in-memory cache.");
+          }
           doPut(resourceId, waitTime, req);
+          memoryCache[resourceId].putPending = false;
         })
         .catch(function(error) {
           error("handleMemoryCacheError", error);
+          memoryCache[resourceId].putPending = false;
         });
     }
     return Promise.resolve();
@@ -805,6 +813,5 @@ export default function setupCache({ name, req, expires }) {
     getResFromDb,
     getResFromServer,
     _getMemoryCache,
-    //handleWatchChange: _upsertChangeArray,
   };
 }
