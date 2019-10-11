@@ -229,15 +229,7 @@ var connect = async function connect({
         },
       );
     } else {
-      return;
-      /*
-      // Ping a normal GET every 5 seconds in the absense of a websocket
-      return setInterval(() => {
-        get({ url: DOMAIN + path }).then(result => {
-          func(payload);
-        });
-      }, 5000);
-      */
+      throw new Error("websocket is required to watch resource");
     }
   }
 
