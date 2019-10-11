@@ -118,7 +118,6 @@ describe(`------------GET-----------------`, async function() {
 			})
 
 			it(`6. Should only return the part of the tree prescribed by the given 'tree' when the server has more data`, async function() {
-        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!', connections[i].cache ? true: false)
 				await connections[i].resetCache();
 				try {
 				await connections[i].delete({path:'/bookmarks/test', tree});
@@ -166,9 +165,6 @@ describe(`------------GET-----------------`, async function() {
 					tree,
 				})
 
-        console.log('~~~~~~~~~~~~~~~~~~~~~~')
-        console.log(pretty.render(first.data))
-        console.log('~~~~~~~~~~~~~~~~~~~~~~')
 				expect(first.data).to.include.key('aaa')
 				expect(first.data['aaa']).to.include.key('bbb')
 				expect(first.data['aaa']).to.include.keys(['_id', '_type', '_rev'])

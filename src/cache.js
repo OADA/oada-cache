@@ -88,6 +88,7 @@ export default function setupCache({ name, req, expires }) {
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
   function doPut(resourceId, waitTime, req) {
+    if (!memoryCache[resourceId].data._rev) return
     return db
       .put(memoryCache[resourceId].data)
       .then(response => {
@@ -240,13 +241,11 @@ export default function setupCache({ name, req, expires }) {
         if (req.resourceId) {
           resourceId = req.resourceId;
           pathLeftover = "";
-        } else {
+        } else { // normal case, not recursiveUpsert
           //info('getLookup - HEAD request:', req.url, req)
-          var response = await request({
-            method: "HEAD",
-            url: req.url,
-            headers: req.headers,
-          });
+          var headReq = _.cloneDeep(req)
+          headReq.method = "HEAD";
+          var response = await request(headReq);
           //info('getLookup - HEAD response:', response)
           //Save the url lookup for future use
           var pieces = response.headers["content-location"].split("/");
@@ -307,8 +306,7 @@ export default function setupCache({ name, req, expires }) {
         const res_localdb = await db.get(resourceId);
         resource = res_localdb;
       } catch (err) {
-        // Oops
-        console.log('getResFromDbErr', err)
+        // Handled down below as resource will be undefined
       }
     }
     // 3) get resource from the server
@@ -699,7 +697,6 @@ export default function setupCache({ name, req, expires }) {
             payload.oldBody = oldBody;
             return payload;
             */
-
             await _recursiveUpsert(
               payload.request,
               payload.response.change.body,
@@ -757,7 +754,6 @@ export default function setupCache({ name, req, expires }) {
     dbUpsert,
     handleMemoryCache,
     doPut,
-    findDeepestResource,
     _recursiveUpsert,
     findNullValue,
     replaceLinks,

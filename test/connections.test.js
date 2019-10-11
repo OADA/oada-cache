@@ -26,7 +26,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			},
 			cache: false
 		})
-		expect(result).to.have.keys([
+		expect(result).to.include.keys([
 			"token",
 			"cache",
 			"websocket",
@@ -36,7 +36,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			"put",
 			"post",
 			"delete",
-			"resetCache"
+			"resetCache",
+//      "_getMemoryCache",
 		]);
 		expect(result.cache).to.equal(false);
 		expect(result.websocket).to.be.a("object");
@@ -54,7 +55,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       token,
     })
 		connections[0] = result;
-		expect(result).to.have.keys([
+		expect(result).to.include.keys([
 			"token",
 			"disconnect",
 			"reconnect",
@@ -64,7 +65,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			"delete",
 			"resetCache",
 			"cache",
-			"websocket"
+			"websocket",
+      "_getMemoryCache",
 		]);
 		expect(result.cache).to.be.a("object");
 		expect(result.websocket).to.be.a("object");
@@ -83,7 +85,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			websocket: false
 		})
 		connections[1] = result;
-		expect(result).to.have.keys([
+		expect(result).to.include.keys([
 			"token",
 			"disconnect",
 			"reconnect",
@@ -93,7 +95,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			"delete",
 			"resetCache",
 			"cache",
-			"websocket"
+			"websocket",
+      "_getMemoryCache",
 		]);
 
 		expect(result.cache).to.be.a("object");
@@ -113,7 +116,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			cache: false
 		})
 		connections[2] = result;
-		expect(result).to.have.keys([
+		expect(result).to.include.keys([
 			"token",
 			"disconnect",
 			"get",
@@ -123,7 +126,8 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			"delete",
 			"resetCache",
 			"cache",
-			"websocket"
+			"websocket",
+      "_getMemoryCache",
 		]);
 		expect(result.cache).to.equal(false);
 		expect(result.websocket).to.be.a("object");
@@ -143,10 +147,11 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			cache: false
 		})
 		connections[3] = result;
-		expect(result).to.have.keys([
+		expect(result).to.include.keys([
 			"token",
 			"cache",
 			"websocket",
+      "_getMemoryCache",
 			"disconnect",
 			"get",
 			"reconnect",

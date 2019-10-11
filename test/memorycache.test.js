@@ -1,5 +1,6 @@
 const _ = require("lodash");
 const oada = require("../build/index.js").default;
+process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
 const uuid = require("uuid");
 const chai = require("chai");
 var chaiAsPromised = require("chai-as-promised");
@@ -14,16 +15,21 @@ const timer = ms => new Promise(res => setTimeout(res, ms));
 
 const cleanMemoryTimer = 11000;
 const dbPutDelay = 6000;
+var connection;
 
 describe(`In-memory Cache`, async function() {
+
   this.timeout(30000);
   describe(`GET`, async function() {
-    var connection;
     before(`Create connection`, async function() {
-      connection = await oada.connect({
-        domain,
-        token: "def",
-      });
+      try {
+        connection = await oada.connect({
+          domain,
+          token,
+        });
+      } catch (err) {
+        console.log(err)
+      }
     });
 
     it(`Should get a resource from server`, async function() {
@@ -44,6 +50,7 @@ describe(`In-memory Cache`, async function() {
     });
 
     it(`In-memory cache should be empty`, async function() {
+      console.log(connection._getMemoryCache())
       expect(connection._getMemoryCache()).to.be.empty;
     });
 
@@ -78,7 +85,7 @@ describe(`In-memory Cache`, async function() {
     before(`Create connection`, async function() {
       connection = await oada.connect({
         domain,
-        token: "def",
+        token,
       });
     });
 

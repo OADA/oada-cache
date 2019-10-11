@@ -28,6 +28,7 @@ async function setupWatch(conn, tre, payload) {
 }
 
 describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
+  this.timeout(20000);
 	var connOne;
 	var connTwo;
 	before(`Create connection types`, async function() {
@@ -456,13 +457,11 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     // Add some extra subtree so we can create it quickly
     newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb)
 
-    console.log(newTree);
 		await connOne.delete({path:'/bookmarks/aaa', tree:newTree})
 		await connOne.delete({path:'/bookmarks/test', tree})
     await connOne.resetCache();
 
-    // Create a tree of data 
-    console.log('1111111111111');
+    // Create a tree of data that isn't cached locally
 		var putOne = await connTwo.put({
       path: '/bookmarks/aaa/bbb/index-one/ccc',
 			data: {putOne: 'bar'},
@@ -470,16 +469,14 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     })
     expect(putOne.status).to.equal(204);
 
-    console.log('2222222222222');
     // Put to some other path that isn't in the original tree. This path should
-    // be omitted when this tree is linked to the other tree
+    // be omitted when it is linked to the other tree
     var putTwo = await connTwo.put({
       path: '/bookmarks/aaa/ddd/index-one/ccc/index-two/ddd',
 			data: {putTwo: 'foo'},
-      type: 'application/json'
+      tree: newTree
     })
     expect(putTwo.status).to.equal(204);
-    console.log('3333333333333');
 
     // Create the bookmarks/test endpoint we're going to watch
     var putThree = await connOne.put({
@@ -488,7 +485,6 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       tree
     })
     expect(putThree.status).to.equal(204);
-    console.log('4444444444444');
 
     // Setup the watch on bookmarks/test
     var result = await setupWatch(connOne, tree);
@@ -500,7 +496,6 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     expect(getOne.status).to.equal(200);
 
     // Now link to the pre-existing tree and watch the changes come in.
-    console.log('making this link:', {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}})
     var putFour = await connTwo.put({
       path: '/bookmarks/test',
 			data: {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}},
@@ -508,26 +503,67 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     })
     expect(putFour.status).to.equal(204);
 
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    console.log('okay here goes')
-    // Verify that the pre-existing tree (only the parts specified) are now
-    // cached.
+    // Wait for the changes to propagate back
+    await Promise.delay(5000)
+
+    // Retrieve the data with a recursive GET, which should now include the
+    // linked data.
     var getTwo = await connOne.get({
       path: '/bookmarks/test',
       tree
     })
-    console.log(pretty.render(getTwo.data));
     expect(getTwo.status).to.equal(200);
 
-    expect(getTwo.data.aaa.bbb['index-one'].ccc['index-two'].ddd).to.include.keys(['_id', '_rev', '_type', 'putTwo'])
-    expect(getTwo.cached).to.equal(true)
-    expect(getTwo.data.aaa.ddd['index-one']).to.have.keys(['_id', '_rev'])
+    // The linked data should now be present
+    expect(getTwo.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'putOne'])
 
+    // Everything should've been cached
+    expect(getTwo.cached).to.equal(true)
+
+    // The watch should've filtered stuff out that isn't in the watched tree
+    // aaa.ddd should exists as a link, but should have no other content (putTwo should not have been retrieved)
+    expect(getTwo.data.aaa.ddd).to.have.keys(['_id', '_rev'])
+  })
+
+
+  it(`8. Messages should cease to be transmitted after calling unwatch`, async function() {
+
+    // Setup a counter of watch messages received.
+    let counter = 0;
+
+    var getOne = await connOne.get({
+      path: '/bookmarks/test',
+      tree,
+      watch: {
+        payload: payload || {someExtra: 'payload'},
+        func: (pay) => {
+          counter++;
+          console.log('received a thing');
+        }
+      }
+    })
+    await Promise.delay(3000);
+
+    // Produce a message
+    await connOne.put({
+      path: `/bookmarks/test`,
+      tree,
+      data: {"foo": "bar"}
+    })
+    expect(counter).to.equal(1);
+
+    await connOne.delete({
+      unwatch: true,
+      path: `/bookmarks/test`,
+      tree,
+    })
+
+    await connOne.put({
+      path: `/bookmarks/test`,
+      tree,
+      data: {"footwo": "bar"}
+    })
+    expect(counter).to.equal(1);
   })
  
   /*

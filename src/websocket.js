@@ -52,6 +52,8 @@ function websocket(url) {
 							headers: response.headers,
 							data: response.data
             };
+            err.originalStack = httpCallbacks[response.requestId].request.requestStack;
+
 						httpCallbacks[response.requestId].reject(err);
 					}
 					delete httpCallbacks[response.requestId];
@@ -98,7 +100,7 @@ function websocket(url) {
 				httpCallbacks[message.requestId] = {
 					request: request,
 					resolve: resolve,
-					reject: reject
+					reject: reject,
         };
 				sendMessages();
 			});
