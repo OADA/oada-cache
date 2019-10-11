@@ -316,6 +316,7 @@ export default function setupCache({ name, req, expires }) {
     var res_inmemory = memoryCache[resourceId];
     if (res_inmemory) {
       resource = res_inmemory.data;
+      info("Returning the resource from in-memory cache.");
     }
 
     // 2) Get resource from local DB
@@ -323,6 +324,15 @@ export default function setupCache({ name, req, expires }) {
       try {
         const res_localdb = await db.get(resourceId);
         resource = res_localdb;
+        info("Returning the resource from PouchDB.");
+        // Save the data to in-memory cache
+        const now = Date.now();
+        memoryCache[resourceId] = {
+          data: resource,
+          access: now,
+          promise: undefined,
+          putPending: false,
+        };
       } catch (err) {
         // Oops
         error("getResFromDbErr", err);
@@ -330,19 +340,24 @@ export default function setupCache({ name, req, expires }) {
     }
     // 3) get resource from the server
     if (!resource && !offline) {
+      info("Returning the resource from the remote server.");
       return getResFromServer(req);
     } else if (!resource && offline) {
       throw "Offline and resource not found in local db.";
     }
 
-    //TODO: whats up with the false in quotes? Is this a pouch thing?
+    // Check if the resource is still valid
     if (
       resource.accessed + expiration <= Date.now() ||
       resource.valid === false
     ) {
       if (offline) {
         // offline. skip for now. TODO: add code later
+        throw new Error(
+          "Cached resource is expired or invalid and unable to fetch from the remote server.",
+        );
       } else {
+        info("Returning the resource from the remote server.");
         return getResFromServer(req);
       }
     }
