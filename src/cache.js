@@ -17,7 +17,9 @@ Promise.config({ cancellation: true });
 const error = require("debug")("oada-cache:cache:error");
 const info = require("debug")("oada-cache:cache:info");
 
-export default function setupCache({ name, req, expires }) {
+export default function setupCache({ name, req, expires, dbprefix }) {
+  dbprefix = dbprefix || '';
+  name = dbprefix + name;
   // name should be made unique across domains and users
   var db = db || new PouchDB(name);
   // This fixes concurrent accesses

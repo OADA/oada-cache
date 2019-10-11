@@ -6,6 +6,7 @@ const _ = require("lodash");
 const { expect } = require("chai");
 const { token, domain } = require("./config.js");
 const { tree, putResource, getConnections } = require("./utils.js");
+oada.setDbPrefix('./test/test-data/');
 var expecting = false;
 
 var connections;

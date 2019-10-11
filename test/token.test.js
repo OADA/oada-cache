@@ -8,6 +8,7 @@ let connectTime = 30 * 1000; // seconds to click through oauth
 let nTests = 5;
 const _ = require("lodash");
 let expiredConnections = new Array(10);
+oada.setDbPrefix('./test/test-data/');
 
 let connectionParameters = {
   domain,

@@ -2,6 +2,7 @@ const oada = require("../build/index.js").default;
 const Promise = require("bluebird");
 const axios = require("axios");
 const uuid = require("uuid");
+oada.setDbPrefix('./test/test-data/');
 var { token, domain } = require("./config");
 
 async function getConnections({ domain, options, token }) {

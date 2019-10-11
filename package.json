@@ -50,6 +50,7 @@
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "http-status": "^1.2.0",
+    "mkdirp": "^0.5.1",
     "mocha": "^5.2.0"
   },
   "repository": {

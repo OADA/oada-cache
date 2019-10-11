@@ -1,6 +1,5 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 const pretty = require("prettyjson");
-const oada = require("../build/index").default;
 const _ = require("lodash");
 const uuid = require("uuid");
 const chai = require("chai");

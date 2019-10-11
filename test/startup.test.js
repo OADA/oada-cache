@@ -3,6 +3,7 @@ import oada from "../src/index";
 import chai from "chai";
 var expect = chai.expect;
 const status = require("http-status");
+oada.setDbPrefix('./test/test-data/');
 
 const { token, domain } = require("./config.js");
 let connections = new Array(4);

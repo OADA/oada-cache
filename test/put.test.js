@@ -2,7 +2,6 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 const axios = require("axios");
 const pretty = require("prettyjson");
 const Promise = require("bluebird");
-const oada = require("../build/index");
 const _ = require("lodash");
 var chai = require("chai");
 var chaiAsPromised = require("chai-as-promised");

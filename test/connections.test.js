@@ -5,6 +5,7 @@ import chai from "chai";
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = chai.expect;
+oada.setDbPrefix('./test/test-data/');
 
 let connections = new Array(4);
 let connectTime = 30 * 1000; // seconds to click through oauth

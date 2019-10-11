@@ -12,6 +12,9 @@ const _TOKEN = require("./token");
 const error = require("debug")("oada-cache:index:error");
 const info = require("debug")("oada-cache:index:info");
 
+let dbprefix = '';
+const setDbPrefix = pfx => dbprefix = pfx;
+
 var connect = async function connect({
   domain,
   options,
@@ -54,7 +57,7 @@ var connect = async function connect({
   var NOCACHEREQUEST = axios;
   var SOCKET;
   var TOKEN;
-  let _token = new _TOKEN({ domain, token, options });
+  let _token = new _TOKEN({ domain, token, options, dbprefix });
   if (!domain) {
     throw new Error("domain undefined");
   }
@@ -687,7 +690,7 @@ var connect = async function connect({
   }
 
   function _configureCache({ name, req, expires }) {
-    let res = setupCache({ name, req, expires });
+    let res = setupCache({ name, req, expires, dbprefix });
     REQUEST = res.api;
     CACHE = res;
     return;
@@ -944,4 +947,5 @@ var connect = async function connect({
 
 export default {
   connect,
+  setDbPrefix,
 };
