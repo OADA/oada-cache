@@ -195,7 +195,7 @@ var connect = async function connect({
           headers,
         },
         async function handleWatchResponse(response) {
-          if (payload.tree) {
+          if (payload && payload.tree) {
             // Filter the change body based on the given tree
             info("BODY BEFORE", path, payload.tree);
             info(_.cloneDeep(response.change.body));
