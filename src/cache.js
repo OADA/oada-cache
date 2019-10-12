@@ -318,7 +318,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     var res_inmemory = memoryCache[resourceId];
     if (res_inmemory) {
       resource = res_inmemory.data;
-      info("Returning the resource from in-memory cache.");
+      info(`Returning the resource [${resourceId}] from in-memory cache.`);
     }
 
     // 2) Get resource from local DB
@@ -326,7 +326,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
       try {
         const res_localdb = await db.get(resourceId);
         resource = res_localdb;
-        info("Returning the resource from PouchDB.");
+        info(`Returning the resource [${resourceId}] from PouchDB.`);
         // Save the data to in-memory cache
         const now = Date.now();
         memoryCache[resourceId] = {
@@ -342,10 +342,10 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     }
     // 3) get resource from the server
     if (!resource && !offline) {
-      info("Returning the resource from the remote server.");
+      info(`Returning the resource [${resourceId}] from the remote server.`);
       return getResFromServer(req);
     } else if (!resource && offline) {
-      throw "Offline and resource not found in local db.";
+      throw `Offline and resource [${resourceId}] not found in local db.`;
     }
 
     // Check if the resource is still valid
@@ -359,7 +359,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           "Cached resource is expired or invalid and unable to fetch from the remote server.",
         );
       } else {
-        info("Returning the resource from the remote server.");
+        info(`Returning the resource [${resourceId}] from the remote server.`);
         return getResFromServer(req);
       }
     }
