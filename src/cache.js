@@ -766,8 +766,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
 
             await _recursiveUpsert(
               payload.request,
-              payload.response.change.body,
-              {},
+              payload.response.change.body.data,
             );
             return payload;
           }
