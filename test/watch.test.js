@@ -6,7 +6,7 @@ const _ = require("lodash");
 const { expect } = require("chai");
 const { token, domain } = require("./config.js");
 const { tree, putResource, getConnections } = require("./utils.js");
-oada.setDbPrefix('./test/test-data/');
+oada.setDbPrefix("./test/test-data/");
 var expecting = false;
 
 var connections;
@@ -20,9 +20,9 @@ async function setupWatch(conn, tre, payload) {
     watch: {
       payload: payload || { someExtra: "payload" },
       func: pay => {
-        console.log("received a thing");
-      }
-    }
+        console.log("received a thing. change body:", pay.response.change.body);
+      },
+    },
   });
   expect(getOne.status).to.equal(200);
   return { getOne };

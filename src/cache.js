@@ -18,7 +18,7 @@ const error = require("debug")("oada-cache:cache:error");
 const info = require("debug")("oada-cache:cache:info");
 
 export default function setupCache({ name, req, expires, dbprefix }) {
-  dbprefix = dbprefix || '';
+  dbprefix = dbprefix || "";
   name = dbprefix + name;
   // name should be made unique across domains and users
   var db = db || new PouchDB(name);
@@ -336,10 +336,13 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           putPending: false,
         };
       } catch (err) {
-        // Oops
-        error("getResFromDbErr", err);
+        if (err.status != 404) {
+          // Oops
+          error("Failed to get resource from PouchDB", err);
+        }
       }
     }
+
     // 3) get resource from the server
     if (!resource && !offline) {
       info(`Returning the resource [${resourceId}] from the remote server.`);
@@ -359,7 +362,9 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           "Cached resource is expired or invalid and unable to fetch from the remote server.",
         );
       } else {
-        info(`Returning the resource [${resourceId}] from the remote server.`);
+        info(
+          `Resource is expired or invalid. Returning the resource [${resourceId}] from the remote server.`,
+        );
         return getResFromServer(req);
       }
     }
@@ -805,6 +810,8 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         return del(req);
       case "put":
         return put(req);
+      default:
+        throw new Error("Unknown request method.");
     }
   };
 
