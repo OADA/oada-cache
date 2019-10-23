@@ -17,7 +17,7 @@ describe(`------------GET-----------------`, async function() {
   before(`Create connection types`, async function() {
     connections = await getConnections({
       domain,
-      token: "def"
+      token: "def",
     });
   });
 
@@ -33,7 +33,7 @@ describe(`------------GET-----------------`, async function() {
         await putResource(
           {
             _type: "application/vnd.oada.notes.1+json",
-            sometest: "abc"
+            sometest: "abc",
           },
           domain + "/bookmarks/test"
         );
@@ -58,7 +58,7 @@ describe(`------------GET-----------------`, async function() {
         );
 
         var test = await connections[i].get({
-          path: "/bookmarks/test"
+          path: "/bookmarks/test",
         });
         expect(test.data).to.include.key("aaa");
         expect(test.data).to.include.keys(["_id", "_meta", "_type", "_rev"]);
@@ -66,7 +66,7 @@ describe(`------------GET-----------------`, async function() {
 
       it(`2. Should allow you to get a resource directly`, async function() {
         var response = await connections[i].get({
-          path: "/resources/default:resources_bookmarks_321"
+          path: "/resources/default:resources_bookmarks_321",
         });
         expect(response.data).to.include.keys(["_id", "_rev", "_meta"]);
       });
@@ -75,7 +75,7 @@ describe(`------------GET-----------------`, async function() {
         return expect(
           connections[i].get({
             path: "/bookmarks/test/testTwo",
-            tree
+            tree,
           })
         ).to.be.rejectedWith(Error, "Request failed with status code 404");
       });
@@ -88,7 +88,7 @@ describe(`------------GET-----------------`, async function() {
           // Prep the cache with part of the tree
           var first = await connections[i].get({
             path: "/bookmarks/test",
-            tree: subTree
+            tree: subTree,
           });
           expect(first.data).to.include.key("aaa");
           expect(first.data["aaa"]).to.include.key("bbb");
@@ -96,31 +96,31 @@ describe(`------------GET-----------------`, async function() {
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(first.data["aaa"]["bbb"]).to.include.key("index-one");
           expect(first.data["aaa"]["bbb"]).to.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(first.data["aaa"]["bbb"]["index-one"]).to.not.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(first.data["aaa"]["bbb"]["index-one"]).to.include.key("ccc");
           expect(first.data["aaa"]["bbb"]["index-one"]["ccc"]).to.have.keys([
             "_id",
-            "_rev"
+            "_rev",
           ]);
 
           // Now Attempt to GET the entire tree
           var second = await connections[i].get({
             path: "/bookmarks/test",
-            tree
+            tree,
           });
           expect(second.data).to.include.key("aaa");
           expect(second.data["aaa"]).to.include.key("bbb");
@@ -128,20 +128,20 @@ describe(`------------GET-----------------`, async function() {
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(second.data["aaa"]["bbb"]).to.include.key("index-one");
           expect(second.data["aaa"]["bbb"]).to.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(second.data["aaa"]["bbb"]["index-one"]).to.not.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(second.data["aaa"]["bbb"]["index-one"]).to.include.key("ccc");
           expect(second.data["aaa"]["bbb"]["index-one"]["ccc"]).to.include.keys(
@@ -160,7 +160,7 @@ describe(`------------GET-----------------`, async function() {
         if (connections[i].cache) {
           var test = await connections[i].get({
             path: "/bookmarks/test",
-            tree
+            tree,
           });
           expect(test.data).to.include.key("aaa");
           expect(test.data["aaa"]).to.include.key("bbb");
@@ -168,27 +168,27 @@ describe(`------------GET-----------------`, async function() {
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(test.data["aaa"]["bbb"]).to.include.key("index-one");
           expect(test.data["aaa"]["bbb"]).to.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(test.data["aaa"]["bbb"]["index-one"]).to.not.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(test.data["aaa"]["bbb"]["index-one"]).to.include.key("ccc");
           expect(test.data["aaa"]["bbb"]["index-one"]["ccc"]).to.include.keys([
             "_id",
             "_meta",
             "_type",
-            "_rev"
+            "_rev",
           ]);
           expect(test.cached).to.equal(true);
         }
@@ -210,7 +210,7 @@ describe(`------------GET-----------------`, async function() {
         await connections[i].put({
           path: "/bookmarks/test/aaa/bbb/index-one/hhh",
           data: { foo: "bar" },
-          tree
+          tree,
         });
 
         await connections[i].put({
@@ -218,7 +218,7 @@ describe(`------------GET-----------------`, async function() {
             "/bookmarks/test/aaa/bbb/index-one/hhh/index-two/bob/index-three/2014",
           type: "application/vnd.oada.yield.1+json",
           data: { bar: "foo" },
-          tree
+          tree,
         });
 
         await axios({
@@ -226,9 +226,9 @@ describe(`------------GET-----------------`, async function() {
           url: domain + "/bookmarks/test/aaa/bbb/extraKey",
           headers: {
             Authorization: "Bearer def",
-            "Content-Type": "application/vnd.oada.yield.1+json"
+            "Content-Type": "application/vnd.oada.yield.1+json",
           },
-          data: { hello: "world" }
+          data: { hello: "world" },
         });
 
         await axios({
@@ -236,9 +236,9 @@ describe(`------------GET-----------------`, async function() {
           url: domain + "/resources/7656401651",
           headers: {
             Authorization: "Bearer def",
-            "Content-Type": "application/vnd.oada.yield.1+json"
+            "Content-Type": "application/vnd.oada.yield.1+json",
           },
-          data: { foobar: "foobar" }
+          data: { foobar: "foobar" },
         });
 
         await connections[i].put({
@@ -246,12 +246,12 @@ describe(`------------GET-----------------`, async function() {
             "/bookmarks/test/aaa/bbb/index-one/hhh/index-two/joe/somethingElse",
           type: "application/vnd.oada.yield.1+json",
           data: { _id: "resources/7656401651" },
-          tree
+          tree,
         });
 
         var first = await connections[i].get({
           path: "/bookmarks/test",
-          tree
+          tree,
         });
 
         console.log("~~~~~~~~~~~~~~~~~~~~~~");
@@ -264,18 +264,18 @@ describe(`------------GET-----------------`, async function() {
         expect(first.data["aaa"]["bbb"]).to.include.keys([
           "_id",
           "_type",
-          "_rev"
+          "_rev",
         ]);
         expect(first.data["aaa"]["bbb"]["index-one"]).to.not.include.keys([
           "_id",
           "_type",
-          "_rev"
+          "_rev",
         ]);
         expect(first.data["aaa"]["bbb"]["index-one"]).to.include.key("hhh");
         expect(first.data["aaa"]["bbb"]["index-one"]["hhh"]).to.include.keys([
           "_id",
           "_type",
-          "_rev"
+          "_rev",
         ]);
         expect(
           first.data["aaa"]["bbb"]["index-one"]["hhh"]["index-two"]

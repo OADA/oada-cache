@@ -2,7 +2,7 @@ const oada = require("../build/index.js").default;
 const Promise = require("bluebird");
 const axios = require("axios");
 const uuid = require("uuid");
-oada.setDbPrefix('./test/test-data/');
+oada.setDbPrefix("./test/test-data/");
 var { token, domain } = require("./config");
 
 async function getConnections({ domain, options, token }) {
@@ -10,7 +10,7 @@ async function getConnections({ domain, options, token }) {
     domain,
     options,
     token,
-    cache: { name: "cYesWYes" }
+    cache: { name: "cYesWYes" },
   });
 
   var cYesWNo = await oada.connect({
@@ -18,14 +18,14 @@ async function getConnections({ domain, options, token }) {
     options,
     token,
     websocket: false,
-    cache: { name: "cYesWNo" }
+    cache: { name: "cYesWNo" },
   });
   var cNoWYes = await oada.connect({
     domain,
     options,
     token,
     cache: false,
-    name: "cNoWYes"
+    name: "cNoWYes",
   });
 
   var cNoWNo = await oada.connect({
@@ -34,7 +34,7 @@ async function getConnections({ domain, options, token }) {
     token,
     websocket: false,
     cache: false,
-    name: "cNoWNo"
+    name: "cNoWNo",
   });
   return [cNoWNo, cYesWNo, cNoWYes, cYesWYes];
 }
@@ -50,18 +50,18 @@ async function putResource(data, path) {
     url: domain + "/" + _id,
     headers: {
       Authorization: "Bearer " + token,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    data
+    data,
   });
   var link = await axios({
     method: "put",
     url: domain + newPath,
     headers: {
       Authorization: "Bearer " + token,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    data: newData
+    data: newData,
   });
 
   return { resource, link };
@@ -95,21 +95,21 @@ var tree = {
                     "*": {
                       _type:
                         "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-                      test: {}
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+                      test: {},
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 module.exports = {
   getConnections,
   tree,
-  putResource
+  putResource,
 };

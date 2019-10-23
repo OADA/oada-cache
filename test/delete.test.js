@@ -15,7 +15,7 @@ describe(`------------DELETE-----------------`, async function() {
   before(`Create connection types`, async function() {
     connections = await getConnections({
       domain,
-      token
+      token,
     });
   });
 
@@ -33,7 +33,7 @@ describe(`------------DELETE-----------------`, async function() {
 
         return expect(
           connections[i].delete({
-            type: "application/json"
+            type: "application/json",
           })
         ).to.be.rejectedWith(Error, "Either path or url must be specified.");
       });
@@ -44,7 +44,7 @@ describe(`------------DELETE-----------------`, async function() {
         await putResource({ something: "b" }, "/bookmarks/test");
         var response = await connections[i].delete({
           path: "/bookmarks/test",
-          type: "application/json"
+          type: "application/json",
         });
         expect(response.status).to.equal(204);
       });
@@ -55,7 +55,7 @@ describe(`------------DELETE-----------------`, async function() {
         await putResource({ something: "b" }, "/bookmarks/test");
         var response = await connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         expect(response.status).to.equal(204);
       });
@@ -66,7 +66,7 @@ describe(`------------DELETE-----------------`, async function() {
         await putResource({ something: "b" }, "/bookmarks/test");
         return expect(
           connections[i].delete({
-            path: "/bookmarks/test"
+            path: "/bookmarks/test",
           })
         ).to.be.rejectedWith(Error, `content-type header must be specified.`);
       });
@@ -79,7 +79,7 @@ describe(`------------DELETE-----------------`, async function() {
         return expect(
           connections[i].delete({
             path: "/bookmarks/test",
-            headers: { "content-type": "application/vnd.oada.foobar.1+json" }
+            headers: { "content-type": "application/vnd.oada.foobar.1+json" },
           })
         ).to.be.rejectedWith(Error, `Request failed with status code 403`);
       });
@@ -91,11 +91,11 @@ describe(`------------DELETE-----------------`, async function() {
         var result = await putResource({ something: "b" }, "/bookmarks/test");
         var deleteResponse = await connections[i].delete({
           path: result.resource.headers["content-location"],
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         return expect(
           connections[i].get({
-            path: "/bookmarks/test"
+            path: "/bookmarks/test",
           })
         ).to.be.rejectedWith(Error, `Request failed with status code 403`);
       });
@@ -107,11 +107,11 @@ describe(`------------DELETE-----------------`, async function() {
         var result = await putResource({ something: "b" }, "/bookmarks/test");
         var deleteResponse = await connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         expect(deleteResponse.status).to.equal(204);
         var response = await connections[i].get({
-          path: result.resource.headers["content-location"]
+          path: result.resource.headers["content-location"],
         });
         expect(response.status).to.equal(200);
       });
@@ -123,12 +123,12 @@ describe(`------------DELETE-----------------`, async function() {
         var result = await putResource({ something: "b" }, "/bookmarks/test");
         var deleteOne = await connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         expect(deleteOne.status).to.equal(204);
         var deleteTwo = await connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         expect(deleteTwo.status).to.equal(204);
       });
@@ -140,15 +140,15 @@ describe(`------------DELETE-----------------`, async function() {
         var result = await putResource({ something: "b" }, "/bookmarks/test");
         var deleteOne = connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         var deleteTwo = connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         var deleteThree = connections[i].delete({
           path: "/bookmarks/test",
-          headers: { "content-type": "application/json" }
+          headers: { "content-type": "application/json" },
         });
         await Promise.join(deleteOne, deleteTwo, deleteThree, async function(
           deleteOne,
@@ -160,7 +160,7 @@ describe(`------------DELETE-----------------`, async function() {
           expect(deleteThree.status).to.equal(204);
           return expect(
             connections[i].get({
-              path: "/bookmarks/test"
+              path: "/bookmarks/test",
             })
           ).to.be.rejectedWith(Error, "Request failed with status code 404");
         });
@@ -176,8 +176,8 @@ describe(`------------DELETE-----------------`, async function() {
             path: "/bookmarks/test",
             headers: {
               "If-Match": "2-foobar",
-              "content-type": "application/json"
-            }
+              "content-type": "application/json",
+            },
           })
         ).to.be.rejectedWith(Error, "Request failed with status code 412");
       });
@@ -191,8 +191,8 @@ describe(`------------DELETE-----------------`, async function() {
           path: "/bookmarks/test",
           headers: {
             "if-match": result.link.headers["x-oada-rev"],
-            "content-type": "application/json"
-          }
+            "content-type": "application/json",
+          },
         });
         expect(response.status).to.equal(204);
       });
@@ -203,8 +203,8 @@ describe(`------------DELETE-----------------`, async function() {
           path: result.resource.headers["content-location"],
           headers: {
             "if-match": result.resource.headers["x-oada-rev"],
-            "content-type": "application/json"
-          }
+            "content-type": "application/json",
+          },
         });
         expect(response.status).to.equal(204);
       });
@@ -221,7 +221,7 @@ describe(`------------DELETE-----------------`, async function() {
         );
         var response = await connections[i].delete({
           path: "/bookmarks/test",
-          tree
+          tree,
         });
         expect(response.status).to.equal(204);
         return Promise.each(
@@ -232,7 +232,7 @@ describe(`------------DELETE-----------------`, async function() {
             bbb.link.headers["content-location"],
             bbb.resource.headers["content-location"],
             ccc.link.headers["content-location"],
-            ccc.resource.headers["content-location"]
+            ccc.resource.headers["content-location"],
           ],
           path => {
             if (/^\/resources/.test(path)) {
@@ -257,33 +257,33 @@ describe(`------------DELETE-----------------`, async function() {
         var putOne = await connections[i].put({
           path: "/bookmarks/test/aaa",
           tree,
-          data: { putOne: "putOne" }
+          data: { putOne: "putOne" },
         });
         expect(putOne.status).to.equal(204);
 
         var putTwo = await connections[i].put({
           path: "/bookmarks/test/aaa/bbb",
           tree,
-          data: { putTwo: "putTwo" }
+          data: { putTwo: "putTwo" },
         });
         expect(putTwo.status).to.equal(204);
 
         var deleteOne = await connections[i].delete({
           path: "/bookmarks/test",
-          tree
+          tree,
         });
         expect(deleteOne.status).to.equal(204);
 
         var putThree = await connections[i].put({
           path: "/bookmarks/test/aaa/bbb/index-one/ccc",
           tree,
-          data: { putThree: "putThree" }
+          data: { putThree: "putThree" },
         });
         expect(putThree.status).to.equal(204);
 
         var getOne = await connections[i].get({
           path: "/bookmarks/test",
-          tree
+          tree,
         });
         expect(getOne.status).to.equal(200);
         expect(getOne.data.aaa).to.not.include.key("putOne");
@@ -297,7 +297,7 @@ describe(`------------DELETE-----------------`, async function() {
         await connections[i].delete({ path: "/bookmarks/test", tree });
         try {
           var getOne = await connections[i].get({
-            path: "/bookmarks/test/aaa"
+            path: "/bookmarks/test/aaa",
           });
         } catch (err) {
           expect(err.response.status).to.equal(404);
@@ -307,21 +307,21 @@ describe(`------------DELETE-----------------`, async function() {
         var putOne = connections[i].put({
           path: "/bookmarks/test/aaa",
           tree,
-          data: { putOne: "putOne" }
+          data: { putOne: "putOne" },
         });
         var putTwo = connections[i].put({
           path: "/bookmarks/test/aaa/bbb",
           tree,
-          data: { putTwo: "putTwo" }
+          data: { putTwo: "putTwo" },
         });
         var deleteOne = connections[i].delete({
           path: "/bookmarks/test/aaa/bbb/index-one/ccc",
-          tree
+          tree,
         });
         var putThree = connections[i].put({
           path: "/bookmarks/test/aaa/bbb/index-one/ccc",
           tree,
-          data: { putThree: "putThree" }
+          data: { putThree: "putThree" },
         });
         var result = await Promise.join(
           putOne,

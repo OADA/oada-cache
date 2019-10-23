@@ -12,8 +12,8 @@ const _TOKEN = require("./token");
 const error = require("debug")("oada-cache:index:error");
 const info = require("debug")("oada-cache:index:info");
 
-let dbprefix = '';
-const setDbPrefix = pfx => dbprefix = pfx;
+let dbprefix = "";
+const setDbPrefix = pfx => (dbprefix = pfx);
 
 var connect = async function connect({
   domain,
@@ -40,7 +40,7 @@ var connect = async function connect({
     typeof cache !== "object"
   ) {
     throw new Error(
-      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
     );
   }
   if (cache && cache.name && typeof cache.name !== "string") {
@@ -164,7 +164,7 @@ var connect = async function connect({
             newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
             return _makeResourceAndLink(
               { path, data, headers: newHeaders },
-              waitTime * 2,
+              waitTime * 2
             );
           }
         } else {
@@ -175,7 +175,7 @@ var connect = async function connect({
           newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
           return _makeResourceAndLink(
             { path, data, headers: newHeaders },
-            waitTime * 2,
+            waitTime * 2
           );
         }
       } else {
@@ -205,7 +205,7 @@ var connect = async function connect({
             response.change.body = await _recursiveFilterChange(
               DOMAIN + path,
               payload.tree,
-              response.change.body,
+              response.change.body
             );
             info("BODY AFTER");
             info(response.change.body);
@@ -229,7 +229,7 @@ var connect = async function connect({
             await func(watchPayload);
           }
           return;
-        },
+        }
       );
     } else {
       throw new Error("websocket is required to watch resource");
@@ -316,7 +316,7 @@ var connect = async function connect({
           data[key],
           obj,
           beforeCb,
-          afterCb,
+          afterCb
         );
         info(key, res);
         data[key] = res.data;
@@ -356,7 +356,7 @@ var connect = async function connect({
         }
         info("returning");
         return { data };
-      },
+      }
     );
   }
 
@@ -377,7 +377,7 @@ var connect = async function connect({
         }
         return { data, obj };
       },
-      undefined,
+      undefined
     );
   }
 
@@ -451,7 +451,7 @@ var connect = async function connect({
           link: link || {},
           data: data || {},
         };
-      },
+      }
     );
   }
 
@@ -496,7 +496,7 @@ var connect = async function connect({
       }
       if (watch.function) {
         throw new Error(
-          "Use watch.func instead of watch.function to pass a watch handler.",
+          "Use watch.func instead of watch.function to pass a watch handler."
         );
       }
       watchResponse = await _watch({
@@ -517,7 +517,7 @@ var connect = async function connect({
             req.url,
             subTree,
             watchResponse.resource,
-            true,
+            true
           );
         } else {
           var stuff = await _recursiveGet(req.url, subTree, {}, true);
@@ -555,7 +555,7 @@ var connect = async function connect({
             url + "/" + key,
             tree[key],
             data[key],
-            cached,
+            cached
           );
           cached = res.cached;
           return (data[key] = res.data);
@@ -564,7 +564,7 @@ var connect = async function connect({
             url + "/" + key,
             tree["*"],
             data[key],
-            cached,
+            cached
           );
           cached = res.cached;
           return (data[key] = res.data);
@@ -684,7 +684,7 @@ var connect = async function connect({
           resp.path = urlPath;
           responses.push(resp);
         }
-      },
+      }
     );
     return responses;
   }
@@ -730,14 +730,14 @@ var connect = async function connect({
           var res = await _recursiveDelete(
             url + "/" + key,
             tree[key],
-            data[key],
+            data[key]
           );
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveDelete(
             url + "/" + key,
             tree["*"],
-            data[key],
+            data[key]
           );
           return (data[key] = res.data);
         } else {

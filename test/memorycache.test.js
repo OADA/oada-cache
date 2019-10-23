@@ -10,7 +10,7 @@ const axios = require("axios");
 const { token, domain } = require("./config");
 const { tree, putResource, getConnections } = require("./utils.js");
 const { performance } = require("perf_hooks");
-oada.setDbPrefix('./test/test-data/');
+oada.setDbPrefix("./test/test-data/");
 
 const timer = ms => new Promise(res => setTimeout(res, ms));
 
@@ -39,7 +39,7 @@ describe(`In-memory Cache`, async function() {
 
     it(`In-memory cache should contain one entry`, async function() {
       expect(connection._getMemoryCache()).to.have.property(
-        "resources/default:resources_bookmarks_321",
+        "resources/default:resources_bookmarks_321"
       );
     });
 
@@ -60,7 +60,7 @@ describe(`In-memory Cache`, async function() {
 
     it(`In-memory cache should contain one entry`, async function() {
       expect(connection._getMemoryCache()).to.have.property(
-        "resources/default:resources_bookmarks_321",
+        "resources/default:resources_bookmarks_321"
       );
     });
 

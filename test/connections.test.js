@@ -5,7 +5,7 @@ import chai from "chai";
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = chai.expect;
-oada.setDbPrefix('./test/test-data/');
+oada.setDbPrefix("./test/test-data/");
 
 let connections = new Array(4);
 let connectTime = 30 * 1000; // seconds to click through oauth
@@ -170,7 +170,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         token: "def",
         websocket: false,
         cache: false,
-      }),
+      })
     ).to.be.rejectedWith(Error, "domain undefined");
   });
 
@@ -181,7 +181,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         domain,
         websocket: false,
         cache: false,
-      }),
+      })
     ).to.be.rejectedWith(Error, "options and token undefined");
   });
 
@@ -193,7 +193,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         token: { def: "def" },
         websocket: false,
         cache: false,
-      }),
+      })
     ).to.be.rejectedWith(Error, "token must be a string");
   });
 
@@ -204,7 +204,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         domain,
         token: "def",
         websocket: "false",
-      }),
+      })
     ).to.be.rejectedWith(Error, "websocket must be boolean");
   });
 
@@ -215,10 +215,10 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         domain,
         token: "def",
         cache: "false",
-      }),
+      })
     ).to.be.rejectedWith(
       Error,
-      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
     );
   });
 

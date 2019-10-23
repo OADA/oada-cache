@@ -38,7 +38,7 @@ class Token {
     self._token = param.token || null;
     self._domain = param.domain || "localhost";
     self._options = param.options;
-    self._dbprefix = param.dbprefix || '';
+    self._dbprefix = param.dbprefix || "";
 
     // creating database nae based on the domain
     // ensured one to one correspondence with the domain
@@ -127,7 +127,7 @@ class Token {
         let response = await this._tokenDB.put({
           _id: this._id,
           _rev: this._rev,
-          token: _token
+          token: _token,
         });
         this.token = _token;
       } else {
@@ -135,7 +135,7 @@ class Token {
         //        debug("not found -> creating one");
         let response = await this._tokenDB.put({
           _id: this._id,
-          token: _token
+          token: _token,
         });
         this.token = _token;
       } //else

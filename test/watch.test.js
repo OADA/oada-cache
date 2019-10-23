@@ -451,8 +451,8 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       bookmarks: {
         aaa: _.cloneDeep(tree.bookmarks.test.aaa),
         _type: "application/vnd.oada.bookmarks.1+json",
-        _rev: 0
-      }
+        _rev: 0,
+      },
     };
     // Add some extra subtree so we can create it quickly
     newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb);
@@ -467,7 +467,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     var putOne = await connTwo.put({
       path: "/bookmarks/aaa/bbb/index-one/ccc",
       data: { putOne: "bar" },
-      tree: newTree
+      tree: newTree,
     });
     expect(putOne.status).to.equal(204);
 
@@ -477,7 +477,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     var putTwo = await connTwo.put({
       path: "/bookmarks/aaa/ddd/index-one/ccc/index-two/ddd",
       data: { putTwo: "foo" },
-      type: "application/json"
+      type: "application/json",
     });
     expect(putTwo.status).to.equal(204);
     console.log("3333333333333");
@@ -486,7 +486,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     var putThree = await connOne.put({
       path: "/bookmarks/test",
       data: { putThree: "foo" },
-      tree
+      tree,
     });
     expect(putThree.status).to.equal(204);
     console.log("4444444444444");
@@ -496,18 +496,18 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await Promise.delay(5000);
 
     var getOne = await connOne.get({
-      path: "/bookmarks/aaa"
+      path: "/bookmarks/aaa",
     });
     expect(getOne.status).to.equal(200);
 
     // Now link to the pre-existing tree and watch the changes come in.
     console.log("making this link:", {
-      aaa: { _id: getOne.data._id, _rev: getOne.data._rev }
+      aaa: { _id: getOne.data._id, _rev: getOne.data._rev },
     });
     var putFour = await connTwo.put({
       path: "/bookmarks/test",
       data: { aaa: { _id: getOne.data._id, _rev: getOne.data._rev } },
-      tree
+      tree,
     });
     expect(putFour.status).to.equal(204);
 
@@ -522,7 +522,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     // cached.
     var getTwo = await connOne.get({
       path: "/bookmarks/test",
-      tree
+      tree,
     });
     console.log(pretty.render(getTwo.data));
     expect(getTwo.status).to.equal(200);

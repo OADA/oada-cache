@@ -359,11 +359,11 @@ export default function setupCache({ name, req, expires, dbprefix }) {
       if (offline) {
         // offline. skip for now. TODO: add code later
         throw new Error(
-          "Cached resource is expired or invalid and unable to fetch from the remote server.",
+          "Cached resource is expired or invalid and unable to fetch from the remote server."
         );
       } else {
         info(
-          `Resource is expired or invalid. Returning the resource [${resourceId}] from the remote server.`,
+          `Resource is expired or invalid. Returning the resource [${resourceId}] from the remote server.`
         );
         return getResFromServer(req);
       }
@@ -423,7 +423,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     return getResFromDb(newReq, OFFLINE, revLimit || REVLIMIT).then(
       response => {
         return response;
-      },
+      }
     );
   }
 
@@ -614,7 +614,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
             url: req.url + "/" + key,
             headers: req.headers,
           },
-          body[key],
+          body[key]
         );
       });
     } else {
@@ -669,10 +669,10 @@ export default function setupCache({ name, req, expires, dbprefix }) {
             res => {
               nullPath = res || nullPath;
               return res || nullPath;
-            },
+            }
           );
         },
-        { concurrency: 1 },
+        { concurrency: 1 }
       )
         .then(() => {
           return nullPath;
@@ -719,7 +719,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         return findDeepestResource(
           obj[key],
           path + "/" + key,
-          deepestResource,
+          deepestResource
         ).then(() => {
           return deepestResource;
         });
@@ -771,7 +771,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
 
             await _recursiveUpsert(
               payload.request,
-              payload.response.change.body.data,
+              payload.response.change.body.data
             );
             return payload;
           }

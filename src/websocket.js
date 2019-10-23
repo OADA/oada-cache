@@ -43,7 +43,7 @@ function websocket(url) {
           } else {
             //Create error like axios
             let err = new Error(
-              "Request failed with status code " + response.status,
+              "Request failed with status code " + response.status
             );
             err.request = httpCallbacks[response.requestId].request;
             err.response = {
@@ -63,7 +63,7 @@ function websocket(url) {
             } else {
               //error(watchCallbacks[response.requestId].request, response);
               let err = new Error(
-                "Request failed with status code " + response.status,
+                "Request failed with status code " + response.status
               );
               err.response = response;
               err.request = watchCallbacks[response.requestId].request;
@@ -76,7 +76,7 @@ function websocket(url) {
             if (watchCallbacks[response.requestId].callback == null) {
               throw new Error(
                 "The given watch function has an undefined callback:",
-                watchCallbacks[response.requestId],
+                watchCallbacks[response.requestId]
               );
             }
             watchCallbacks[response.requestId].callback(response);

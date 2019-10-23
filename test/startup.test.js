@@ -3,7 +3,7 @@ import oada from "../src/index";
 import chai from "chai";
 var expect = chai.expect;
 const status = require("http-status");
-oada.setDbPrefix('./test/test-data/');
+oada.setDbPrefix("./test/test-data/");
 
 const { token, domain } = require("./config.js");
 let connections = new Array(4);
@@ -128,7 +128,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
         token: "def",
       });
       conn = connection;
-    },
+    }
   );
 
   before("Disconnecting - First time", function() {
@@ -143,7 +143,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
         token: "def",
       });
       conn = connection;
-    },
+    }
   );
 
   it(`Should error when neither 'url' nor 'path' are supplied`, async function() {
@@ -387,7 +387,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> disconnect() -> puts ~~~
         token: "def",
       });
       conn = connection;
-    },
+    }
   );
 
   before("Disconnecting - First time", function() {
@@ -402,7 +402,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> disconnect() -> puts ~~~
         token: "def",
       });
       conn = connection;
-    },
+    }
   );
 
   before("Disconnecting - Second time", function() {
