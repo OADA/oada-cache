@@ -40,7 +40,7 @@ var connect = async function connect({
     typeof cache !== "object"
   ) {
     throw new Error(
-      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`,
     );
   }
   if (cache && cache.name && typeof cache.name !== "string") {
@@ -164,7 +164,7 @@ var connect = async function connect({
             newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
             return _makeResourceAndLink(
               { path, data, headers: newHeaders },
-              waitTime * 2
+              waitTime * 2,
             );
           }
         } else {
@@ -175,7 +175,7 @@ var connect = async function connect({
           newHeaders["if-match"] = parseInt(response.headers["x-oada-rev"]);
           return _makeResourceAndLink(
             { path, data, headers: newHeaders },
-            waitTime * 2
+            waitTime * 2,
           );
         }
       } else {
@@ -205,7 +205,7 @@ var connect = async function connect({
             response.change.body = await _recursiveFilterChange(
               DOMAIN + path,
               payload.tree,
-              response.change.body
+              response.change.body,
             );
             info("BODY AFTER");
             info(response.change.body);
@@ -229,7 +229,7 @@ var connect = async function connect({
             await func(watchPayload);
           }
           return;
-        }
+        },
       );
     } else {
       throw new Error("websocket is required to watch resource");
@@ -316,7 +316,7 @@ var connect = async function connect({
           data[key],
           obj,
           beforeCb,
-          afterCb
+          afterCb,
         );
         info(key, res);
         data[key] = res.data;
@@ -328,36 +328,35 @@ var connect = async function connect({
     });
   }
 
-  // Filter changes to match the given tree. Handle changes that include link creation.
-  function _recursiveFilterChange(startingUrl, tree, changeBody) {
-    return _treeWalk(
-      startingUrl,
-      tree,
-      changeBody,
-      undefined,
-      async function retrieveLinkedData(url, subTree, data) {
-        info("DETECTING A LINK", url, data);
-        info("a1", Object.keys(data).length === 1 && data._id);
-        info("b2", Object.keys(data).length === 2 && data._rev && data._id);
-        if (
-          (Object.keys(data).length === 1 && data._id) ||
-          (Object.keys(data).length === 2 &&
-            Object.hasOwnProperty(data, "_rev") &&
-            data._id)
-        ) {
-          let getTree = {};
-          let path = urlLib.parse(url).path;
-          pointer.set(getTree, path, subTree);
-          var got = await get({
-            tree: getTree,
-            url,
-          });
-          data = got.data;
+  // walk down the tree to
+  function _recursiveFilterChange(url, tree, data) {
+    //Filter at resource breaks
+    return Promise.map(Object.keys(data || {}), async function(key) {
+      if (data[key] && typeof data[key] === "object") {
+        if (tree[key]) {
+          var res = await _recursiveFilterChange(
+            url + "/" + key,
+            tree[key],
+            data[key],
+          );
+          return (data[key] = res.data);
+        } else if (tree["*"]) {
+          var res = await _recursiveFilterChange(
+            url + "/" + key,
+            tree["*"],
+            data[key],
+          );
+          return (data[key] = res.data);
+        } else if (data[key]._id) {
+          let rv = data[key]._rev ? data[key]._rev : false;
+          data[key] = { _id: data[key]._id };
+          if (rv) {data[key]._rev = data[key]._rev;}
+          return;
         }
-        info("returning");
-        return { data };
-      }
-    );
+      } else {return;}
+    }).then(() => {
+      return { data };
+    });
   }
 
   function recursiveGet(startingUrl, tree, data, cached) {
@@ -377,7 +376,7 @@ var connect = async function connect({
         }
         return { data, obj };
       },
-      undefined
+      undefined,
     );
   }
 
@@ -451,7 +450,7 @@ var connect = async function connect({
           link: link || {},
           data: data || {},
         };
-      }
+      },
     );
   }
 
@@ -496,7 +495,7 @@ var connect = async function connect({
       }
       if (watch.function) {
         throw new Error(
-          "Use watch.func instead of watch.function to pass a watch handler."
+          "Use watch.func instead of watch.function to pass a watch handler.",
         );
       }
       watchResponse = await _watch({
@@ -517,7 +516,7 @@ var connect = async function connect({
             req.url,
             subTree,
             watchResponse.resource,
-            true
+            true,
           );
         } else {
           var stuff = await _recursiveGet(req.url, subTree, {}, true);
@@ -555,7 +554,7 @@ var connect = async function connect({
             url + "/" + key,
             tree[key],
             data[key],
-            cached
+            cached,
           );
           cached = res.cached;
           return (data[key] = res.data);
@@ -564,7 +563,7 @@ var connect = async function connect({
             url + "/" + key,
             tree["*"],
             data[key],
-            cached
+            cached,
           );
           cached = res.cached;
           return (data[key] = res.data);
@@ -684,7 +683,7 @@ var connect = async function connect({
           resp.path = urlPath;
           responses.push(resp);
         }
-      }
+      },
     );
     return responses;
   }
@@ -730,14 +729,14 @@ var connect = async function connect({
           var res = await _recursiveDelete(
             url + "/" + key,
             tree[key],
-            data[key]
+            data[key],
           );
           return (data[key] = res.data);
         } else if (tree["*"]) {
           var res = await _recursiveDelete(
             url + "/" + key,
             tree["*"],
-            data[key]
+            data[key],
           );
           return (data[key] = res.data);
         } else {
