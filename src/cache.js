@@ -65,6 +65,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
       // update data and access time
       memoryCache[resourceId].data = data;
       memoryCache[resourceId].access = now;
+      memoryCache[resourceId].valid = true;
     } else {
       // resource does not exist
       // add new resource
@@ -73,6 +74,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         access: now,
         promise: undefined,
         putPending: false,
+        valid: true,
       };
     }
 
@@ -149,7 +151,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     let memoryResult = memoryCache[resourceId]; // Try to get resource from in-memory cache
     let result = { doc: {} };
 
-    if (!memoryResult) {
+    if (!memoryResult || !memoryResult.valid) {
       // resource does not exist in memory; get from DB
       try {
         result = await db.get(resourceId);
@@ -316,7 +318,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     var rev = undefined;
     // 1) Get resource from in-memory cache
     var res_inmemory = memoryCache[resourceId];
-    if (res_inmemory) {
+    if (res_inmemory && res_inmemory.valid) {
       resource = res_inmemory.data;
       info(`Returning the resource [${resourceId}] from in-memory cache.`);
     }
@@ -324,7 +326,10 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     // 2) Get resource from local DB
     if (!resource) {
       try {
-        const res_localdb = await db.get(resourceId);
+        let res_localdb = await db.get(resourceId);
+        if (!res_localdb.valid) {
+          throw new Error("Invalid");
+        }
         resource = res_localdb;
         info(`Returning the resource [${resourceId}] from PouchDB.`);
         // Save the data to in-memory cache
@@ -334,6 +339,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           access: now,
           promise: undefined,
           putPending: false,
+          valid: true,
         };
       } catch (err) {
         if (err.status != 404) {
@@ -359,11 +365,11 @@ export default function setupCache({ name, req, expires, dbprefix }) {
       if (offline) {
         // offline. skip for now. TODO: add code later
         throw new Error(
-          "Cached resource is expired or invalid and unable to fetch from the remote server."
+          "Cached resource is expired or invalid and unable to fetch from the remote server.",
         );
       } else {
         info(
-          `Resource is expired or invalid. Returning the resource [${resourceId}] from the remote server.`
+          `Resource is expired or invalid. Returning the resource [${resourceId}] from the remote server.`,
         );
         return getResFromServer(req);
       }
@@ -423,7 +429,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     return getResFromDb(newReq, OFFLINE, revLimit || REVLIMIT).then(
       response => {
         return response;
-      }
+      },
     );
   }
 
@@ -456,6 +462,11 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         // TODO: should it be invalidated until pulled from server?
         valid: false,
       });
+      // Invalidate in-memory cache
+      if (req.data && req.data._id && memoryCache[req.data._id]) {
+        memoryCache[req.data._id].valid = false;
+      }
+
       return response;
     }
   }
@@ -614,7 +625,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
             url: req.url + "/" + key,
             headers: req.headers,
           },
-          body[key]
+          body[key],
         );
       });
     } else {
@@ -669,10 +680,10 @@ export default function setupCache({ name, req, expires, dbprefix }) {
             res => {
               nullPath = res || nullPath;
               return res || nullPath;
-            }
+            },
           );
         },
-        { concurrency: 1 }
+        { concurrency: 1 },
       )
         .then(() => {
           return nullPath;
@@ -719,7 +730,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         return findDeepestResource(
           obj[key],
           path + "/" + key,
-          deepestResource
+          deepestResource,
         ).then(() => {
           return deepestResource;
         });
@@ -771,7 +782,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
 
             await _recursiveUpsert(
               payload.request,
-              payload.response.change.body.data
+              payload.response.change.body.data,
             );
             return payload;
           }

@@ -285,7 +285,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     expect(response.cached).to.equal(true);
   });
 
-  it(`4. Should send a change feed when "offline" changes are made before a watch is set. This change feed should bring the cache up to date.`, async function() {
+  /*  it(`4. Should send a change feed when "offline" changes are made before a watch is set. This change feed should bring the cache up to date.`, async function() {
     this.timeout(40000);
     await connOne.delete({ path: "/bookmarks/test", tree });
     await connOne.resetCache();
@@ -341,7 +341,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await Promise.delay(5000);
     // Now, setup the watch and wait for the "offline" changes to get pushed
     var result = await setupWatch(connOne, newTree);
-    await Promise.delay(5000);
+    await Promise.delay(2000);
     // Wait out the watch notifications
     // Now retrieve the data tree to verify results
     var response = await connOne.get({
@@ -444,6 +444,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await connOne.delete({ path: "/bookmarks/test", tree });
     await connOne.resetCache();
   });
+*/
 
   it(`5. Should receive watches from 10 independent connections`, async function() {
     this.timeout(50000);
@@ -573,7 +574,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await connOne.resetCache();
   });
 
-  it(`7. The tree is needed to decide what documents to sync given a change document where a link connected to a large, preexisting tree`, async function() {
+  /*  it(`7. The tree is needed to decide what documents to sync given a change document where a link connected to a large, preexisting tree`, async function() {
     this.timeout(15000);
     var newTree = {
       bookmarks: {
@@ -660,7 +661,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     ).to.include.keys(["_id", "_rev", "_type", "putTwo"]);
     expect(getTwo.cached).to.equal(true);
     expect(getTwo.data.aaa.ddd["index-one"]).to.have.keys(["_id", "_rev"]);
-  });
+  });*/
 
   /*
   it('Now clean up', async function() {
