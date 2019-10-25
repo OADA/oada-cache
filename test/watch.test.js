@@ -440,9 +440,6 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
   it(`5. Should receive watches from 10 independent connections`, async function() {
     this.timeout(50000);
     var newTree = _.cloneDeep(tree);
-    newTree.bookmarks.test.aaa.bbb["index-one"]["*"]["index-two"]["*"][
-      "index-three"
-    ]["*"]._rev = 0;
 
     var connection = await oada.connect({
       domain,
@@ -452,13 +449,18 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await connection.put({
       path: "/bookmarks/test",
       data: { sometest: i },
-      type: "application/json",
+      tree: newTree,
     });
+
+    var watch_count = 0;
 
     var response = await connection.get({
       path: "/bookmarks/test",
       watch: {
         payload: { someExtra: "payload" },
+        func: pay => {
+          watch_count++;
+        },
       },
     });
     expect(response.status).to.equal(200);
@@ -476,25 +478,21 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     }
 
     await Promise.map(testConnections, async function(conn, i) {
-      for (var j = 0; j < 25; j++) {
-        conn.put({
-          path: "/bookmarks/test/conn" + i,
-          type: "application/json",
-          data: { [`put${j}`]: `value${j}` },
-        });
-      }
+      conn.put({
+        path: "/bookmarks/test/conn" + i,
+        type: "application/json",
+        data: { [`put`]: `value` },
+      });
     });
 
-    await Promise.delay(35000);
+    await Promise.delay(2000);
 
     var getOne = await connection.get({
       path: "/bookmarks/test",
     });
-    expect(getOne.cached).to.equal(true);
-    for (var i = 0; i < 10; i++) {
-      for (var k = 0; k < 25; k++) {
-        expect(getOne.data["conn" + i]).to.include.key("put" + k);
-      }
+    expect(watch_count).to.equal(10);
+    for (let i = 0; i < 10; i++) {
+      expect(getOne.data["conn" + i]).to.include.key("put");
     }
     // Now wipe out all of the caches
     await Promise.map(testConnections, async function(conn, i) {

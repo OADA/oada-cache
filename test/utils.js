@@ -1,4 +1,4 @@
-const oada = require("../build/index.js").default;
+import oada from "../src/index";
 const Promise = require("bluebird");
 const axios = require("axios");
 const uuid = require("uuid");
