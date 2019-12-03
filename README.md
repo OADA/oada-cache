@@ -114,7 +114,7 @@ var response = await connection.delete({
 ```
 
 ## Watch
-Resource watching provides a change feed of updates on demand from the resource rooted at the given `path`. Watches are implemented as an extension of a GET request when the 'watch' key is supplied. When a watch is established, it will automatically keep the cache synced with the incoming change feed. When a watch is initiated, the current `_rev` of the resources is automatically passed along, and any remote changes will be pushed down to bring that resource up to date. The optional `function` key of the `watch` object is used to supply a callback function as changes are received; this callback receives a `payload` argument containing the change. The `payload` key of the `watch` object is used to supply additional data to the callback payload.
+Resource watching provides a change feed of updates on demand from the resource rooted at the given `path`. Watches are implemented as an extension of a GET request when the 'watch' key is supplied. When a watch is established, it will automatically keep the cache synced with the incoming change feed. When a watch is initiated, the current `_rev` of the resources is automatically passed along, and any remote changes will be pushed down to bring that resource up to date. The optional `callback` key of the `watch` object is used to supply a callback function as changes are received; this callback receives a `payload` argument containing the change. The `payload` key of the `watch` object is used to supply additional data to the callback payload.
 ```javascript
 const watchHandler = function(payload) {
   console.log(payload); // {foo: 'bar', response: {...}, request: {...}}
@@ -126,7 +126,7 @@ var response = await connection.get({
   path: "/bookmarks/todoList",
   watch: {
     payload: { foo: 'bar' }
-    function: watchHandler
+    callback: watchHandler
   }
 });
 ```
