@@ -350,10 +350,14 @@ var connect = async function connect({
         } else if (data[key]._id) {
           let rv = data[key]._rev ? data[key]._rev : false;
           data[key] = { _id: data[key]._id };
-          if (rv) {data[key]._rev = data[key]._rev;}
+          if (rv) {
+            data[key]._rev = data[key]._rev;
+          }
           return;
         }
-      } else {return;}
+      } else {
+        return;
+      }
     }).then(() => {
       return { data };
     });
@@ -489,19 +493,22 @@ var connect = async function connect({
       if (tree) {
         watch.payload.tree = subTree;
       }
-      if (!watch.func) {
+
+      // Deprecation warnings
+      if (watch.function || watch.func) {
+        error("Deprecation warning: use callback to pass a watch handler.");
+      }
+
+      let callback = watch.callback || watch.function || watch.func;
+      if (!callback) {
         // Just a warning message. It doesn't throw but print an error message.
         error("Warning: no watch handler was provided.");
       }
-      if (watch.function) {
-        throw new Error(
-          "Use watch.func instead of watch.function to pass a watch handler.",
-        );
-      }
+
       watchResponse = await _watch({
         headers: req.headers,
         path,
-        func: watch.func,
+        func: callback,
         payload: watch.payload,
       });
       info("WATCH RESPONSE", watchResponse);
