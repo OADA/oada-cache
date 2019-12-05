@@ -490,6 +490,9 @@ var connect = async function connect({
       path = path || urlLib.parse(url).path;
       req.headers["x-oada-rev"] = response.data._rev;
       info("Setting watch. Sending rev:", response.data._rev);
+      if (!watch.payload) {
+        watch.payload = {};
+      }
       if (tree) {
         watch.payload.tree = subTree;
       }
