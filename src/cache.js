@@ -84,11 +84,11 @@ export default function setupCache({ name, req, expires, dbprefix }) {
       memoryCache[resourceId].putPending = true;
       // Schedule put
       memoryCache[resourceId].promise = Promise.delay(dbPutDelay)
-        .then(function() {
+        .then(async function() {
           if (!(resourceId in memoryCache)) {
             throw new Error("Resource does not exist in the in-memory cache.");
           }
-          doPut(resourceId, waitTime, req);
+          await doPut(resourceId, waitTime, req);
           memoryCache[resourceId].putPending = false;
         })
         .catch(function(error) {
