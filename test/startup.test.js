@@ -201,7 +201,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
       type: "application/vnd.oada.as-harvested.yield-moisture.dataset.1+json",
       data: `"some test"`
     });
-    expect(response.status).to.equal(204);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev",
@@ -213,7 +213,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -224,7 +224,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -235,7 +235,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -246,7 +246,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb/index-one"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -257,7 +257,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb/index-one/ccc"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -268,7 +268,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb/index-one/ccc/index-two"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -279,7 +279,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -290,7 +290,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -301,7 +301,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -312,7 +312,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -323,7 +323,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb/index-one"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"
@@ -334,7 +334,7 @@ describe("~~~~connect() -> disconnect() -> connect() -> puts ~~~~~~~", () => {
     var response = await conn.get({
       path: "/bookmarks/test/aaa/bbb/index-one/ccc"
     });
-    expect(response.status).to.equal(200);
+    expect(response.status.toString().charAt(0)).to.equal('2');
     expect(response.headers).to.include.keys([
       "content-location",
       "x-oada-rev"

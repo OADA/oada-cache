@@ -824,6 +824,7 @@ var connect = async function connect({
     }
     if (!req.headers["content-type"])
       throw new Error(`content-type header must be specified.`);
+    info('PUT - tree ensured. Executing PUT', req);
     return _sendRequest(req).then(result => {
       return result;
     });

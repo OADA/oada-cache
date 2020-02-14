@@ -19,11 +19,11 @@ async function setupWatch(conn, tre, payload) {
 		watch: {
 			payload: payload || {someExtra: 'payload'},
 			func: (pay) => {
-        console.log('received a thing');
+        console.log('test watch came through');
 			}
 		}
 	})
-  expect(getOne.status).to.equal(200);
+  expect(getOne.status.toString().charAt(0)).to.equal('2');
 	return {getOne}
 }
 
@@ -48,17 +48,17 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       data: {},
       tree: tree,
     })
-    expect(putOne.status).to.equal(204);
+    expect(putOne.status.toString().charAt(0)).to.equal('2');
 
 		var result = await setupWatch(connOne);
-		expect(result.getOne.status).to.equal(200)
+		expect(result.getOne.status.toString().charAt(0)).to.equal('2')
 		// Execute a deep PUT below the watched resource
 		var putTwo = await connTwo.put({
 			path: '/bookmarks/test/aaa',
 			tree,
 			data: {	testAAA: 123 },
 		})
-		expect(putTwo.status).to.equal(204)
+		expect(putTwo.status.toString().charAt(0)).to.equal('2')
 		await Promise.delay(1000)
 		// Retreive the data to determine that its been cached
 		var getTwo = await connOne.get({
@@ -83,7 +83,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       data: {},
       tree: tree,
     })
-    expect(putOne.status).to.equal(204);
+    expect(putOne.status.toString().charAt(0)).to.equal('2');
 		var result = await setupWatch(connOne);
 		// Execute a deep PUT below the watched resource
 		var putTwo = await connOne.put({
@@ -91,7 +91,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			tree,
 			data: {	testAAA: 123 },
 		})
-		expect(putTwo.status).to.equal(204)
+		expect(putTwo.status.toString().charAt(0)).to.equal('2')
 		// Retreive the data to determine that its been cached
 		var getTwo = await connOne.get({
 			path: '/bookmarks/test',
@@ -123,13 +123,13 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       data: {'foo': 'bar'},
       tree: newTree,
     })
-    expect(putOne.status).to.equal(204);
+    expect(putOne.status.toString().charAt(0)).to.equal('2');
 
     await Promise.delay(2000);
     // Begin watching on connection one.
     var result = await setupWatch(connOne, newTree);
     await Promise.delay(2000);
-    expect(result.getOne.status).to.equal(200);
+    expect(result.getOne.status.toString().charAt(0)).to.equal('2');
 
     // Make concurrent PUT requests over a second connection.
 		putOne = connTwo.put({
@@ -159,10 +159,10 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       putThree = Three;
       putFour = Four;
     })
-    expect(putOne.status).to.equal(204)
-    expect(putTwo.status).to.equal(204)
-    expect(putThree.status).to.equal(204)
-    expect(putFour.status).to.equal(204)
+    expect(putOne.status.toString().charAt(0)).to.equal('2')
+    expect(putTwo.status.toString().charAt(0)).to.equal('2')
+    expect(putThree.status.toString().charAt(0)).to.equal('2')
+    expect(putFour.status.toString().charAt(0)).to.equal('2')
 		// The server needs a brief moment to send down watch notifications
     await Promise.delay(5000);
     // Now fetch the data to verify results.
@@ -193,11 +193,11 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     expect(getOneRev < maxRev).to.equal(true)
     expect(getOneRev < minRev).to.equal(true)
 
-    expect(putOne.status).to.equal(204)
-    expect(putTwo.status).to.equal(204)
-    expect(putThree.status).to.equal(204)
-    expect(response.status).to.equal(200)
-    expect(response.status).to.equal(200)
+    expect(putOne.status.toString().charAt(0)).to.equal('2')
+    expect(putTwo.status.toString().charAt(0)).to.equal('2')
+    expect(putThree.status.toString().charAt(0)).to.equal('2')
+    expect(response.status.toString().charAt(0)).to.equal('2')
+    expect(response.status.toString().charAt(0)).to.equal('2')
     expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
     expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
     expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
@@ -229,7 +229,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       tree: newTree,
       data: {testOne: 123},
     })
-    expect(putOne.status).to.equal(204)
+    expect(putOne.status.toString().charAt(0)).to.equal('2')
     // Validate the cache by doing gets
     var getOne = await connOne.get({
       path: '/bookmarks/test',
@@ -256,9 +256,9 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       putThree = Three;
       putFour = Four;
     })
-    expect(putTwo.status).to.equal(204)
-    expect(putThree.status).to.equal(204)
-    expect(putFour.status).to.equal(204)
+    expect(putTwo.status.toString().charAt(0)).to.equal('2')
+    expect(putThree.status.toString().charAt(0)).to.equal('2')
+    expect(putFour.status.toString().charAt(0)).to.equal('2')
     await Promise.delay(5000)
     // Now, setup the watch and wait for the "offline" changes to get pushed
     var result = await setupWatch(connOne, newTree);
@@ -294,8 +294,8 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     expect(getTwoRev > maxRev).to.equal(true)
     expect(getOneRev < minRev).to.equal(true)
 
-    expect(response.status).to.equal(200)
-    expect(response.status).to.equal(200)
+    expect(response.status.toString().charAt(0)).to.equal('2')
+    expect(response.status.toString().charAt(0)).to.equal('2')
     expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
     expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
     expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
@@ -339,7 +339,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 				payload: {someExtra: 'payload'},
 			}
 		})
-		expect(response.status).to.equal(200)
+		expect(response.status.toString().charAt(0)).to.equal('2')
 
 		// Create 10 connections
 		var testConnections = [];
@@ -390,7 +390,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       tree: newTree,
       data: {testOne: 123},
     })
-    expect(putOne.status).to.equal(204)
+    expect(putOne.status.toString().charAt(0)).to.equal('2')
     // Validate the cache by doing gets
     var getOne = await connOne.get({
       path: '/bookmarks/test',
@@ -432,7 +432,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       tree: newTree
     })
 
-    expect(response.status).to.equal(200)
+    expect(response.status.toString().charAt(0)).to.equal('2')
     expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
     expect(response.cached).to.equal(true)
     expect(response).to.include.keys(['data'])
@@ -467,7 +467,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			data: {putOne: 'bar'},
       tree: newTree
     })
-    expect(putOne.status).to.equal(204);
+    expect(putOne.status.toString().charAt(0)).to.equal('2');
 
     // Put to some other path that isn't in the original tree. This path should
     // be omitted when it is linked to the other tree
@@ -476,7 +476,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			data: {putTwo: 'foo'},
       tree: newTree
     })
-    expect(putTwo.status).to.equal(204);
+    expect(putTwo.status.toString().charAt(0)).to.equal('2');
 
     // Create the bookmarks/test endpoint we're going to watch
     var putThree = await connOne.put({
@@ -484,7 +484,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			data: {putThree: 'foo'},
       tree
     })
-    expect(putThree.status).to.equal(204);
+    expect(putThree.status.toString().charAt(0)).to.equal('2');
 
     // Setup the watch on bookmarks/test
     var result = await setupWatch(connOne, tree);
@@ -493,7 +493,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     var getOne = await connOne.get({
       path: '/bookmarks/aaa',
     })
-    expect(getOne.status).to.equal(200);
+    expect(getOne.status.toString().charAt(0)).to.equal('2');
 
     // Now link to the pre-existing tree and watch the changes come in.
     var putFour = await connTwo.put({
@@ -501,7 +501,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 			data: {aaa: {_id: getOne.data._id, _rev: getOne.data._rev}},
       tree
     })
-    expect(putFour.status).to.equal(204);
+    expect(putFour.status.toString().charAt(0)).to.equal('2');
 
     // Wait for the changes to propagate back
     await Promise.delay(5000)
@@ -512,7 +512,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
       path: '/bookmarks/test',
       tree
     })
-    expect(getTwo.status).to.equal(200);
+    expect(getTwo.status.toString().charAt(0)).to.equal('2');
 
     // The linked data should now be present
     expect(getTwo.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'putOne'])

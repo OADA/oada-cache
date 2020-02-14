@@ -43,7 +43,7 @@ describe(`------------DELETE-----------------`, async function() {
 					path: '/bookmarks/test',
 					type: 'application/json'
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
 			it(`3. Shouldn't error when 'Content-Type' header is specified.`, async function() {
@@ -54,7 +54,7 @@ describe(`------------DELETE-----------------`, async function() {
 					path: '/bookmarks/test',
 					headers: {'content-type': 'application/json'}
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
 			it(`4. Should error when _type cannot be derived from the above tested sources`, async function() {
@@ -104,11 +104,11 @@ describe(`------------DELETE-----------------`, async function() {
 					path: '/bookmarks/test',
 					headers: {'content-type': 'application/json'}
 				})
-				expect(deleteResponse.status).to.equal(204);
+				expect(deleteResponse.status.toString().charAt(0)).to.equal('2');
 				var response = await connections[i].get({
 					path: result.resource.headers['content-location'],
 				})
-				expect(response.status).to.equal(200);
+				expect(response.status.toString().charAt(0)).to.equal('2');
 			})
 
 			it(`8. Should handle two deletes in series`, async function() {
@@ -120,12 +120,12 @@ describe(`------------DELETE-----------------`, async function() {
 					path: '/bookmarks/test',
 					headers: {'content-type': 'application/json'}
 				})
-				expect(deleteOne.status).to.equal(204)
+				expect(deleteOne.status.toString().charAt(0)).to.equal('2')
         var deleteTwo = await connections[i].delete({
           path: '/bookmarks/test',
           headers: {'content-type': 'application/json'}
         })
-        expect(deleteTwo.status).to.equal(204)
+        expect(deleteTwo.status.toString().charAt(0)).to.equal('2')
 			})
 
 			it(`9. Should handle concurrent deletes, ultimately deleting the target endpoint as intended`, async function() {
@@ -146,9 +146,9 @@ describe(`------------DELETE-----------------`, async function() {
 					headers: {'content-type': 'application/json'}
 				})
 				await Promise.join(deleteOne, deleteTwo, deleteThree, async function(deleteOne, deleteTwo, deleteThree) {
-					expect(deleteOne.status).to.equal(204)
-					expect(deleteTwo.status).to.equal(204)
-					expect(deleteThree.status).to.equal(204)
+					expect(deleteOne.status.toString().charAt(0)).to.equal('2')
+					expect(deleteTwo.status.toString().charAt(0)).to.equal('2')
+					expect(deleteThree.status.toString().charAt(0)).to.equal('2')
 					return expect(connections[i].get({
 						path: '/bookmarks/test',
 					})).to.be.rejectedWith(Error, 'Request failed with status code 404');
@@ -178,7 +178,7 @@ describe(`------------DELETE-----------------`, async function() {
 						'content-type': 'application/json'
 					}
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
 			it(`12. Should succeed in deleting a resource if a valid 'If-Match' header which matches the current resource's _rev is supplied`, async function() {
@@ -190,7 +190,7 @@ describe(`------------DELETE-----------------`, async function() {
 						'content-type': 'application/json'
 					}
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
 			it(`13. Should delete an entire tree of links and resources when the 'tree' option is supplied`, async function() {
@@ -204,7 +204,7 @@ describe(`------------DELETE-----------------`, async function() {
           path: '/bookmarks/test',
           tree
         })
-        expect(response.status).to.equal(204)
+        expect(response.status.toString().charAt(0)).to.equal('2')
 				return Promise.each([
 					test.resource.headers['content-location'],
 					aaa.link.headers['content-location'],
@@ -231,33 +231,33 @@ describe(`------------DELETE-----------------`, async function() {
 					tree,
 					data: {putOne: 'putOne'}
 				})
-				expect(putOne.status).to.equal(204)
+				expect(putOne.status.toString().charAt(0)).to.equal('2')
 
 				var putTwo = await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb',
 					tree,
 					data: {putTwo: 'putTwo'}
 				})
-				expect(putTwo.status).to.equal(204)
+				expect(putTwo.status.toString().charAt(0)).to.equal('2')
 
 				var deleteOne = await connections[i].delete({
 					path: '/bookmarks/test',
 					tree,
 				})
-				expect(deleteOne.status).to.equal(204)
+				expect(deleteOne.status.toString().charAt(0)).to.equal('2')
 
 				var putThree = await connections[i].put({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc',
 					tree,
 					data: {putThree: 'putThree'}
 				})
-				expect(putThree.status).to.equal(204)
+				expect(putThree.status.toString().charAt(0)).to.equal('2')
 
 				var getOne = await connections[i].get({
 					path: '/bookmarks/test',
 					tree
 				})
-				expect(getOne.status).to.equal(200)
+				expect(getOne.status.toString().charAt(0)).to.equal('2')
 				expect(getOne.data.aaa).to.not.include.key('putOne')
 				expect(getOne.data.aaa.bbb).to.not.include.key('putTwo')
 				expect(getOne.data.aaa.bbb['index-one'].ccc).to.include.key('putThree')
@@ -300,10 +300,10 @@ describe(`------------DELETE-----------------`, async function() {
 					putThree, 
           //async function(putOne,putTwo,deleteOne,putThree) {
           async function(putOne,putTwo, deleteOne, putThree) {
-						expect(putOne.status).to.equal(204)
-						expect(putTwo.status).to.equal(204)
-						expect(deleteOne.status).to.equal(204)
-						expect(putThree.status).to.equal(204)
+						expect(putOne.status.toString().charAt(0)).to.equal('2')
+						expect(putTwo.status.toString().charAt(0)).to.equal('2')
+						expect(deleteOne.status.toString().charAt(0)).to.equal('2')
+						expect(putThree.status.toString().charAt(0)).to.equal('2')
 					}
         )
       })

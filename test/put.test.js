@@ -38,7 +38,7 @@ describe(`------------PUT-----------------`, async function() {
 					path: '/bookmarks/test/sometest',
 					data: { _type: 'application/json'},
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})   
 
 			it(`3. Shouldn't error when the 'Content-Type' header can be derived from the 'type' key`, async function() {
@@ -47,7 +47,7 @@ describe(`------------PUT-----------------`, async function() {
 					data: `"abc123"`,
 					type: 'application/json'
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
 			it(`4. Shouldn't error when 'Content-Type' header is specified.`, async function() {
@@ -56,7 +56,7 @@ describe(`------------PUT-----------------`, async function() {
 					data: `"abc123"`,
 					headers: {'Content-Type': 'application/json'}
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
       it(`5. Shouldn't error when 'Content-Type' header (_type) can be derived from the 'tree'`, async function() {
@@ -71,7 +71,7 @@ describe(`------------PUT-----------------`, async function() {
 				}).catch((err) => {
           console.log('ERRRRRRRRRRRRRRR', err);
         })
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
 
@@ -114,13 +114,13 @@ describe(`------------PUT-----------------`, async function() {
 					data: {'sometest': 123},
 					tree,
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
 				response = await connections[i].get({
 					path: '/bookmarks',
 					tree
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'test'])
         expect(response.data.test._rev).not.to.equal(0)
@@ -135,7 +135,7 @@ describe(`------------PUT-----------------`, async function() {
 					data: {"test": "some test"},
 					tree,
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa',
@@ -146,7 +146,7 @@ describe(`------------PUT-----------------`, async function() {
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'bbb'])
 				expect(response.data.bbb).to.have.keys(['_id', '_rev'])
@@ -158,7 +158,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -173,7 +173,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -188,7 +188,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -202,7 +202,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -217,7 +217,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -232,7 +232,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -248,7 +248,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				if (connections[i].cache) {
 					expect(response.cached).to.equal(true)
 				}
@@ -266,13 +266,13 @@ describe(`------------PUT-----------------`, async function() {
 					type: 'application/vnd.oada.as-harvested.yield-moisture-dataset.1+json',
 					data: `"some test"`,
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
 
 				response = await connections[i].get({
 					path: '/bookmarks/test',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.not.have.keys(['_id', '_rev'])
 				expect(response.data).to.include.keys(['aaa'])
@@ -290,12 +290,12 @@ describe(`------------PUT-----------------`, async function() {
 					data: `"some test"`,
 					tree,
 				})
-				expect(response.status).to.equal(204)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
 				response = await connections[i].get({
 					path: '/bookmarks/test',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'aaa'])
 				expect(response.data.aaa).to.have.keys(['_id', '_rev'])
@@ -304,7 +304,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'bbb'])
 				expect(response.data.bbb).to.have.keys(['_id', '_rev'])
@@ -313,7 +313,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'index-one'])
 				expect(response.data['index-one']).to.not.include.keys(['_id', '_rev'])
@@ -322,7 +322,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one',
         })
-        expect(response.status).to.equal(200)
+        expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.not.include.keys(['_id', '_rev'])
 				expect(response.data).to.include.keys(['ccc'])
@@ -331,7 +331,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'index-two'])
 				expect(response.data['index-two']).to.not.include.keys(['_id', '_rev'])
@@ -339,7 +339,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.not.include.keys(['_id', '_rev'])
 				expect(response.data).to.include.keys(['ggg'])
@@ -348,7 +348,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'index-three'])
 				expect(response.data['index-three']).to.not.include.keys(['_id', '_rev'])
@@ -357,7 +357,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.not.include.keys(['_id', '_rev'])
 				expect(response.data).to.include.keys(['hhh'])
@@ -367,7 +367,7 @@ describe(`------------PUT-----------------`, async function() {
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ggg/index-three/hhh',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'test'])
 				expect(response.data['test']).to.not.include.keys(['_id', '_rev'])
@@ -391,7 +391,7 @@ describe(`------------PUT-----------------`, async function() {
 				var response = await connections[i].get({
 					path: '/bookmarks/test/aaa/sss',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'anothertest'])
 				expect(response.data._id).to.equal('resources/sssssssss')
@@ -407,7 +407,7 @@ describe(`------------PUT-----------------`, async function() {
 				var response = await connections[i].get({
 					path: '/bookmarks/test/aaa/bbb',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', 'sometest'])
 				expect(response.data._id).to.equal('resources/foobar_foobar')
@@ -430,7 +430,7 @@ describe(`------------PUT-----------------`, async function() {
 				var response = await connections[i].get({
 					path: '/bookmarks/test/aaa',
 				})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data.bbb).to.include.keys(['_id'])
 				expect(response.data.bbb).to.not.include.keys(['_rev'])
@@ -454,7 +454,7 @@ describe(`------------PUT-----------------`, async function() {
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
 				var response = await connections[i].get({path: '/bookmarks'})
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				var putOne = await connections[i].put({
 					path: '/bookmarks/test',
 					data: {'testOne': 'putOne'},
@@ -463,7 +463,7 @@ describe(`------------PUT-----------------`, async function() {
 						'Content-Type': 'application/json'
 					}
 				})
-				expect(putOne.status).to.equal(204)
+				expect(putOne.status.toString().charAt(0)).to.equal('2')
 				return expect(connections[i].put({
 					path: '/bookmarks/test',
 					data: {'testTwo': 'putTwo'},
@@ -478,7 +478,7 @@ describe(`------------PUT-----------------`, async function() {
         await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
 				var response = await connections[i].get({path: '/bookmarks'})
-        expect(response.status).to.equal(200)
+        expect(response.status.toString().charAt(0)).to.equal('2')
 				var putOne = connections[i].put({
 					path: '/bookmarks/test',
 					data: {'testOne': 'putOne'},
@@ -509,24 +509,24 @@ describe(`------------PUT-----------------`, async function() {
             tree,
             data: {sometest: 123},
           })
-          expect(putOne.status).to.equal(204)
+          expect(putOne.status.toString().charAt(0)).to.equal('2')
           var deleteOne = await connections[i].delete({
             path: '/bookmarks/test/aaa/bbb/index-one/ccc',
             tree,
           })
-          expect(deleteOne.status).to.equal(204)
+          expect(deleteOne.status.toString().charAt(0)).to.equal('2')
           var putTwo = await connections[i].put({
             path: '/bookmarks/test/aaa/bbb/index-one/ccc',
             tree,
             data: {anothertest: 123},
           })
-          expect(putTwo.status).to.equal(204)
+          expect(putTwo.status.toString().charAt(0)).to.equal('2')
           var response = await connections[i].get({
             path: '/bookmarks/test',
             tree
           })
 
-				expect(response.status).to.equal(200)
+				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
 				expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
@@ -566,11 +566,11 @@ describe(`------------PUT-----------------`, async function() {
 						path: '/bookmarks/test',
 						tree
 					})
-					expect(putOne.status).to.equal(204)
-					expect(putTwo.status).to.equal(204)
-					expect(putThree.status).to.equal(204)
-					expect(response.status).to.equal(200)
-					expect(response.status).to.equal(200)
+					expect(putOne.status.toString().charAt(0)).to.equal('2')
+					expect(putTwo.status.toString().charAt(0)).to.equal('2')
+					expect(putThree.status.toString().charAt(0)).to.equal('2')
+					expect(response.status.toString().charAt(0)).to.equal('2')
+					expect(response.status.toString().charAt(0)).to.equal('2')
 					expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 					expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
 					expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
@@ -605,7 +605,7 @@ describe(`------------PUT-----------------`, async function() {
             _rev: 0
           }
         })
-        expect(putOne.status).to.equal(204)
+        expect(putOne.status.toString().charAt(0)).to.equal('2')
         let putTwo = await connections[i].put({
           path: '/bookmarks/test',
           type: 'application/json',
@@ -613,18 +613,18 @@ describe(`------------PUT-----------------`, async function() {
             'test-One': 'bar'
           }
         })
-        expect(putTwo.status).to.equal(204)
+        expect(putTwo.status.toString().charAt(0)).to.equal('2')
 
         var getOne = await connections[i].get({
           path: '/bookmarks/test'
         })
-        expect(getOne.status).to.equal(200)
+        expect(getOne.status.toString().charAt(0)).to.equal('2')
         expect(getOne.data).to.include.keys(['_id', '_rev', 'test-One'])
 
         var getTwo = await connections[i].get({
           path: '/resources/11111'
         })
-        expect(getTwo.status).to.equal(200)
+        expect(getTwo.status.toString().charAt(0)).to.equal('2')
         expect(getTwo.data).to.include.keys(['_id', '_rev', 'test-One'])
       })
 
@@ -641,7 +641,7 @@ describe(`------------PUT-----------------`, async function() {
             _rev: 0
           }
         })
-        expect(putOne.status).to.equal(204)
+        expect(putOne.status.toString().charAt(0)).to.equal('2')
 
         let putTwo = await connections[i].put({
           path: '/resources/11111',
@@ -650,18 +650,18 @@ describe(`------------PUT-----------------`, async function() {
             'test-One': 'bar'
           }
         })
-        expect(putTwo.status).to.equal(204)
+        expect(putTwo.status.toString().charAt(0)).to.equal('2')
         
         var getOne = await connections[i].get({
           path: '/bookmarks/test'
         })
-        expect(getOne.status).to.equal(200)
+        expect(getOne.status.toString().charAt(0)).to.equal('2')
         expect(getOne.data).to.include.keys(['_id', '_rev', 'test-One'])
 
         var getTwo = await connections[i].get({
           path: '/resources/11111'
         })
-        expect(getTwo.status).to.equal(200)
+        expect(getTwo.status.toString().charAt(0)).to.equal('2')
         expect(getTwo.data).to.include.keys(['_id', '_rev', 'test-One'])
         console.log(pretty.render(getOne.data))
         console.log(pretty.render(getTwo.data));

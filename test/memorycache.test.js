@@ -97,7 +97,7 @@ describe(`In-memory Cache`, async function() {
         data: { sometest: 123 },
         tree,
       });
-      expect(response.status).to.equal(204);
+      expect(response.status.toString().charAt(0)).to.equal('2');
       expect(response.headers).to.include.keys([
         "content-location",
         "x-oada-rev",
