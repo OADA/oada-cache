@@ -1,3 +1,4 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 const _ = require("lodash");
 const oada = require("../build/index.js").default;
 process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
@@ -10,6 +11,7 @@ const axios = require("axios");
 const { token, domain } = require("./config");
 const { tree, putResource, getConnections } = require("./utils.js");
 const { performance } = require("perf_hooks");
+oada.setDbPrefix("./test/test-data/");
 
 const timer = ms => new Promise(res => setTimeout(res, ms));
 
@@ -41,7 +43,7 @@ describe(`In-memory Cache`, async function() {
 
     it(`In-memory cache should contain one entry`, async function() {
       expect(connection._getMemoryCache()).to.have.property(
-        "resources/default:resources_bookmarks_321",
+        "resources/default:resources_bookmarks_321"
       );
     });
 
@@ -63,7 +65,7 @@ describe(`In-memory Cache`, async function() {
 
     it(`In-memory cache should contain one entry`, async function() {
       expect(connection._getMemoryCache()).to.have.property(
-        "resources/default:resources_bookmarks_321",
+        "resources/default:resources_bookmarks_321"
       );
     });
 
@@ -89,8 +91,6 @@ describe(`In-memory Cache`, async function() {
       });
     });
 
-    const timer = ms => new Promise(res => setTimeout(res, ms));
-
     it(`Should create a resource`, async function() {
       var response = await connection.put({
         path: "/bookmarks/test",
@@ -113,7 +113,7 @@ describe(`In-memory Cache`, async function() {
     it(`The resource should NOT be waiting for PUT`, async function() {
       await timer(dbPutDelay);
       var data = connection._getMemoryCache();
-      expect(data[Object.keys(data)[0]]).to.not.include.keys(["promise"]);
+      expect(data[Object.keys(data)[0]].putPending).to.be.false;
     });
 
     it(`In-memory cache should be empty`, async function() {

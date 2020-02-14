@@ -1,15 +1,14 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
-const axios = require('axios');
-const pretty = require('prettyjson');
-const Promise = require('bluebird');
-const oada = require('../build/index')
-const _ = require('lodash');
-var chai = require('chai');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+const axios = require("axios");
+const pretty = require("prettyjson");
+const Promise = require("bluebird");
+const _ = require("lodash");
+var chai = require("chai");
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = chai.expect;
-const {token, domain} = require('./config.js');
-const {tree, getConnections} = require('./utils.js');
+const { token, domain } = require("./config.js");
+const { tree, getConnections } = require("./utils.js");
 
 var resources = [];
 var connections;
@@ -75,36 +74,40 @@ describe(`------------PUT-----------------`, async function() {
 			})
 
 
-			it(`6. Should error when _type cannot be derived from the above tested sources`, async function() {
-				return expect(connections[i].put({
-					path: '/bookmarks/test/sometest',
-					data: `"abc123"`,
-				})).to.be.rejectedWith(Error, `content-type header must be specified.`)
-			})
+        var response = await connections[i]
+          .put({
+            path: "/bookmarks/test/aaa/bbb/index-one/sometest",
+            tree,
+            data: `"abc123"`,
+          })
+          .catch(err => {
+            console.log("ERRRRRRRRRRRRRRR", err);
+          });
+        expect(response.status).to.equal(204);
+      });
+
+      it(`6. Should error when _type cannot be derived from the above tested sources`, async function() {
+        return expect(
+          connections[i].put({
+            path: "/bookmarks/test/sometest",
+            data: `"abc123"`,
+          })
+        ).to.be.rejectedWith(Error, `content-type header must be specified.`);
+      });
 
       it(`7. Should produce a 403 error when using a content-type header for which your token does not have access to read/write`, async function() {
         this.timeout(4000);
-				await connections[i].delete({path:'/bookmarks/test', tree})
-				await connections[i].resetCache()
-				return expect(connections[i].put({
-					path: '/bookmarks/test/aaa/bbb/index-one/ccc',
-					headers: {'Content-Type': 'application/vnd.oada.foobar.1+json'},
-					tree: tree,
-					data: {anothertest: 123},
-				})).to.be.rejectedWith(Error, 'Request failed with status code 403')
-			})
-
-			it(`8. Should produce a 403 error when using a content-type specified in the middle of the 'tree' for which your token does not have access to read/write`, async function() {
-				await connections[i].delete({path:'/bookmarks/test', tree})
-				await connections[i].resetCache()
-				var newTree = _.cloneDeep(tree)
-				newTree.bookmarks.test.aaa.bbb._type = 'application/vnd.oada.foobar.1+json';
-				return expect(connections[i].put({
-					path: '/bookmarks/test/aaa/bbb/index-one/ccc/',
-					tree: newTree,
-					data: {anothertest: 123},
-				})).to.be.rejectedWith(Error, 'Request failed with status code 403')
-      })
+        await connections[i].delete({ path: "/bookmarks/test", tree });
+        await connections[i].resetCache();
+        return expect(
+          connections[i].put({
+            path: "/bookmarks/test/aaa/bbb/index-one/ccc",
+            headers: { "Content-Type": "application/vnd.oada.foobar.1+json" },
+            tree: tree,
+            data: { anothertest: 123 },
+          })
+        ).to.be.rejectedWith(Error, "Request failed with status code 403");
+      });
 
 			it(`9. Should properly create a single new resource. The link _rev should not remain as 0`, async function() {
         await connections[i].delete({path:'/bookmarks/test', tree})
@@ -525,6 +528,8 @@ describe(`------------PUT-----------------`, async function() {
             path: '/bookmarks/test',
             tree
           })
+        ).to.be.rejectedWith(Error, "Request failed with status code 412");
+      });
 
 				expect(response.status.toString().charAt(0)).to.equal('2')
 				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
@@ -588,18 +593,18 @@ describe(`------------PUT-----------------`, async function() {
 					expect(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee).to.include.keys(['_id', '_rev', '_type', 'testThree'])
         })
         } catch (error) {
-          console.log('TWAS ERROR', error);
+          console.log("TWAS ERROR", error);
         }
-			})
+      });
 
       it(`21. Should allow links to be created first, then puts to that path should create the resource`, async function() {
         this.timeout(7000);
-        await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].delete({ path: "/bookmarks/test", tree });
         await connections[i].resetCache();
 
         let putOne = await connections[i].put({
-          path: '/bookmarks/test',
-          type: 'application/json',
+          path: "/bookmarks/test",
+          type: "application/json",
           data: {
             _id: 'resources/11111',
             _rev: 0
@@ -607,8 +612,8 @@ describe(`------------PUT-----------------`, async function() {
         })
         expect(putOne.status.toString().charAt(0)).to.equal('2')
         let putTwo = await connections[i].put({
-          path: '/bookmarks/test',
-          type: 'application/json',
+          path: "/bookmarks/test",
+          type: "application/json",
           data: {
             'test-One': 'bar'
           }
@@ -630,12 +635,12 @@ describe(`------------PUT-----------------`, async function() {
 
       it(`22. Should allow links to be created first. A future PUT to that resource id should be handled`, async function() {
         this.timeout(7000);
-        await connections[i].delete({path:'/bookmarks/test', tree})
+        await connections[i].delete({ path: "/bookmarks/test", tree });
         await connections[i].resetCache();
 
         let putOne = await connections[i].put({
-          path: '/bookmarks/test',
-          type: 'application/json',
+          path: "/bookmarks/test",
+          type: "application/json",
           data: {
             _id: 'resources/11111',
             _rev: 0
@@ -644,8 +649,8 @@ describe(`------------PUT-----------------`, async function() {
         expect(putOne.status.toString().charAt(0)).to.equal('2')
 
         let putTwo = await connections[i].put({
-          path: '/resources/11111',
-          type: 'application/json',
+          path: "/resources/11111",
+          type: "application/json",
           data: {
             'test-One': 'bar'
           }
@@ -665,15 +670,15 @@ describe(`------------PUT-----------------`, async function() {
         expect(getTwo.data).to.include.keys(['_id', '_rev', 'test-One'])
         console.log(pretty.render(getOne.data))
         console.log(pretty.render(getTwo.data));
-      })
-      
-/*
+      });
+
+      /*
 			it(`23. Now clean up`, async function() {
 				this.timeout(3000);
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
       })
       */
-		})
-	}
-})
+    });
+  }
+});

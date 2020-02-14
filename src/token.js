@@ -38,16 +38,17 @@ class Token {
     self._token = param.token || null;
     self._domain = param.domain || "localhost";
     self._options = param.options;
+    self._dbprefix = param.dbprefix || "";
 
     // creating database nae based on the domain
     // ensured one to one correspondence with the domain
     // i.e., token belongs to that domain
     const hash = crypto.createHash("sha256");
     hash.update(self._domain);
-    self._name = hash.digest("hex");
+    self._name = self._dbprefix + hash.digest("hex");
 
     self._isSet = self._token ? true : false;
-    self._tokenDB = new PouchDB(this._name);
+    self._tokenDB = new PouchDB(self._name);
     self._id = "OadaTokenID";
     self._rev = null;
     self.token = self._token ? self._token : "";
@@ -126,7 +127,7 @@ class Token {
         let response = await this._tokenDB.put({
           _id: this._id,
           _rev: this._rev,
-          token: _token
+          token: _token,
         });
         this.token = _token;
       } else {
@@ -134,7 +135,7 @@ class Token {
         //        debug("not found -> creating one");
         let response = await this._tokenDB.put({
           _id: this._id,
-          token: _token
+          token: _token,
         });
         this.token = _token;
       } //else

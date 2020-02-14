@@ -1,4 +1,4 @@
 module.exports = {
-  "token": "def",
-  domain: 'https://vip3.ecn.purdue.edu'
-}
+  token: "def",
+  domain: "https://localhost", // OADA Server
+};

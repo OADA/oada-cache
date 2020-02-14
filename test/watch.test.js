@@ -1,50 +1,49 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
-import Promise from 'bluebird'
-import oada from '../src/index'
-const pretty = require('prettyjson');
-const _ = require('lodash');
-const {expect} = require('chai');
-const {token, domain} = require('./config.js');
-const {tree, putResource, getConnections} = require('./utils.js');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+import Promise from "bluebird";
+import oada from "../src/index";
+const pretty = require("prettyjson");
+const _ = require("lodash");
+const { expect } = require("chai");
+const { token, domain } = require("./config.js");
+const { tree, putResource, getConnections } = require("./utils.js");
+oada.setDbPrefix("./test/test-data/");
 var expecting = false;
 
 var connections;
 var expects = {};
 
 async function setupWatch(conn, tre, payload) {
-	//watch the endpoint
+  //watch the endpoint
   var getOne = await conn.get({
-		path: '/bookmarks/test',
-		tree: tre || tree,
-		watch: {
-			payload: payload || {someExtra: 'payload'},
-			func: (pay) => {
-        console.log('test watch came through');
-			}
-		}
-	})
-  expect(getOne.status.toString().charAt(0)).to.equal('2');
-	return {getOne}
+    path: "/bookmarks/test",
+    tree: tre || tree,
+    watch: {
+      payload: payload || { someExtra: "payload" },
+      func: pay => {
+        console.log("received a thing. change body:", pay.response.change.body);
+      },
+    },
+  });
+  expect(getOne.status).to.equal(200);
+  return { getOne };
 }
 
 describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
-  this.timeout(20000);
-	var connOne;
-	var connTwo;
-	before(`Create connection types`, async function() {
-		connections = await getConnections({domain, token})
-		connOne = connections[3];
-		connTwo = connections[2];
-	})
- 
-  /*
-	it(`1. Watches should automatically update the cache when a single resource is created (single connection)`, async function() {
-		this.timeout(20000);
-		await connOne.delete({path:'/bookmarks/test', tree})
+  var connOne;
+  var connTwo;
+  before(`Create connection types`, async function() {
+    connections = await getConnections({ domain, token });
+    connOne = connections[3];
+    connTwo = connections[2];
+  });
+
+  it(`1. Watches should automatically update the cache when a single resource is created (single connection)`, async function() {
+    this.timeout(20000);
+    await connOne.delete({ path: "/bookmarks/test", tree });
     await connOne.resetCache();
     // create the endpoint to watch before watching
     var putOne = await connOne.put({
-      path: '/bookmarks/test',
+      path: "/bookmarks/test",
       data: {},
       tree: tree,
     })
@@ -79,7 +78,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await connOne.resetCache();
     // create the endpoint to watch before watching
     var putOne = await connOne.put({
-      path: '/bookmarks/test',
+      path: "/bookmarks/test",
       data: {},
       tree: tree,
     })
@@ -113,45 +112,55 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		await connOne.delete({path:'/bookmarks/test', tree})
 		await connOne.resetCache();
 
-		// If we do not include the _rev on the deepest resource endpoint, we won't receive
-		// the change notifications on our watch.
-		var newTree = _.cloneDeep(tree)
-    newTree.bookmarks.test.aaa.bbb['index-one']['*']['index-two']['*']['index-three']['*']._rev = 0;
+    // If we do not include the _rev on the deepest resource endpoint, we won't receive
+    // the change notifications on our watch.
+    var newTree = _.cloneDeep(tree);
+    newTree.bookmarks.test.aaa.bbb["index-one"]["*"]["index-two"]["*"][
+      "index-three"
+    ]["*"]._rev = 0;
     // Create the endpoint to watch before watching
     var putOne = await connOne.put({
-      path: '/bookmarks/test',
-      data: {'foo': 'bar'},
+      path: "/bookmarks/test",
+      data: { foo: "bar" },
       tree: newTree,
     })
     expect(putOne.status.toString().charAt(0)).to.equal('2');
+    });
 
     await Promise.delay(2000);
     // Begin watching on connection one.
     var result = await setupWatch(connOne, newTree);
     await Promise.delay(2000);
     expect(result.getOne.status.toString().charAt(0)).to.equal('2');
-
     // Make concurrent PUT requests over a second connection.
-		putOne = connTwo.put({
-			path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
-			tree: newTree,
-			data: {testOne: 123},
-		})
-		var putTwo = connTwo.put({
-      path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/fff/index-three/eee',
-			tree: newTree,
-			data: {testTwo: 123},
-		})
-		var putThree = connTwo.put({
-			path: '/bookmarks/test/aaa/bbb/index-one/ggg/index-two/ddd/index-three/eee',
-			tree: newTree,
-			data: {testThree: 123},
-		})
-		var putFour = connTwo.put({
-			path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
-			tree: newTree,
-			data: {testFour: 123},
-    })
+    putOne = connTwo.put({
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee",
+      tree: newTree,
+      data: { testOne: 123 },
+    });
+
+    var putTwo = connTwo.put({
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/fff/index-three/eee",
+      tree: newTree,
+      data: { testTwo: 123 },
+    });
+
+    var putThree = connTwo.put({
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ggg/index-two/ddd/index-three/eee",
+      tree: newTree,
+      data: { testThree: 123 },
+    });
+
+    var putFour = connTwo.put({
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee",
+      tree: newTree,
+      data: { testFour: 123 },
+    });
+
     // Wait for the set of requests to complete by joining the promises.
     await Promise.join(putOne,putTwo,putThree, putFour, (One, Two, Three, Four)=> {
       putOne = One;
@@ -167,26 +176,35 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await Promise.delay(5000);
     // Now fetch the data to verify results.
     var response = await connOne.get({
-      path: '/bookmarks/test',
-      tree: newTree
-    })
-    var putOneRev = parseInt(putOne.headers['x-oada-rev']);
-    var putTwoRev = parseInt(putTwo.headers['x-oada-rev']);
-    var putThreeRev = parseInt(putThree.headers['x-oada-rev']);
-    var putFourRev = parseInt(putFour.headers['x-oada-rev']);
+      path: "/bookmarks/test",
+      tree: newTree,
+    });
+    var putOneRev = parseInt(putOne.headers["x-oada-rev"]);
+    var putTwoRev = parseInt(putTwo.headers["x-oada-rev"]);
+    var putThreeRev = parseInt(putThree.headers["x-oada-rev"]);
+    var putFourRev = parseInt(putFour.headers["x-oada-rev"]);
     var maxRev = Math.max(putOneRev, putTwoRev, putThreeRev, putFourRev);
     var minRev = Math.min(putOneRev, putTwoRev, putThreeRev, putFourRev);
 
-    var getOneRev = parseInt(result.getOne.headers['x-oada-rev']);
-    var getTwoRev = parseInt(response.headers['x-oada-rev']);
-    var responsePutTwo = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].fff['index-three'].eee._rev);
-    var responsePutThree = parseInt(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee._rev);
-    var responseDERev = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev);
+    var getOneRev = parseInt(result.getOne.headers["x-oada-rev"]);
+    var getTwoRev = parseInt(response.headers["x-oada-rev"]);
+    var responsePutTwo = parseInt(
+      response.data.aaa.bbb["index-one"].ccc["index-two"].fff["index-three"].eee
+        ._rev,
+    );
+    var responsePutThree = parseInt(
+      response.data.aaa.bbb["index-one"].ggg["index-two"].ddd["index-three"].eee
+        ._rev,
+    );
+    var responseDERev = parseInt(
+      response.data.aaa.bbb["index-one"].ccc["index-two"].ddd["index-three"].eee
+        ._rev,
+    );
     var maxDERev = Math.max(putOneRev, putFourRev);
 
-    expect(putTwoRev).to.equal(responsePutTwo)
-    expect(putThreeRev).to.equal(responsePutThree)
-    expect(responseDERev).to.equal(maxDERev)
+    expect(putTwoRev).to.equal(responsePutTwo);
+    expect(putThreeRev).to.equal(responsePutThree);
+    expect(responseDERev).to.equal(maxDERev);
     expect(getTwoRev).to.equal(parseInt(response.data._rev));
 
     expect(getOneRev < getTwoRev).to.equal(true)
@@ -218,40 +236,50 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
  
   it(`4. Should send a change feed when "offline" changes are made before a watch is set. This change feed should bring the cache up to date.`, async function() {
     this.timeout(40000);
-    await connOne.delete({path:'/bookmarks/test', tree})
+    await connOne.delete({ path: "/bookmarks/test", tree });
     await connOne.resetCache();
 
-    var newTree = _.cloneDeep(tree)
-    newTree.bookmarks.test.aaa.bbb['index-one']['*']['index-two']['*']['index-three']['*']._rev = 0;
+    var newTree = _.cloneDeep(tree);
+    newTree.bookmarks.test.aaa.bbb["index-one"]["*"]["index-two"]["*"][
+      "index-three"
+    ]["*"]._rev = 0;
     // First, get the resource into the cache
     var putOne = await connOne.put({
-      path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee",
       tree: newTree,
       data: {testOne: 123},
     })
     expect(putOne.status.toString().charAt(0)).to.equal('2')
     // Validate the cache by doing gets
     var getOne = await connOne.get({
-      path: '/bookmarks/test',
-      tree: newTree
-    })
+      path: "/bookmarks/test",
+      tree: newTree,
+    });
     //Next, create several changes over a second connection
     var putTwo = connTwo.put({
-      path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/fff/index-three/eee',
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/fff/index-three/eee",
       tree: newTree,
-      data: {testTwo: 123},
-    })
+      data: { testTwo: 123 },
+    });
     var putThree = connTwo.put({
-      path: '/bookmarks/test/aaa/bbb/index-one/ggg/index-two/ddd/index-three/eee',
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ggg/index-two/ddd/index-three/eee",
       tree: newTree,
-      data: {testThree: 123},
-      })
+      data: { testThree: 123 },
+    });
     var putFour = connTwo.put({
-      path: '/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee',
+      path:
+        "/bookmarks/test/aaa/bbb/index-one/ccc/index-two/ddd/index-three/eee",
       tree: newTree,
-      data: {testFour: 123},
-    })
-    await Promise.join(putTwo,putThree, putFour, async function(Two,Three,Four) {
+      data: { testFour: 123 },
+    });
+    await Promise.join(putTwo, putThree, putFour, async function(
+      Two,
+      Three,
+      Four,
+    ) {
       putTwo = Two;
       putThree = Three;
       putFour = Four;
@@ -262,34 +290,46 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
     await Promise.delay(5000)
     // Now, setup the watch and wait for the "offline" changes to get pushed
     var result = await setupWatch(connOne, newTree);
-    await Promise.delay(5000)
+    await Promise.delay(2000);
     // Wait out the watch notifications
     // Now retrieve the data tree to verify results
     var response = await connOne.get({
-      path: '/bookmarks/test',
-      tree: newTree
-    })
+      path: "/bookmarks/test",
+      tree: newTree,
+    });
 
-    var putOneRev = parseInt(putOne.headers['x-oada-rev']);
-    var putFourRev = parseInt(putFour.headers['x-oada-rev']);
-    var putTwoRev = parseInt(putTwo.headers['x-oada-rev']);
-    var putThreeRev = parseInt(putThree.headers['x-oada-rev']);
+    var putOneRev = parseInt(putOne.headers["x-oada-rev"]);
+    var putFourRev = parseInt(putFour.headers["x-oada-rev"]);
+    var putTwoRev = parseInt(putTwo.headers["x-oada-rev"]);
+    var putThreeRev = parseInt(putThree.headers["x-oada-rev"]);
     var maxRev = Math.max(putOneRev, putTwoRev, putThreeRev, putFourRev);
     var minRev = Math.min(putOneRev, putTwoRev, putThreeRev, putFourRev);
     var maxRev = Math.max(putOneRev, putFourRev);
     var minRev = Math.min(putOneRev, putFourRev);
 
-    var getOneRev = parseInt(result.getOne.headers['x-oada-rev']);
-    var getTwoRev = parseInt(response.headers['x-oada-rev']);
-    var responsePutTwo = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].fff['index-three'].eee._rev);
-    var responsePutThree = parseInt(response.data.aaa.bbb['index-one'].ggg['index-two'].ddd['index-three'].eee._rev);
-    var responsePutFour = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev);
-    var responseDERev = parseInt(response.data.aaa.bbb['index-one'].ccc['index-two'].ddd['index-three'].eee._rev);
+    var getOneRev = parseInt(result.getOne.headers["x-oada-rev"]);
+    var getTwoRev = parseInt(response.headers["x-oada-rev"]);
+    var responsePutTwo = parseInt(
+      response.data.aaa.bbb["index-one"].ccc["index-two"].fff["index-three"].eee
+        ._rev,
+    );
+    var responsePutThree = parseInt(
+      response.data.aaa.bbb["index-one"].ggg["index-two"].ddd["index-three"].eee
+        ._rev,
+    );
+    var responsePutFour = parseInt(
+      response.data.aaa.bbb["index-one"].ccc["index-two"].ddd["index-three"].eee
+        ._rev,
+    );
+    var responseDERev = parseInt(
+      response.data.aaa.bbb["index-one"].ccc["index-two"].ddd["index-three"].eee
+        ._rev,
+    );
     var maxDERev = putFourRev;
 
-    expect(putTwoRev).to.equal(responsePutTwo)
-    expect(putThreeRev).to.equal(responsePutThree)
-    expect(responseDERev).to.equal(maxDERev)
+    expect(putTwoRev).to.equal(responsePutTwo);
+    expect(putThreeRev).to.equal(responsePutThree);
+    expect(responseDERev).to.equal(maxDERev);
     expect(getTwoRev).to.equal(parseInt(response.data._rev));
     expect(getTwoRev > maxRev).to.equal(true)
     expect(getOneRev < minRev).to.equal(true)
@@ -376,55 +416,104 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		await Promise.map(testConnections, async function(conn, i) {
 			await conn.resetCache();
 		})
-  })
 
+    await connection.put({
+      path: "/bookmarks/test",
+      data: { sometest: i },
+      tree: newTree,
+    });
+
+    var watch_count = 0;
+
+    var response = await connection.get({
+      path: "/bookmarks/test",
+      watch: {
+        payload: { someExtra: "payload" },
+        func: pay => {
+          watch_count++;
+        },
+      },
+    });
+    expect(response.status).to.equal(200);
+
+    // Create 10 connections
+    var testConnections = [];
+    for (var i = 0; i < 10; i++) {
+      testConnections.push(
+        await oada.connect({
+          domain,
+          token,
+          cache: { name: "connection" + i.toString() },
+        }),
+      );
+    }
+
+    await Promise.map(testConnections, async function(conn, i) {
+      conn.put({
+        path: "/bookmarks/test/conn" + i,
+        type: "application/json",
+        data: { [`put`]: `value` },
+      });
+    });
+
+    await Promise.delay(2000);
+
+    var getOne = await connection.get({
+      path: "/bookmarks/test",
+    });
+    expect(watch_count).to.equal(10);
+    for (let i = 0; i < 10; i++) {
+      expect(getOne.data["conn" + i]).to.include.key("put");
+    }
+    // Now wipe out all of the caches
+    await Promise.map(testConnections, async function(conn, i) {
+      await conn.resetCache();
+    });
+  });
 
   it(`6. Should not send a change feed when the rev difference due to "offline" changes is greater than 10. Instead, the whole resource should simply be sent.`, async function() {
     this.timeout(25000);
-    await connOne.delete({path:'/bookmarks/test', tree})
+    await connOne.delete({ path: "/bookmarks/test", tree });
     await connOne.resetCache();
-    var newTree = _.cloneDeep(tree)
+    var newTree = _.cloneDeep(tree);
     // First, get the resource into the cache
     var putOne = await connOne.put({
-      path: '/bookmarks/test/aaa',
+      path: "/bookmarks/test/aaa",
       tree: newTree,
       data: {testOne: 123},
     })
     expect(putOne.status.toString().charAt(0)).to.equal('2')
     // Validate the cache by doing gets
     var getOne = await connOne.get({
-      path: '/bookmarks/test',
-      tree: newTree
-    })
+      path: "/bookmarks/test",
+      tree: newTree,
+    });
     //Next, create several changes over a second connection
     for (var j = 0; j < 11; j++) {
       await connTwo.put({
-        path: '/bookmarks/test/aaa',
-        type: 'application/json',
-        data: { [`put${j}`]: `value${j}`},
-      })
+        path: "/bookmarks/test/aaa",
+        type: "application/json",
+        data: { [`put${j}`]: `value${j}` },
+      });
     }
 
     await Promise.delay(10000);
 
+    var getT = await connTwo.get({
+      path: "/bookmarks/test",
+    });
 
-
-
-		var getT = await connTwo.get({
-			path: '/bookmarks/test',
-		})
-
-		var getTwo = await connTwo.get({
-			path: '/bookmarks/test/aaa',
-		})
+    var getTwo = await connTwo.get({
+      path: "/bookmarks/test/aaa",
+    });
     // Make sure the puts made it to the server
-		for (var j = 0; j < 11; j++) {
-		  expect(getTwo.data).to.include.key('put'+j)
-		}
+    for (var j = 0; j < 11; j++) {
+      expect(getTwo.data).to.include.key("put" + j);
+    }
 
     // Now, setup the watch and wait for the "offline" changes to get pushed
     var result = await setupWatch(connOne, newTree);
-    await Promise.delay(5000)
+    await Promise.delay(5000);
     // Wait out the watch notifications
     // Now retrieve the data tree to verify results
     var response = await connOne.get({
@@ -442,20 +531,19 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		}
     await connOne.delete({path:'/bookmarks/test', tree})
     await connOne.resetCache();
-  })
-*/
+  });
 
-  it(`7. The tree is needed to decide what documents to sync given a change document where a link connected to a large, preexisting tree`, async function() {
-		this.timeout(15000);
-		var newTree = {
+  /*  it(`7. The tree is needed to decide what documents to sync given a change document where a link connected to a large, preexisting tree`, async function() {
+    this.timeout(15000);
+    var newTree = {
       bookmarks: {
         aaa: _.cloneDeep(tree.bookmarks.test.aaa),
         _type: "application/vnd.oada.bookmarks.1+json",
         _rev: 0,
-      }
-    }
+      },
+    };
     // Add some extra subtree so we can create it quickly
-    newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb)
+    newTree.bookmarks.aaa.ddd = _.cloneDeep(tree.bookmarks.test.aaa.bbb);
 
 		await connOne.delete({path:'/bookmarks/aaa', tree:newTree})
 		await connOne.delete({path:'/bookmarks/test', tree})
@@ -488,7 +576,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 
     // Setup the watch on bookmarks/test
     var result = await setupWatch(connOne, tree);
-    await Promise.delay(5000)
+    await Promise.delay(5000);
 
     var getOne = await connOne.get({
       path: '/bookmarks/aaa',
@@ -572,4 +660,4 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function() {
 		await connOne.resetCache();
 		await connOne.delete({path:'/bookmarks/test', tree})
   })*/
-})
+});

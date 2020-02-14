@@ -1,15 +1,16 @@
-const oada = require('../build/index.js').default;
-const Promise = require('bluebird');
-const axios = require('axios');
-const uuid = require('uuid');
-var { token, domain} = require('./config');
+import oada from "../src/index";
+const Promise = require("bluebird");
+const axios = require("axios");
+const uuid = require("uuid");
+oada.setDbPrefix("./test/test-data/");
+var { token, domain } = require("./config");
 
-async function getConnections({domain, options, token}) {
+async function getConnections({ domain, options, token }) {
   var cYesWYes = await oada.connect({
     domain,
     options,
     token,
-		cache: {name: 'cYesWYes'}
+    cache: { name: "cYesWYes" },
   });
 
   var cYesWNo = await oada.connect({
@@ -17,14 +18,14 @@ async function getConnections({domain, options, token}) {
     options,
     token,
     websocket: false,
-		cache: {name: 'cYesWNo'}
-  })
+    cache: { name: "cYesWNo" },
+  });
   var cNoWYes = await oada.connect({
     domain,
     options,
     token,
     cache: false,
-		name: 'cNoWYes'
+    name: "cNoWYes",
   });
 
   var cNoWNo = await oada.connect({
@@ -33,37 +34,37 @@ async function getConnections({domain, options, token}) {
     token,
     websocket: false,
     cache: false,
-		name: 'cNoWNo'
-  })
-  return [cNoWNo, cYesWNo, cNoWYes, cYesWYes]
+    name: "cNoWNo",
+  });
+  return [cNoWNo, cYesWNo, cNoWYes, cYesWYes];
 }
 
 async function putResource(data, path) {
-	var pieces = path.split('/bookmarks')[1].split('/')
-	var newPath = '/bookmarks'+pieces.splice(0,pieces.length-1).join('/')
-	var _id = 'resources/'+uuid();
-	var newData = {};
-	newData[pieces[0]] = {_id, _rev: 0};
-	var resource = await axios({
-		method: 'put',
-		url: domain+'/'+_id,
-		headers: {
-			Authorization: 'Bearer '+token,
-			'Content-Type': 'application/json',
-		},
-		data
-	})
-	var link = await axios({
-		method: 'put',
-		url: domain+newPath,
-		headers: {
-			Authorization: 'Bearer '+token,
-			'Content-Type': 'application/json',
-		},
-		data: newData
-	})
+  var pieces = path.split("/bookmarks")[1].split("/");
+  var newPath = "/bookmarks" + pieces.splice(0, pieces.length - 1).join("/");
+  var _id = "resources/" + uuid();
+  var newData = {};
+  newData[pieces[0]] = { _id, _rev: 0 };
+  var resource = await axios({
+    method: "put",
+    url: domain + "/" + _id,
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/json",
+    },
+    data,
+  });
+  var link = await axios({
+    method: "put",
+    url: domain + newPath,
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/json",
+    },
+    data: newData,
+  });
 
-	return {resource, link}
+  return { resource, link };
 }
 
 var tree = {
@@ -94,21 +95,21 @@ var tree = {
                     "*": {
                       _type:
                         "application/vnd.oada.as-harvested.yield-moisture-dataset.1+json",
-                      test: {}
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+                      test: {},
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
 };
 
 module.exports = {
   getConnections,
   tree,
-	putResource,
+  putResource,
 };

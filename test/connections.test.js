@@ -1,14 +1,13 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-const {token, domain} = require('./config.js');
+const { token, domain } = require("./config.js");
 import oada from "../src/index";
 import chai from "chai";
-import { getConnections } from './utils'
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = chai.expect;
+oada.setDbPrefix("./test/test-data/");
 
 let connections = new Array(4);
-let contentType = "application/vnd.oada.yield.1+json";
 let connectTime = 30 * 1000; // seconds to click through oauth
 
 describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
@@ -54,27 +53,27 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       domain,
       token,
     })
-		connections[0] = result;
-		expect(result).to.include.keys([
-			"token",
-			"disconnect",
-			"reconnect",
-			"get",
-			"put",
-			"post",
-			"delete",
-			"resetCache",
-			"cache",
-			"websocket",
+    connections[0] = result;
+    expect(result).to.include.keys([
+      "token",
+      "disconnect",
+      "reconnect",
+      "get",
+      "put",
+      "post",
+      "delete",
+      "resetCache",
+      "cache",
+      "websocket",
       "_getMemoryCache",
-		]);
-		expect(result.cache).to.be.a("object");
-		expect(result.websocket).to.be.a("object");
-		expect(result.get).to.be.a("function");
-		expect(result.put).to.be.a("function");
-		expect(result.post).to.be.a("function");
-		expect(result.resetCache).to.be.a("function");
-		expect(result.disconnect).to.be.a("function");
+    ]);
+    expect(result.cache).to.be.a("object");
+    expect(result.websocket).to.be.a("object");
+    expect(result.get).to.be.a("function");
+    expect(result.put).to.be.a("function");
+    expect(result.post).to.be.a("function");
+    expect(result.resetCache).to.be.a("function");
+    expect(result.disconnect).to.be.a("function");
   });
 
   it("Should make a connection with websocket off, cache on", async function() {
@@ -98,14 +97,13 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 			"websocket",
       "_getMemoryCache",
 		]);
-
-		expect(result.cache).to.be.a("object");
-		expect(result.websocket).to.equal(false);
-		expect(result.get).to.be.a("function");
-		expect(result.put).to.be.a("function");
-		expect(result.post).to.be.a("function");
-		expect(result.resetCache).to.be.a("function");
-		expect(result.disconnect).to.be.a("function");
+    expect(result.cache).to.be.a("object");
+    expect(result.websocket).to.equal(false);
+    expect(result.get).to.be.a("function");
+    expect(result.put).to.be.a("function");
+    expect(result.post).to.be.a("function");
+    expect(result.resetCache).to.be.a("function");
+    expect(result.disconnect).to.be.a("function");
   });
 
   it("Should make a connection with websocket on, cache off", async function() {
@@ -137,7 +135,6 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
 		expect(result.resetCache).to.be.a("function");
 		expect(result.disconnect).to.be.a("function");
   });
-
   it("Should make a connection with websocket off, cache off", async function() {
     this.timeout(connectTime);
     var result = await oada.connect({
@@ -175,7 +172,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         token: "def",
         websocket: false,
-        cache: false
+        cache: false,
       })
     ).to.be.rejectedWith(Error, "domain undefined");
   });
@@ -186,7 +183,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         domain,
         websocket: false,
-        cache: false
+        cache: false,
       })
     ).to.be.rejectedWith(Error, "options and token undefined");
   });
@@ -198,7 +195,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
         domain,
         token: { def: "def" },
         websocket: false,
-        cache: false
+        cache: false,
       })
     ).to.be.rejectedWith(Error, "token must be a string");
   });
@@ -209,7 +206,7 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         domain,
         token: "def",
-        websocket: "false"
+        websocket: "false",
       })
     ).to.be.rejectedWith(Error, "websocket must be boolean");
   });
@@ -220,11 +217,13 @@ describe("~~~~~~ CONNECTIONS~~~~~~~", function() {
       oada.connect({
         domain,
         token: "def",
-        cache: "false"
+        cache: "false",
       })
-    ).to.be.rejectedWith(Error, `cache must be either a boolean or an object with 'name' and/or 'expires' keys`);
+    ).to.be.rejectedWith(
+      Error,
+      `cache must be either a boolean or an object with 'name' and/or 'expires' keys`
+    );
   });
-	
 
   /**
    * disconnections

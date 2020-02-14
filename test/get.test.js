@@ -1,19 +1,17 @@
-process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
-const pretty = require('prettyjson');
-const oada = require('../build/index').default
-const _ = require('lodash');
-const uuid = require('uuid');
-const chai = require('chai');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+const pretty = require("prettyjson");
+const _ = require("lodash");
+const uuid = require("uuid");
+const chai = require("chai");
 var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 var expect = chai.expect;
-const axios = require('axios');
-const { token, domain }= require('./config')
-const {tree, putResource, getConnections} = require('./utils.js');
+const axios = require("axios");
+const { token, domain } = require("./config");
+const { tree, putResource, getConnections } = require("./utils.js");
 
 var connections;
 var resources = [];
-
 
 describe(`------------GET-----------------`, async function() {
 	before(`Create connection types`, async function() {
@@ -189,15 +187,15 @@ describe(`------------GET-----------------`, async function() {
         })
       })*/
 
-			it('clean up', async function() {
-				this.timeout(5000);
-				await connections[i].resetCache();
-				try {
-				await connections[i].delete({path:'/bookmarks/test', tree});
-				} catch (error) {
-					console.log(error)
-				}
-			})
-		})
-	}
-})
+      it("clean up", async function() {
+        this.timeout(5000);
+        await connections[i].resetCache();
+        try {
+          await connections[i].delete({ path: "/bookmarks/test", tree });
+        } catch (error) {
+          console.log(error);
+        }
+      });
+    });
+  }
+});
