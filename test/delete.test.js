@@ -60,20 +60,7 @@ describe(`------------DELETE-----------------`, async function() {
 				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
-      it(`5. Should produce a 403 error when using a content-type header for which your token does not have access to read/write`, async function() {
-        this.timeout(4000);
-        await connections[i].resetCache();
-        await connections[i].delete({ path: "/bookmarks/test", tree });
-        await putResource({ something: "b" }, "/bookmarks/test");
-        return expect(
-          connections[i].delete({
-            path: "/bookmarks/test",
-            headers: { "content-type": "application/vnd.oada.foobar.1+json" },
-          })
-        ).to.be.rejectedWith(Error, `Request failed with status code 403`);
-      });
-
-      it(`6. Should allow us to delete only a resource and leave the link alone (GETs should 404)`, async function() {
+      it(`6. Should be able to delete only a resource and leave the link alone (GETs should 404)`, async function() {
         this.timeout(5000);
         await connections[i].resetCache();
         await connections[i].delete({ path: "/bookmarks/test", tree });
@@ -86,21 +73,28 @@ describe(`------------DELETE-----------------`, async function() {
           connections[i].get({
             path: "/bookmarks/test",
           })
-        ).to.be.rejectedWith(Error, `Request failed with status code 403`);
+        ).to.be.rejectedWith(Error, `Request failed with status code 404`);
       });
 
 			it(`7. Should allow us to delete only a link and leave the resource alone`, async function() {
-				this.timeout(4000);
+				this.timeout(40000);
 				await connections[i].resetCache()
 				await connections[i].delete({path:'/bookmarks/test', tree})
-				var result = await putResource({'something': 'b'}, '/bookmarks/test')
+        await Promise.delay(3000);
+//				var result = await putResource({'something': 'b'}, '/bookmarks/test')
+				var result = await connections[i].put({
+          path: '/bookmarks/test',
+          data: {'something': 'b'},
+          tree
+        })
+        await Promise.delay(3000);
 				var deleteResponse = await connections[i].delete({
 					path: '/bookmarks/test',
 					headers: {'content-type': 'application/json'}
 				})
 				expect(deleteResponse.status.toString().charAt(0)).to.equal('2');
 				var response = await connections[i].get({
-					path: result.resource.headers['content-location'],
+					path: result.headers['content-location'],
 				})
 				expect(response.status.toString().charAt(0)).to.equal('2');
 			})
@@ -273,7 +267,6 @@ describe(`------------DELETE-----------------`, async function() {
         } catch (err) {
           expect(err.response.status).to.equal(404);
         }
-        console.log("CACHE", connections[i].cache ? true : false);
 
         var putOne = connections[i].put({
           path: "/bookmarks/test/aaa",

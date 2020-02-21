@@ -1,4 +1,4 @@
-import oada from "../src/index";
+const oada = require("../src/index");
 const Promise = require("bluebird");
 const axios = require("axios");
 const uuid = require("uuid");

@@ -1,6 +1,6 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 const _ = require("lodash");
-const oada = require("../build/index.js").default;
+const oada = require("../src/index.js");
 process.env.NODE_TLS_REJECT_UNAUTHORIZED=0
 const uuid = require("uuid");
 const chai = require("chai");
@@ -11,6 +11,7 @@ const axios = require("axios");
 const { token, domain } = require("./config");
 const { tree, putResource, getConnections } = require("./utils.js");
 const { performance } = require("perf_hooks");
+console.log(oada);
 oada.setDbPrefix("./test/test-data/");
 
 const timer = ms => new Promise(res => setTimeout(res, ms));
@@ -101,7 +102,6 @@ describe(`In-memory Cache`, async function() {
       expect(response.headers).to.include.keys([
         "content-location",
         "x-oada-rev",
-        "location",
       ]);
     });
 

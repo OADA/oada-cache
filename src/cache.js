@@ -1,7 +1,7 @@
 "use strict";
 const cq = require("concurrent-queue");
 const Promise = require("bluebird");
-import PouchDB from "pouchdb";
+const PouchDB = require("pouchdb");
 const url = require("url");
 const _ = require("lodash");
 const pointer = require("json-pointer");
@@ -17,7 +17,7 @@ Promise.config({ cancellation: true });
 const error = require("debug")("oada-cache:cache:error");
 const info = require("debug")("oada-cache:cache:info");
 
-export default function setupCache({ name, req, expires, dbprefix }) {
+module.exports = function setupCache({ name, req, expires, dbprefix }) {
   dbprefix = dbprefix || "";
   name = dbprefix + name;
   // name should be made unique across domains and users
@@ -91,9 +91,10 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           await doPut(resourceId, waitTime, req);
           memoryCache[resourceId].putPending = false;
         })
-        .catch(function(error) {
-          error("handleMemoryCacheError", error);
+        .catch(function(err) {
+          error("handleMemoryCacheError", err);
           memoryCache[resourceId].putPending = false;
+          throw err;
         });
     }
     return Promise.resolve();
@@ -101,7 +102,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
 
   /**  Get resource from in-memory cache and do put to Pouch DB */
   function doPut(resourceId, waitTime, req) {
-    if (!memoryCache[resourceId].data._rev) return
+    if (!memoryCache[resourceId].data.doc) return
     return db
       .put(memoryCache[resourceId].data)
       .then(response => {
@@ -185,12 +186,12 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           .then(response => {
             return { response };
           })
-          .catch(error => {
+          .catch(err => {
             //its okay if it already doesn't exist
-            if (error.status === 404) {
+            if (err.status === 404) {
               return;
             }
-            throw error;
+            throw err;
           });
       } else {
         if (pointer.has(result.doc, pathLeftover)) {
@@ -230,11 +231,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     });
     res.cached = false;
     req.data = res.data;
-    try {
-      await dbUpsert(req);
-    } catch (err) {
-      error("getResFromServerError", err);
-    }
+    await dbUpsert(req);
     return res;
   }
 
@@ -341,10 +338,9 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           valid: true,
         };
       } catch (err) {
-        if (err.status != 404) {
-          // Oops
+        if (err.status === 404) {
           error("Failed to get resource from PouchDB", err);
-        }
+        } else throw err;
       }
     }
 
@@ -484,6 +480,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         reqPieces.slice(0, reqPieces.length - 1).join("/"),
       headers: req.headers,
     });
+    try {
     await dbUpsert({
       url:
         "/" +
@@ -494,6 +491,9 @@ export default function setupCache({ name, req, expires, dbprefix }) {
       method: "delete",
       valid: false,
     });
+    } catch (err) {
+      throw err;
+    }
     return;
   }
 
@@ -509,17 +509,14 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     try {
       await db.remove(lookup);
     } catch (err) {
-      // removing a lookup that is already gone
       if (err.status === 404) {
-        return;
-      }
-      throw err;
+        return; // Delete something thats already gone; no problem
+      } else throw err;
     }
   }
 
   // Issue DELETE to server then update the db
   async function del(req, offline) {
-    //info('delete:', req.url, req);
     var urlObj = url.parse(req.url);
     // Handle resource deletion
     if (/^\/resources/.test(urlObj.path) || /^\/users/.test(urlObj.path)) {
@@ -531,25 +528,20 @@ export default function setupCache({ name, req, expires, dbprefix }) {
         valid: false,
       });
     } else {
-      // Handle bookmarks deletion
+      var lookup;
       try {
-        var lookup = await getLookup(req);
-        await dbUpsert({
-          url: "/" + lookup.resourceId + lookup.pathLeftover,
-          method: req.method,
-          valid: false,
-        });
+        lookup = await getLookup(req);
+
+        if (lookup.pathLeftover) { // delete inside of a resource: update the document
+          await dbUpsert({
+            url: "/" + lookup.resourceId + lookup.pathLeftover,
+            method: req.method,
+            valid: false,
+          });
+        } else await updateParent(req); // Deleting a link: update the parent
         await removeLookup(lookup);
-        try {
-          await updateParent(req);
-        } catch (error) {
-          throw error;
-        }
       } catch (err) {
-        if (err.response && err.response.status === 404) {
-        } else {
-          throw err;
-        }
+        if (err.response.status !== 404) throw err;
       }
     }
 
@@ -557,8 +549,7 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     var response;
     if (!offline) {
       response = await request(req);
-    } else {
-    }
+    } 
     return response;
   }
 
@@ -683,15 +674,11 @@ export default function setupCache({ name, req, expires, dbprefix }) {
           );
         },
         { concurrency: 1 },
-      )
-        .then(() => {
-          return nullPath;
-        })
-        .catch(err => {
-          return;
-        });
+      ).then(() => {
+        return nullPath;
+      })
     } else {
-      return Promise.resolve(undefined);
+      return Promise.resolve();
     }
   }
 
@@ -794,20 +781,15 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     return queue(payload);
   }
 
-  async function resetCache() {
-    try {
-      if (db) {
-        Object.keys(memoryCache).forEach(async function(key) {
-          if (memoryCache[key].promise) {
-            await memoryCache[key].promise.cancel();
-          }
-        });
-        memoryCache = {};
-        await db.destroy();
-      }
-    } catch (err) {
-      //error('Reset cache errored. db.destroy threw an error. Assuming the cache was already destroyed.', err)
-      return;
+  async function resetCache(name) {
+    if (db) {
+      Object.keys(memoryCache).forEach(async function(key) {
+        if (memoryCache[key].promise) {
+          await memoryCache[key].promise.cancel();
+        }
+      });
+      memoryCache = {};
+      await db.destroy();
     }
   }
 
@@ -839,7 +821,6 @@ export default function setupCache({ name, req, expires, dbprefix }) {
     _recursiveUpsert,
     findNullValue,
     replaceLinks,
-    removeLookup,
     updateParent,
     getResFromDb,
     getResFromServer,

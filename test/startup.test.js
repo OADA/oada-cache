@@ -1,6 +1,6 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-import oada from "../src/index";
-import chai from "chai";
+const oada = require("../src/index");
+const chai = require("chai");
 var expect = chai.expect;
 const status = require("http-status");
 oada.setDbPrefix("./test/test-data/");
@@ -30,7 +30,6 @@ let connectionParameters = {
 describe("~~~~~~ Testing Connect() -> Disconnect() -> Connect() ~~~~~~~", function() {
   it("#1 - Should make a connection with websocket and cache", async function() {
     this.timeout(connectTime);
-    try {
     connections[0] = await oada.connect({
       domain,
       token: "def",

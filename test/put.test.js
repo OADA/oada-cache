@@ -73,19 +73,6 @@ describe(`------------PUT-----------------`, async function() {
 				expect(response.status.toString().charAt(0)).to.equal('2')
 			})
 
-
-        var response = await connections[i]
-          .put({
-            path: "/bookmarks/test/aaa/bbb/index-one/sometest",
-            tree,
-            data: `"abc123"`,
-          })
-          .catch(err => {
-            console.log("ERRRRRRRRRRRRRRR", err);
-          });
-        expect(response.status).to.equal(204);
-      });
-
       it(`6. Should error when _type cannot be derived from the above tested sources`, async function() {
         return expect(
           connections[i].put({
@@ -118,7 +105,7 @@ describe(`------------PUT-----------------`, async function() {
 					tree,
 				})
 				expect(response.status.toString().charAt(0)).to.equal('2')
-				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
+				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				response = await connections[i].get({
 					path: '/bookmarks',
 					tree
@@ -139,7 +126,7 @@ describe(`------------PUT-----------------`, async function() {
 					tree,
 				})
 				expect(response.status.toString().charAt(0)).to.equal('2')
-				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
+				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				response = await connections[i].get({
 					path: '/bookmarks/test/aaa',
 				})
@@ -270,7 +257,7 @@ describe(`------------PUT-----------------`, async function() {
 					data: `"some test"`,
 				})
 				expect(response.status.toString().charAt(0)).to.equal('2')
-				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
+				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 
 				response = await connections[i].get({
 					path: '/bookmarks/test',
@@ -294,7 +281,7 @@ describe(`------------PUT-----------------`, async function() {
 					tree,
 				})
 				expect(response.status.toString().charAt(0)).to.equal('2')
-				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev', 'location'])
+				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
 				response = await connections[i].get({
 					path: '/bookmarks/test',
 				})
@@ -507,38 +494,36 @@ describe(`------------PUT-----------------`, async function() {
 				this.timeout(3000);
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
-          var putOne = await connections[i].put({
-            path: '/bookmarks/test/aaa/bbb/index-one/ccc',
-            tree,
-            data: {sometest: 123},
-          })
-          expect(putOne.status.toString().charAt(0)).to.equal('2')
-          var deleteOne = await connections[i].delete({
-            path: '/bookmarks/test/aaa/bbb/index-one/ccc',
-            tree,
-          })
-          expect(deleteOne.status.toString().charAt(0)).to.equal('2')
-          var putTwo = await connections[i].put({
-            path: '/bookmarks/test/aaa/bbb/index-one/ccc',
-            tree,
-            data: {anothertest: 123},
-          })
-          expect(putTwo.status.toString().charAt(0)).to.equal('2')
-          var response = await connections[i].get({
-            path: '/bookmarks/test',
-            tree
-          })
-        ).to.be.rejectedWith(Error, "Request failed with status code 412");
-      });
+        var putOne = await connections[i].put({
+          path: '/bookmarks/test/aaa/bbb/index-one/ccc',
+          tree,
+          data: {sometest: 123},
+        })
+        expect(putOne.status.toString().charAt(0)).to.equal('2')
+        var deleteOne = await connections[i].delete({
+          path: '/bookmarks/test/aaa/bbb/index-one/ccc',
+          tree,
+        })
+        expect(deleteOne.status.toString().charAt(0)).to.equal('2')
+        var putTwo = await connections[i].put({
+          path: '/bookmarks/test/aaa/bbb/index-one/ccc',
+          tree,
+          data: {anothertest: 123},
+        })
+        expect(putTwo.status.toString().charAt(0)).to.equal('2')
+        var response = await connections[i].get({
+          path: '/bookmarks/test',
+          tree
+        })
 
-				expect(response.status.toString().charAt(0)).to.equal('2')
-				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev'])
-				expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa'])
-				expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type'])
-				expect(response.data.aaa.bbb).to.include.keys(['_id', '_rev', 'index-one', '_type'])
-				expect(response.data.aaa.bbb['index-one']).to.include.keys(['ccc'])
-				expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'anothertest'])
-				expect(response.data.aaa.bbb['index-one'].ccc).to.not.include.keys(['sometest'])
+				expect(response.status.toString().charAt(0)).to.equal('2');
+				expect(response.headers).to.include.keys(['content-location', 'x-oada-rev']);
+				expect(response.data).to.include.keys(['_id', '_rev', '_type', 'aaa']);
+				expect(response.data.aaa).to.include.keys(['_id', '_rev', 'bbb', '_type']);
+				expect(response.data.aaa.bbb).to.include.keys(['_id', '_rev', 'index-one', '_type']);
+				expect(response.data.aaa.bbb['index-one']).to.include.keys(['ccc']);
+				expect(response.data.aaa.bbb['index-one'].ccc).to.include.keys(['_id', '_rev', '_type', 'anothertest']);
+				expect(response.data.aaa.bbb['index-one'].ccc).to.not.include.keys(['sometest']);
 			})
 
 			it(`20. Should work under a sequence of PUTs to similar (same parent tree) endpoints`, async function() {
@@ -672,13 +657,11 @@ describe(`------------PUT-----------------`, async function() {
         console.log(pretty.render(getTwo.data));
       });
 
-      /*
 			it(`23. Now clean up`, async function() {
 				this.timeout(3000);
 				await connections[i].delete({path:'/bookmarks/test', tree})
 				await connections[i].resetCache();
       })
-      */
     });
   }
 });

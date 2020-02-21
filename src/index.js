@@ -1,7 +1,7 @@
 const Promise = require("bluebird");
-import setupCache from "./cache";
-import uuid from "uuid";
-import _ from "lodash";
+let setupCache = require("./cache");
+const uuid = require("uuid");
+const _ = require("lodash");
 const urlLib = require("url");
 const pointer = require("json-pointer");
 const ws = require("./websocket");
@@ -229,9 +229,10 @@ var connect = async function connect({
             }
           } catch (err) {
             error(err);
+            throw err;
           }
-          if (func) {
-            await func(watchPayload);
+          if (callback) {
+            await callback(watchPayload);
           }
           return;
         },
@@ -390,80 +391,6 @@ var connect = async function connect({
     );
   }
 
-  function recursiveDelete(startingUrl, tree, data) {
-    return _treeWalk(
-      startingUrl,
-      tree,
-      data,
-      undefined,
-      async function recDeleteBefore(url, subTree, data) {
-        // Perform a GET if we have reached the next resource break.
-        if (subTree._type) {
-          // its a resource
-          try {
-            var got = await get({
-              url,
-            });
-            data = got.data;
-          } catch (err) {
-            if (err.status === 404) {
-              data = {};
-              // WASN'T THROWING HERE PREVIOUSLY
-            } else {
-              throw err;
-            }
-          }
-        } else {
-          return { data };
-        }
-      },
-      async function recDeleteAfter(url, data) {
-        var link;
-        if (tree._type) {
-          try {
-            // Delete the resource
-            if (data._id) {
-              try {
-                await del({
-                  path: "/" + data._id,
-                  headers: { "content-type": tree._type },
-                });
-              } catch (erro) {
-                error("recursiveDelete error on delete resource", erro);
-              }
-            }
-
-            // Delete the link
-            link = await del({
-              url,
-              headers: {
-                "content-type": tree._type,
-              },
-            });
-          } catch (err) {
-            if (err.response && err.response.status === 404) {
-              data = {};
-              // WASN'T THROWING HERE PREVIOUSLY
-            } else {
-              throw err;
-            }
-          }
-        } else {
-          // Delete the lookup for non resources
-          if (CACHE) {
-            await CACHE.removeLookup({ url });
-          }
-        }
-        // link and data can be undefined if the current object is
-        // not a resource (deletes won't need to happen)
-        return {
-          link: link || {},
-          data: data || {},
-        };
-      },
-    );
-  }
-
   //TODO: patched up uncaughtrejection warning on _sendRequest with try/catch 
   //but need to reevaluate better code structuring
   async function get({ url, path, headers, watch, tree }) {
@@ -515,17 +442,13 @@ var connect = async function connect({
         error("Warning: no watch handler was provided.");
       }
 
-      try {
-        watchResponse = await _watch({
-          headers: req.headers,
-          path,
-          callback: watch.func || watch.callback,
-          payload: watch.payload
-        });
-        info("WATCH RESPONSE", watchResponse);
-      } catch (err) {
-        throw err;
-      }
+      watchResponse = await _watch({
+        headers: req.headers,
+        path,
+        callback: watch.func || watch.callback,
+        payload: watch.payload
+      });
+      info("WATCH RESPONSE", watchResponse);
     }
 
     // Perform recursive GET in response to the tree
@@ -533,7 +456,7 @@ var connect = async function connect({
       try {
         if (watch && watchResponse.resource) {
           var dataOut = await _recursiveGet(req.url, subTree, watchResponse.resource, true);
-          info("tree getting", watch, watchResponse.resource);
+          error("tree getting", watch, watchResponse.resource);
           var dataOut = await _recursiveGet(
             req.url,
             subTree,
@@ -541,6 +464,7 @@ var connect = async function connect({
             true,
           );
         } else {
+          info('ELSE', response.data);
           var dataOut = await _recursiveGet(req.url, subTree, response.data, true);
         }
         response.data = dataOut.data;
@@ -563,7 +487,7 @@ var connect = async function connect({
         headers: "_rev" in data ? { "x-oada-rev": data._rev } : {},
       });
       data = response.data;
-      cached = response.cached ? response.cached : false;
+      cached = response.cached ? response.cached && cached : false;
     }
 
     return Promise.map(Object.keys(data || {}), async function(key) {
@@ -575,7 +499,7 @@ var connect = async function connect({
             data[key],
             cached,
           );
-          cached = res.cached;
+          cached = cached && res.cached;
           return (data[key] = res.data);
         } else if (tree["*"]) {
           let res = await _recursiveGet(
@@ -584,7 +508,7 @@ var connect = async function connect({
             data[key],
             cached,
           );
-          cached = res.cached;
+          cached = cached && res.cached;
           return (data[key] = res.data);
         } else {
           return;
@@ -738,7 +662,7 @@ var connect = async function connect({
       } catch (err) {
         if (err.status === 404) {
           data = {};
-          return;
+        //  return;
         }
       }
     }
@@ -757,6 +681,8 @@ var connect = async function connect({
             tree["*"],
             data[key],
           );
+          info('url', url)
+          info('recursiveDelete. returning', res.data)
           return (data[key] = res.data);
         } else {
           return;
@@ -777,6 +703,7 @@ var connect = async function connect({
               });
             } catch (erro) {
               error("aaaaaaaa", "/" + data._id, url, erro);
+              throw erro;
             }
           }
 
@@ -795,6 +722,7 @@ var connect = async function connect({
               data: data || {},
             };
           }
+          throw err;
         }
       } else {
         // Delete the lookup for non resources
@@ -808,7 +736,7 @@ var connect = async function connect({
         link: link || {},
         data: data || {},
       };
-    });
+    })
   }
 
   async function del({ url, path, type, headers, tree, unwatch }) {
@@ -964,7 +892,7 @@ var connect = async function connect({
   };
 };
 
-export default {
+module.exports = {
   connect,
   setDbPrefix,
 };

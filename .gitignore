@@ -2,3 +2,4 @@ node_modules
 yarn*
 build
 package-lock.json
+*.swp

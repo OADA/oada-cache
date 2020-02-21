@@ -22,10 +22,10 @@
  */
 
 var Promise = require("bluebird");
-import PouchDB from "pouchdb";
-import { STATUS_CODES } from "http";
+const PouchDB = require("pouchdb");
+const { STATUS_CODE } = require("http");
 const urlLib = require("url");
-var _ = require("lodash");
+const _ = require("lodash");
 //const debug = require("debug")("oada-cache:token");
 const crypto = require("crypto");
 const oadaIdClient = require("@oada/oada-id-client");

@@ -1,6 +1,6 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-import oada from "../src/index";
-import chai from "chai";
+const oada = require("../src/index");
+const chai = require("chai");
 var expect = chai.expect;
 const status = require("http-status");
 const { domain } = require("./config");
