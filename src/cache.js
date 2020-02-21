@@ -12,6 +12,7 @@ const timeThreshold = 30000;
 const cleanMemoryTimer = 10000;
 const dbPutDelay = 5000; // 5 sec
 Promise.config({ cancellation: true });
+PouchDB.setMaxListeners(30);
 
 // debug
 const error = require("debug")("oada-cache:cache:error");
@@ -323,9 +324,11 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
     if (!resource) {
       try {
         let res_localdb = await db.get(resourceId);
+        /*
         if (!res_localdb.valid) {
           throw new Error("Invalid");
         }
+        */
         resource = res_localdb;
         info(`Returning the resource [${resourceId}] from PouchDB.`);
         // Save the data to in-memory cache
@@ -335,7 +338,7 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
           access: now,
           promise: undefined,
           putPending: false,
-          valid: true,
+          valid: resource.valid,
         };
       } catch (err) {
         if (err.status === 404) {
@@ -623,40 +626,6 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
     }
   }
 
-  /*
-  async function _recursiveUpsert(req, body, oldBody) {
-		if (body._rev) {
-      let lookup = await getLookup({
-        url: req.url,
-        headers: req.headers,
-        _id: body._id
-      })
-      let newBody = replaceLinks(body, {
-        url: req.url,
-        headers: req.headers
-      });
-		  var result = await dbUpsert({
-        url: '/'+(body._id || lookup.resourceId),
-        data: newBody,
-      })
-      oldBody = result.oldBody;
-    }
-
-    if (typeof body === 'object') {
-      return Promise.map(Object.keys(body || {}), async function(key) {
-        if (key.charAt(0) === '_') return
-        if (!body[key]) return
-        var oldPiece = await _recursiveUpsert({
-          url: req.url+'/'+key,
-          headers: req.headers
-        }, body[key], oldBody[key])
-        oldBody[key] = oldPiece;
-      }).then(() => {
-        return oldBody
-      })
-    } else return;
-  }*/
-
   function findNullValue(obj, path, nullPath) {
     if (typeof obj === "object") {
       return Promise.map(
@@ -732,6 +701,7 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
     .process(async function(payload) {
       let urlObj = url.parse(payload.request.url);
       // Give the change body an _id so the deepest resource can be found
+      payload.response.change.body = payload.response.change.body || {};
       payload.response.change.body._id = payload.response.resourceId;
       //TODO: This should be unnecessary. The payload ought to specify the root
       //of the watch as a resource.
@@ -790,6 +760,7 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
       });
       memoryCache = {};
       await db.destroy();
+
     }
   }
 

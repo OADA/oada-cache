@@ -370,32 +370,10 @@ var connect = async function connect({
     });
   }
 
-  function recursiveGet(startingUrl, tree, data, cached) {
-    return _treeWalk(
-      startingUrl,
-      tree,
-      { data, cached },
-      async function recGetBefore(url, subTree, data, obj) {
-        if (subTree._type) {
-          // its a resource
-          var got = await get({
-            url,
-            headers: "_rev" in data ? { "x-oada-rev": data._rev } : {},
-          });
-          data = got.data;
-          obj.cached = got.cached ? got.cached : false;
-        }
-        return { data, obj };
-      },
-      undefined,
-    );
-  }
-
   //TODO: patched up uncaughtrejection warning on _sendRequest with try/catch 
   //but need to reevaluate better code structuring
   async function get({ url, path, headers, watch, tree }) {
     let req = await _buildRequest({ method: "get", url, path, headers });
-    info("GET request", req);
     // If a tree is supplied, recursively GET data according to the data tree
     // The tree must be rooted at /bookmarks.
 
@@ -464,7 +442,6 @@ var connect = async function connect({
             true,
           );
         } else {
-          info('ELSE', response.data);
           var dataOut = await _recursiveGet(req.url, subTree, response.data, true);
         }
         response.data = dataOut.data;

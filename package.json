@@ -7,11 +7,13 @@
     "test": "test"
   },
   "mocha": {
-    "exit": true
+    "exit": true,
+    "spec": "test/watch.test.js",
+    "file": ["./test/setup-all-tests.js"]
   },
   "scripts": {
-    "test": "mocha test/**/*.test.js",
-    "test-watch": "mocha -w test/**/*.test.js",
+    "test": "mocha",
+    "test-watch": "mocha -w",
     "dev": "cpx --watch --verbose './src/**' '$APP_DIR/node_modules/@oada/oada-cache/src/'"
   },
   "author": "oada",
