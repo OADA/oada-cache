@@ -12,7 +12,7 @@ const timeThreshold = 30000;
 const cleanMemoryTimer = 10000;
 const dbPutDelay = 5000; // 5 sec
 Promise.config({ cancellation: true });
-PouchDB.setMaxListeners(30);
+//PouchDB.setMaxListeners(30);
 
 // debug
 const error = require("debug")("oada-cache:cache:error");
