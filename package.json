@@ -9,7 +9,8 @@
   },
   "mocha": {
     "exit": true,
-    "spec": "test/**/*.test.js",
+    "recursive": true,
+    "require" : ["mocha-steps"],
     "file": [
       "./test/setup-all-tests.js"
     ]
@@ -42,7 +43,8 @@
   },
   "devDependencies": {
     "http-status": "^1.2.0",
-    "mocha": "^7.0.1"
+    "mocha": "^7.0.1",
+    "mocha-steps": "^1.3.0"
   },
   "repository": {
     "type": "git",
