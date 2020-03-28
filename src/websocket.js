@@ -149,9 +149,8 @@ function websocket (url) {
 
         messages.push(message)
         httpCallbacks[message.requestId] = {
-          request: request,
-          resolve: resolve,
-          reject: reject
+          resolve,
+          reject
         }
         sendMessages()
       })

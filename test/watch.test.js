@@ -497,7 +497,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
       path: '/bookmarks/test',
       watch: {
         payload: { someExtra: 'payload' },
-        callback: pay => {
+        callback: () => {
           watch_count++
         }
       }
@@ -551,7 +551,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
     })
     expect(putOne.status.toString().charAt(0)).to.equal('2')
     // Validate the cache by doing gets
-    var getOne = await connOne.get({
+    await connOne.get({
       path: '/bookmarks/test',
       tree: newTree
     })
@@ -566,7 +566,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
 
     await Promise.delay(10000)
 
-    var getT = await connTwo.get({
+    await connTwo.get({
       path: '/bookmarks/test'
     })
 
@@ -579,7 +579,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
     }
 
     // Now, setup the watch and wait for the "offline" changes to get pushed
-    var result = await setupWatch(connOne, newTree)
+    await setupWatch(connOne, newTree)
     await Promise.delay(5000)
     // Wait out the watch notifications
     // Now retrieve the data tree to verify results
@@ -638,7 +638,7 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
     expect(putThree.status.toString().charAt(0)).to.equal('2')
 
     // Setup the watch on bookmarks/test
-    var result = await setupWatch(connOne, tree)
+    await setupWatch(connOne, tree)
     await Promise.delay(5000)
 
     var getOne = await connOne.get({
@@ -681,20 +681,26 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
     expect(getTwo.data.aaa.ddd).to.have.keys(['_id', '_rev'])
   })
 
-  xit(`8. Messages should cease to be transmitted after calling unwatch`, async function () {
+  it(`8. Messages should cease to be transmitted after calling unwatch`, async function () {
     this.timeout(10000)
+
+    await connOne.put({
+      path: `/bookmarks/test`,
+      tree,
+      data: {}
+    })
     // Setup a counter of watch messages received.
     let counter = 0
+    function callback () {
+      counter++
+    }
 
-    var getOne = await connOne.get({
+    await connOne.get({
       path: '/bookmarks/test',
       tree,
       watch: {
         payload: { someExtra: 'payload' },
-        callback: pay => {
-          counter++
-          console.log('received a thing')
-        }
+        callback
       }
     })
     await Promise.delay(3000)
@@ -705,19 +711,17 @@ describe(`~~~~~~~~~~~WATCH~~~~~~~~~~~~~~`, function () {
       tree,
       data: { foo: 'bar' }
     })
-    expect(counter).to.equal(1)
+    await Promise.delay(200)
+    const prevCount = counter
 
-    await connOne.delete({
-      unwatch: true,
-      path: `/bookmarks/test`,
-      tree
-    })
+    await connOne.unwatch(callback)
 
     await connOne.put({
       path: `/bookmarks/test`,
       tree,
       data: { footwo: 'bar' }
     })
-    expect(counter).to.equal(1)
+    await Promise.delay(200)
+    expect(counter).to.equal(prevCount)
   })
 })
