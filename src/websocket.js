@@ -132,27 +132,26 @@ function websocket (url) {
       })
     }
 
-    function _unwatch (request, callback) {
+    function _unwatch (handler) {
+      let requestId
+      for (requestId in watchCallbacks) {
+        if (watchCallbacks[requestId] === handler) {
+          break
+        }
+      }
       //Watch for changes on requested resource and trigger provided signal
       return new Promise((resolve, reject) => {
-        let message = {
-          requestId: uuid(),
-          method: 'unwatch',
-          path: request.path,
-          headers: Object.entries(request.headers)
-            .map(([key, value]) => {
-              return { [key.toLowerCase()]: value }
-            })
-            .reduce((a, b) => {
-              return { ...a, ...b }
-            })
+        const message = {
+          requestId,
+          method: 'unwatch'
         }
+        delete watchCallbacks[message.requestId]
+
         messages.push(message)
-        watchCallbacks[message.requestId] = {
-          request,
-          resolve,
-          reject,
-          callback
+        httpCallbacks[message.requestId] = {
+          request: request,
+          resolve: resolve,
+          reject: reject
         }
         sendMessages()
       })
