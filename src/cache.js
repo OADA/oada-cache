@@ -627,6 +627,32 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
     }
   }
 
+  // Upsert resources using array-based change doc
+  async function _iterativeUpsert(req, changeArray) {
+    if (!Array.isArray(changeArray)) {
+      throw new Error("Body must be an array.");
+    }
+
+    // Perform upserts by iterating serially over the change array
+    return Promise.each(changeArray, async change => {
+      if (change.type === "merge") {
+        await dbUpsert({
+          url: "/" + change.resource_id,
+          data: change.body
+        });
+      } else if (change.type === "delete") {
+        var nullPath = await findNullValue(change.body, "", "");
+        return dbUpsert({
+          url: "/" + change.resource_id + nullPath,
+          method: "delete",
+          valid: true
+        });
+      } else {
+        throw new Error("Unrecognized change type.");
+      }
+    });
+  }
+
   function findNullValue(obj, path, nullPath) {
     if (typeof obj === "object") {
       return Promise.map(
@@ -700,52 +726,59 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
   var queue = cq()
     .limit({ concurrency: 1 })
     .process(async function(payload) {
-      let urlObj = url.parse(payload.request.url);
-      // Give the change body an _id so the deepest resource can be found
-      payload.response.change.body = payload.response.change.body || {};
-      payload.response.change.body._id = payload.response.resourceId;
-      //TODO: This should be unnecessary. The payload ought to specify the root
-      //of the watch as a resource.
-      return findDeepestResource(payload.response.change.body, "", {
-        path: "",
-        data: payload.response.change.body,
-      })
-        .then(async deepestResource => {
-          if (payload.response.change.wasDelete) {
-            // DELETE: remove the deepest resource from the change body, execute
-            // the delete, and recursively update all other revs in the cache
-            let nullPath = await findNullValue(deepestResource.data, "", "");
-            let deletedPath = deepestResource.path + nullPath;
-            payload.nullPath = deletedPath;
-            return dbUpsert({
-              url: payload.request.url + deletedPath,
-              headers: payload.request.headers,
-              method: "delete",
-              valid: true,
-            }).then(async function() {
-              // Update revs on all parents all the way down to (BUT OMITTING) the
-              // resource on which the delete was called.
-              //pointer.remove(payload.response.change.body, deepestResource.path || '/')
-              //            await _recursiveUpsert(payload.request, payload.response.change.body)
-              return payload;
-            });
-          } else {
-            // Recursively update all of the resources down the returned change body
-            /*
+      // FIXME: check OADA version to determine change doc format
+      if (Array.isArray(payload.response.change)) {
+        // process change array (new format)
+        return _iterativeUpsert(payload.request, payload.response.change);
+      } else {
+        // for backward compatibility (old format)
+        let urlObj = url.parse(payload.request.url);
+        // Give the change body an _id so the deepest resource can be found
+        payload.response.change.body = payload.response.change.body || {};
+        payload.response.change.body._id = payload.response.resourceId;
+        //TODO: This should be unnecessary. The payload ought to specify the root
+        //of the watch as a resource.
+        return findDeepestResource(payload.response.change.body, "", {
+          path: "",
+          data: payload.response.change.body
+        })
+          .then(async deepestResource => {
+            if (payload.response.change.wasDelete) {
+              // DELETE: remove the deepest resource from the change body, execute
+              // the delete, and recursively update all other revs in the cache
+              let nullPath = await findNullValue(deepestResource.data, "", "");
+              let deletedPath = deepestResource.path + nullPath;
+              payload.nullPath = deletedPath;
+              return dbUpsert({
+                url: payload.request.url + deletedPath,
+                headers: payload.request.headers,
+                method: "delete",
+                valid: true
+              }).then(async function() {
+                // Update revs on all parents all the way down to (BUT OMITTING) the
+                // resource on which the delete was called.
+                //pointer.remove(payload.response.change.body, deepestResource.path || '/')
+                //            await _recursiveUpsert(payload.request, payload.response.change.body)
+                return payload;
+              });
+            } else {
+              // Recursively update all of the resources down the returned change body
+              /*
             var oldBody = await _recursiveUpsert(payload.request, payload.response.change.body, {})
             payload.oldBody = oldBody;
             return payload;
             */
-            await _recursiveUpsert(
-              payload.request,
-              payload.response.change.body.data,
-            );
+              await _recursiveUpsert(
+                payload.request,
+                payload.response.change.body.data
+              );
+              return payload;
+            }
+          })
+          .catch(err => {
             return payload;
-          }
-        })
-        .catch(err => {
-          return payload;
-        });
+          });
+      }
     });
 
   function handleWatchChange(payload) {
