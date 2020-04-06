@@ -22,7 +22,8 @@
  */
 
 var Promise = require("bluebird");
-const PouchDB = require("pouchdb");
+let PouchDB = require("pouchdb");
+if (PouchDB.default) PouchDB = PouchDB.default;
 const { STATUS_CODE } = require("http");
 const urlLib = require("url");
 const _ = require("lodash");
