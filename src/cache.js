@@ -1,7 +1,8 @@
 "use strict";
 const cq = require("concurrent-queue");
 const Promise = require("bluebird");
-const PouchDB = require("pouchdb");
+let PouchDB = require("pouchdb");
+if (PouchDB.default) PouchDB = PouchDB.default;
 const url = require("url");
 const _ = require("lodash");
 const pointer = require("json-pointer");
@@ -552,7 +553,7 @@ module.exports = function setupCache({ name, req, expires, dbprefix }) {
     var response;
     if (!offline) {
       response = await request(req);
-    } 
+    }
     return response;
   }
 
