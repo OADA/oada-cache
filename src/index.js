@@ -370,7 +370,7 @@ var connect = async function connect({
     });
   }
 
-  //TODO: patched up uncaughtrejection warning on _sendRequest with try/catch 
+  //TODO: patched up uncaughtrejection warning on _sendRequest with try/catch
   //but need to reevaluate better code structuring
   async function get({ url, path, headers, watch, tree }) {
     let req = await _buildRequest({ method: "get", url, path, headers });
@@ -423,7 +423,7 @@ var connect = async function connect({
       watchResponse = await _watch({
         headers: req.headers,
         path,
-        callback: watch.func || watch.callback,
+        callback,
         payload: watch.payload
       });
       info("WATCH RESPONSE", watchResponse);
