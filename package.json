@@ -22,7 +22,7 @@
   "author": "oada",
   "license": "Apache-2.0",
   "dependencies": {
-    "@oada/oada-id-client": "^1.0.1",
+    "@oada/oada-id-client": "^1.0.8",
     "axios": "^0.19.2",
     "bluebird": "^3.5.1",
     "chai": "^4.2.0",
