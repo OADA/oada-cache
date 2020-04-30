@@ -11,6 +11,7 @@ const _TOKEN = require("./token");
 // debug
 const error = require("debug")("oada-cache:index:error");
 const info = require("debug")("oada-cache:index:info");
+const trace = require("debug")("oada-cache:index:trace");
 
 let dbprefix = "";
 const setDbPrefix = pfx => (dbprefix = pfx);
@@ -19,6 +20,10 @@ process.on('unhandledRejection', (reason, p) => {
   console.log('------Unhandled Rejection - Fix Me!-------');
   console.log(reason);
 });
+
+function domainToCacheName(domain) {
+  return urlLib.parse(domain).hostname.replace(/\./g, "_");
+}
 
 var connect = async function connect({
   domain,
@@ -70,7 +75,7 @@ var connect = async function connect({
   var NAME =
     cache && cache.name
       ? cache.name
-      : urlLib.parse(domain).hostname.replace(/\./g, "_");
+      : domainToCacheName(domain); //urlLib.parse(domain).hostname.replace(/\./g, "_");
   var EXPIRES = cache && cache.expires ? cache.expires : undefined;
 
   function _replaceLinks(obj) {
@@ -869,7 +874,40 @@ var connect = async function connect({
   };
 };
 
+const resetDomainCache = async function(domain) {
+  trace('resetDomainCache: setting up cache');
+  const cache = setupCache({ name: domainToCacheName(domain), dbprefix })
+  trace('resetDomainCache: cache is setup, awaiting reset');
+  await cache.resetCache();
+  trace('resetDomainCache: cache reset done, awaiting domain token reset');
+  await clearDomainToken(domain);
+  trace('resetDomainCache: DONE!');
+}
+
+const clearDomainToken = async function(domain) {
+  trace('clearDomainToken: creating new Token lib');
+  const token = new _TOKEN({ domain, dbprefix });
+  trace('clearDomainToken: created new Token lib, awaiting cleanUp()');
+  await token.cleanUp();
+  trace('clearDomainToken: DONE!');
+}
+
+const getDomainToken = async function(domain) {
+  trace('getDomainToken: creating token lib');
+  const token = new _TOKEN({domain,dbprefix});
+  trace('getDomainToken: token lib created, checking for token in DB');
+  return await token.checkTokenDB(); // returns the token string
+}
+
+const haveDomainToken = async function(domain) {
+  return !!(await getDomainToken(domain));
+}
+
 module.exports = {
   connect,
+  resetDomainCache,
+  clearDomainToken,
+  haveDomainToken,
+  getDomainToken,
   setDbPrefix,
 };

@@ -30,8 +30,9 @@ const _ = require("lodash");
 //const debug = require("debug")("oada-cache:token");
 const crypto = require("crypto");
 const oadaIdClient = require("@oada/oada-id-client");
-//const error = require('debug')('oada-cache:index:error');
-//const info = require('debug')('oada-cache:index:info');
+const error = require('debug')('oada-cache:token:error');
+const info = require('debug')('oada-cache:token:info');
+const trace = require('debug')('oada-cache:token:trace');
 
 class Token {
   constructor(param = {}) {
@@ -40,19 +41,22 @@ class Token {
     self._domain = param.domain || "localhost";
     self._options = param.options;
     self._dbprefix = param.dbprefix || "";
+    trace('constructor: domain = ', self._domain, ', dbprefix = ', self._dbprefix);
 
-    // creating database nae based on the domain
+    // creating database name based on the domain
     // ensured one to one correspondence with the domain
     // i.e., token belongs to that domain
     const hash = crypto.createHash("sha256");
     hash.update(self._domain);
     self._name = self._dbprefix + hash.digest("hex");
+    trace('Token DB name is: ', self._name);
 
     self._isSet = self._token ? true : false;
     self._tokenDB = new PouchDB(self._name);
     self._id = "OadaTokenID";
     self._rev = null;
     self.token = self._token ? self._token : "";
+    trace('constructor: self.token = ', self.token);
   } //constructor
 
   /**
@@ -63,10 +67,11 @@ class Token {
     try {
       //getting the doc from the server if exists
       let doc = await this._tokenDB.get(this._id);
-      //      debug("received document ->", doc);
+      trace('checkTokenDB: received doc ', doc);
       result = doc.token;
       this._rev = doc._rev;
     } catch (err) {
+      error('ERROR: failed to tokenDB.get('+this._id+').  Error was: ', err);
       return result;
     }
     return result;
@@ -80,8 +85,10 @@ class Token {
     // Get a token
     let TOKEN = null; //returned to the chache library
     if (this.isSet()) {
+      trace('setup: token is already set on self, using that: ', this.token);
       TOKEN = this.token;
     } else {
+      trace('setup: token is not set, checking tokenDB');
       // get token from local cache
       TOKEN = await this.checkTokenDB();
 
