@@ -728,7 +728,11 @@ var connect = async function connect ({
     })
   }
 
-  async function del ({ url, path, type, headers, tree, unwatch }) {
+  function unwatch (handler) {
+    return SOCKET.unwatch(handler)
+  }
+
+  async function del ({ url, path, type, headers, tree }) {
     let req = await _buildRequest({
       method: 'delete',
       url,
@@ -736,13 +740,6 @@ var connect = async function connect ({
       type,
       headers
     })
-    if (unwatch) {
-      path = path || urlLib.parse(url).path
-      return SOCKET.unwatch({
-        path,
-        headers: req.headers
-      })
-    }
     if (tree) {
       var pieces = urlLib
         .parse(req.url)
@@ -871,6 +868,9 @@ var connect = async function connect ({
     cache: CACHE ? CACHE : false,
     websocket: SOCKET ? SOCKET : false,
     get,
+    watch: ({ url, path, headers, tree, ...watch }) =>
+      get({ url, path, headers, tree, watch }),
+    unwatch,
     put,
     post,
     delete: del,
